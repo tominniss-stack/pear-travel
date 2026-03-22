@@ -1,0 +1,50 @@
+# PEAR TRAVEL - Project Brief & Rules
+
+## 1. Context & Architecture
+- **Project:** Pear Travel, an AI-powered travel itinerary generator for Tom and Sally.
+- **Goal:** Replicate and significantly improve upon "Google Trips" features, providing highly curated, interactive, and intelligent travel planning.
+- **Tech Stack:** Next.js 15 (App Router), React, TypeScript, Tailwind CSS, Zustand (State), Prisma + PostgreSQL (Database).
+- **Environment:** Fully Dockerised. The application code sits in a `docker` folder. 
+- **Language:** UK English spelling, grammar, and phrasing (e.g., "Favourite", "Optimise", "£").
+
+## 2. Strict Rules & Workflows
+1. **Docker First:** All commands (npm installs, prisma migrations) must be executed inside the Docker container (e.g., `docker compose exec app npm install <pkg>`). If dependencies change or `.env` variables are added, explicitly remind the user to rebuild the container.
+2. **Safety & Planning:** Before making sweeping changes to existing logic (especially the Zustand store or drag-and-drop), explain the plan in 'Planning Mode' first.
+3. **No Placeholders:** Never leave "TO-DO" or `// ... existing code` comments. Always write and return full, working, copy-pasteable files.
+4. **Zustand Hydration:** Always use the custom `useHydratedTripStore` hook in components instead of `useTripStore` directly to prevent Next.js hydration mismatch errors on persisted state.
+5. **UI & Design Standards:** - Keep the UI premium, clean, and mobile-friendly. 
+   - Strict adherence to Dark Mode using Tailwind's `dark:` classes.
+   - Colour Palette: Slate (neutrals) and Emerald/Brand (primary actions).
+   - Use smooth transitions and cubic-bezier animations for UI elements (e.g., slide-over drawers).
+
+## 3. Current State: What We Have Achieved
+- **Phase 1: Intake Form:** Fully functional form capturing Destination, Dates, Duration, Budget (£), Interests, Dining Profile, and Anchor Points (blocked time).
+- **Phase 2: Discovery & Staging:** - Integrated Google Places API (Server-side fetching & Client-side Autocomplete).
+  - Fetches and maps `POIs` (Points of Interest) based on user interests.
+  - Implemented a smooth "Slide-over Drawer" for detailed POI views (images, opening hours, descriptions).
+  - "Staging Area" to favourite/shortlist POIs.
+  - *Technical Note:* Mapped Google `place.id` to both `placeId` and `id` in the interface to satisfy future `@dnd-kit` requirements.
+- **Phase 3: Itinerary View (In Progress):** Generates day-by-day itineraries calculating `estimatedDailySpendGBP` and total trip costs.
+
+## 4. Feature Roadmap (Priority Order)
+
+### Priority 1: Fix Drag & Drop (Itinerary Reordering)
+- **Current Issue:** The `@dnd-kit` implementation (`SortableItinerary.tsx`) is currently failing to persist cross-day and same-day reordering correctly to the Zustand store. 
+- **Goal:** Fix the `onDragEnd` and `onDragOver` logic. Ensure the `estimatedDailySpendGBP` accurately recalculates when an item is moved between days.
+
+### Priority 2: Iterative Amending (Post-Generation Editing)
+- **Goal:** Users must be able to amend an itinerary *after* it has been generated.
+- **Features:** Allow users to open a search modal to add new, missed interests or specific POIs directly into a specific day.
+
+### Priority 3: Smart Accommodation Flow
+- **Goal:** If the user leaves the "Accommodation/Hotel" section blank during intake, the app should act as a travel agent.
+- **Features:** Trigger an interactive conversational UI or questionnaire asking about budget, necessities (e.g., pool, central location), and output 3 highly curated Google Places hotel recommendations.
+
+### Priority 4: Database Persistence & Dashboard
+- **Goal:** Move saved trips from Zustand Local Storage into the PostgreSQL database via Prisma.
+- **Features:** Build a `/dashboard` to view, rename, duplicate, or delete past itineraries.
+
+### Priority 5: Smart Scheduling & Transit
+- **Goal:** Respect time constraints and physical distance.
+- **Features:** - Fix the "Anchor Points" logic to strictly block out times (e.g., 8 AM - 2 PM unavailable).
+  - Add Google Maps routing to calculate and display realistic "Travel Time" (e.g., "15 min Tube ride") between consecutive activities.

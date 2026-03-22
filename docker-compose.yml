@@ -1,0 +1,98 @@
+version: '3.9'
+
+services:
+  # ─────────────────────────────────────────
+  # Next.js Application (Frontend + API)
+  # ─────────────────────────────────────────
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile.dev
+    container_name: trips_app
+    restart: unless-stopped
+    ports:
+      - '3004:3000'
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - NEXT_PUBLIC_GOOGLE_PLACES_API_KEY=${NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}
+      - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY} # Add this line!
+      - NEXTAUTH_URL=http://localhost:3000
+      - NODE_ENV=development
+    volumes:
+      - ./app/src:/app/src
+      - ./app/prisma:/app/prisma
+      - ./app/public:/app/public
+      - app_node_modules:/app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - trips_network
+
+  # ─────────────────────────────────────────
+  # PostgreSQL Database
+  # ─────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: trips_db
+    restart: unless-stopped
+    ports:
+      # Expose to host for local DB tooling (e.g., TablePlus, pgAdmin)
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - trips_network
+
+  # ─────────────────────────────────────────
+  # pgAdmin (Optional: DB management UI)
+  # ─────────────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: trips_pgadmin
+    restart: unless-stopped
+    ports:
+      - '5050:80'
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - db
+    networks:
+      - trips_network
+    profiles:
+      # Only starts when explicitly requested:
+      # docker-compose --profile tools up
+      - tools
+
+# ─────────────────────────────────────────
+# Named Volumes
+# ─────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  app_node_modules:
+    driver: local
+
+# ─────────────────────────────────────────
+# Networks
+# ─────────────────────────────────────────
+networks:
+  trips_network:
+    driver: bridge

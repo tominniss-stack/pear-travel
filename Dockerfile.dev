@@ -1,0 +1,36 @@
+# ─────────────────────────────────────────
+# Development Dockerfile
+# Hot-reloading enabled via volume mounts
+# ─────────────────────────────────────────
+FROM node:20-alpine
+
+# Install dependencies required for Prisma and native modules
+RUN apk add --no-cache \
+    libc6-compat \
+    openssl \
+    curl
+
+WORKDIR /app
+
+# Copy package files first to leverage Docker layer caching.
+# Dependencies are only reinstalled when package.json changes.
+COPY package.json package-lock.json* ./
+
+# Install all dependencies (including devDependencies for dev)
+RUN npm ci
+
+# Copy Prisma schema so the client can be generated
+COPY prisma ./prisma
+
+# Generate the Prisma client
+RUN npx prisma generate
+
+# Copy remaining source files
+# Note: In development, src/ is overridden by the volume mount in docker-compose,
+# so this COPY primarily serves as a fallback and for the initial build.
+COPY . .
+
+EXPOSE 3000
+
+# Run database migrations then start the dev server
+CMD ["sh", "-c", "npx prisma migrate deploy && npm run dev"]

@@ -1,0 +1,111 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+
+import ExportPdfButton from '@/components/ExportPdfButton';
+import SortableItinerary from '@/components/itinerary/SortableItinerary';
+import ItineraryDisplay from '@/components/itinerary/ItineraryDisplay';
+import type { Itinerary, TripIntake } from '@/types'; // <-- Added TripIntake
+import { useTripStore } from '@/store/tripStore';
+
+export interface ClientTripProps {
+  id: string;
+  destination: string;
+  duration: number;
+  budgetGBP: number;
+  startDate: string | null;
+  endDate: string | null;
+  intake: TripIntake; // <-- Added intake to the props!
+}
+
+interface ItineraryPageClientProps {
+  dbTrip: ClientTripProps;
+  dbItinerary: Itinerary;
+}
+
+export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPageClientProps) {
+  const setItinerary = useTripStore((state) => state.setItinerary);
+  const setIntake = useTripStore((state) => state.setIntake); // <-- Grabbed setIntake
+  const setCurrentTripId = useTripStore((state) => state.setCurrentTripId);
+  const itinerary = useTripStore((state) => state.itinerary);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    // ── THE DESYNC FIX ──
+    // Now we load everything into the backpack at once!
+    setItinerary(dbItinerary);
+    setIntake(dbTrip.intake); 
+    setCurrentTripId(dbTrip.id);
+  }, [dbItinerary, dbTrip, setItinerary, setIntake, setCurrentTripId]);
+
+  const handleSaveItinerary = async () => {
+    if (!itinerary || isSaving) return;
+
+    setIsSaving(true);
+    try {
+      const response = await fetch(`/api/itinerary/${dbTrip.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itinerary }),
+      });
+
+      if (!response.ok) throw new Error(`Failed to save: ${response.statusText}`);
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Error saving itinerary:', error);
+      alert('Failed to save changes. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const currentItinerary = itinerary || dbItinerary;
+
+  return (
+    <div className="w-full py-8">
+      {/* ── Top Navigation Bar ── */}
+      <div className="mb-6 max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
+        <Link
+          href="/dashboard"
+          className="print:hidden inline-flex items-center text-sm font-bold text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
+        >
+          <span aria-hidden="true" className="mr-2">←</span>
+          Back to My Trips
+        </Link>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              if (isEditing) handleSaveItinerary();
+              else setIsEditing(true);
+            }}
+            disabled={isSaving}
+            className={`inline-flex items-center rounded-xl px-4 py-2 text-sm font-bold shadow-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
+              isEditing 
+                ? 'bg-brand-500 text-white hover:bg-brand-400 border border-brand-400' 
+                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
+            }`}
+          >
+            {isSaving ? 'Saving...' : isEditing ? 'Save Changes' : 'Edit Trip Planner'}
+          </button>
+          {!isEditing && <ExportPdfButton />}
+        </div>
+      </div>
+
+      {/* ── Main Content Router ── */}
+      {isEditing ? (
+        <SortableItinerary />
+      ) : (
+        <ItineraryDisplay 
+          itinerary={currentItinerary} 
+          trip={dbTrip} 
+          onEditRequest={() => setIsEditing(true)} 
+        />
+      )}
+    </div>
+  );
+}

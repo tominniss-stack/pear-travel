@@ -1,0 +1,28 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Prisma Schema — Pear Travel v2
+// This file defines the database structure for persisting your itineraries.
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Trip {
+  id          String    @id @default(cuid())
+  destination String
+  duration    Int
+  startDate   DateTime?
+  endDate     DateTime?
+  budgetGBP   Float
+  intake      Json      // Full TripIntake object
+  itinerary   Json      // Full Itinerary object
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("trips")
+}

@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  height: 100%;
+}
+
+/* ── Google Places Autocomplete (modern appearance) ───────────────────────── */
+.pac-container {
+  border-radius: 1rem !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.16) !important;
+  backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(148, 163, 184, 0.25) !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+  overflow: hidden;
+}
+
+.pac-item {
+  padding: 0.75rem 1rem !important;
+  border-radius: 1rem !important;
+}
+
+.pac-item:hover {
+  background: rgba(59, 130, 246, 0.08) !important;
+}
+
+.pac-item span {
+  font-size: 0.95rem !important;
+  color: #0f172a !important;
+}
