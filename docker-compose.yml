@@ -1,12 +1,10 @@
-version: '3.9'
-
 services:
   # ─────────────────────────────────────────
   # Next.js Application (Frontend + API)
   # ─────────────────────────────────────────
   app:
     build:
-      context: ./app
+      context: .
       dockerfile: Dockerfile.dev
     container_name: trips_app
     restart: unless-stopped
@@ -16,13 +14,13 @@ services:
       - DATABASE_URL=${DATABASE_URL}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - NEXT_PUBLIC_GOOGLE_PLACES_API_KEY=${NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}
-      - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY} # Add this line!
+      - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY} 
       - NEXTAUTH_URL=http://localhost:3000
       - NODE_ENV=development
     volumes:
-      - ./app/src:/app/src
-      - ./app/prisma:/app/prisma
-      - ./app/public:/app/public
+      - ./src:/app/src
+      - ./prisma:/app/prisma
+      - ./public:/app/public
       - app_node_modules:/app/node_modules
     depends_on:
       db:
@@ -38,7 +36,7 @@ services:
     container_name: trips_db
     restart: unless-stopped
     ports:
-      # Expose to host for local DB tooling (e.g., TablePlus, pgAdmin)
+      # Expose to host for local DB tooling
       - '5432:5432'
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -75,8 +73,6 @@ services:
     networks:
       - trips_network
     profiles:
-      # Only starts when explicitly requested:
-      # docker-compose --profile tools up
       - tools
 
 # ─────────────────────────────────────────
