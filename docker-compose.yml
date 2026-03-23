@@ -11,11 +11,11 @@ services:
     ports:
       - '3004:3000'
     environment:
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=postgresql://trips_user:teampear1@db:5432/trips_db?schema=public
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - NEXT_PUBLIC_GOOGLE_PLACES_API_KEY=${NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}
       - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY} 
-      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_URL=http://localhost:3004
       - NODE_ENV=development
     volumes:
       - ./src:/app/src

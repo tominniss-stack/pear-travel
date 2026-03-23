@@ -33,4 +33,4 @@ COPY . .
 EXPOSE 3000
 
 # Run database migrations then start the dev server
-CMD ["sh", "-c", "npx prisma migrate deploy && npm run dev"]
+CMD ["npm", "run", "dev"]
