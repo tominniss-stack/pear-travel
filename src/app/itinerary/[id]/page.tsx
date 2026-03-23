@@ -1,49 +1,64 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// src/app/itinerary/[id]/page.tsx
-// Itinerary Viewer — Fetches a saved trip by ID and renders the day-by-day plan.
-// ─────────────────────────────────────────────────────────────────────────────
-
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
-import type { Itinerary, TripIntake } from '@/types';
 import ItineraryPageClient from '@/app/itinerary/[id]/ItineraryPageClient';
+import type { Itinerary, TripIntake, TransitMethod } from '@/types';
 
-// In Next.js 15, params is a Promise that must be awaited
-interface PageProps {
-  params: Promise<{ id: string }>;
-}
+export default async function ItineraryPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
 
-export default async function ItineraryPage({ params }: PageProps) {
-  const resolvedParams = await params;
-  
-  // ── Fetch Trip ──────────────────────────────────────────────────────────────
+  // 1. Fetch Trip + Days + POIs in one relational query
   const trip = await prisma.trip.findUnique({
-    where: { id: resolvedParams.id },
+    where: { id },
+    include: {
+      days: {
+        orderBy: { orderIndex: 'asc' },
+        include: {
+          pois: { orderBy: { orderIndex: 'asc' } }
+        }
+      }
+    }
   });
 
-  if (!trip) {
-    notFound();
-  }
+  if (!trip) notFound();
 
-  // Cast the stored JSON back to our types
-  const itinerary = trip.itinerary as unknown as Itinerary;
-  const intake = trip.intake as unknown as TripIntake; // <-- Safely extract the intake JSON
+// 2. Map relational data back to the Itinerary type for the UI
+  const mappedItinerary: Itinerary = {
+    id: trip.id,                               // <-- ADDED THIS
+    generatedAt: trip.createdAt.toISOString(), // <-- ADDED THIS
+    totalEstimatedCostGBP: trip.budgetGBP,
+    essentials: trip.overviewData as any, 
+    days: trip.days.map((day) => ({
+      dayNumber: day.orderIndex + 1,
+      date: day.date?.toISOString(),
+      location: day.location || '',
+      theme: day.theme || '',
+      estimatedDailySpendGBP: day.pois.reduce((sum, p) => sum + p.costGBP, 0),
+      entries: day.pois.map((poi) => ({
+        id: poi.id,
+        time: poi.startTime || '',
+        locationName: poi.name,
+        activityDescription: poi.description || '',
+        estimatedCostGBP: poi.costGBP,
+        isFixed: poi.isFixed,
+        isDining: poi.category === 'DINING',
+        isAccommodation: poi.category === 'ACCOMMODATION',
+        transitMethod: (poi.transitMethod as TransitMethod) || 'Walking',
+        transitNote: poi.transitNote || '',
+        placeId: poi.googlePlaceId || '',
+        googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=$${encodeURIComponent(poi.name)}`,
+      }))
+    }))
+  };
 
   const clientTrip = {
     id: trip.id,
     destination: trip.destination,
     duration: trip.duration,
     budgetGBP: trip.budgetGBP,
-    startDate: trip.startDate ? trip.startDate.toISOString() : null,
-    endDate: trip.endDate ? trip.endDate.toISOString() : null,
-    intake: intake, // <-- Explicitly add the intake to the payload!
+    startDate: trip.startDate?.toISOString() || null,
+    endDate: trip.endDate?.toISOString() || null,
+    intake: trip.intakeData as unknown as TripIntake,
   };
 
-  // ── Render ──────────────────────────────────────────────────────────────────
-  return (
-    <ItineraryPageClient
-      dbTrip={clientTrip}
-      dbItinerary={itinerary}
-    />
-  );
+  return <ItineraryPageClient dbTrip={clientTrip} dbItinerary={mappedItinerary} />;
 }

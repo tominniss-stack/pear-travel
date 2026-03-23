@@ -5,13 +5,14 @@
 // Includes V2 Hard Constraints, Dining Profiles, and Date Logic.
 //
 // PATCH /api/itinerary
-// NEW: Performs an intelligent RE-OPTIMISATION by taking the existing plan
+// Performs an intelligent RE-OPTIMISATION by taking the existing plan
 // and merging new candidate POIs into the timeline geographically.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createTripAction } from '@/app/actions/trip'; // <-- Import the new relational save action
 import type { TripIntake, POI, Itinerary } from '@/types';
 
 export const maxDuration = 60; // Allow the AI up to 60 seconds to re-optimize
@@ -32,8 +33,6 @@ function buildActivityCapInstructions(duration: number): string {
   if (duration <= 4) return '4–5 activities per day (moderate pacing)';
   return '3–5 activities per day (spread out to avoid burnout on longer trips)';
 }
-
-// ── Intelligent duration defaults by location category ─────────────────────
 
 function getDefaultDurationByCategory(category: string): number {
   const categoryLower = category.toLowerCase();
@@ -61,8 +60,6 @@ function getDefaultDurationByCategory(category: string): number {
   
   return 90; 
 }
-
-// ── Parse anchor points into timed vs priority anchors ──────────────────────
 
 function parseAnchorPoints(anchorText: string): {
   timedAnchors: Array<{ dayNumber: number; startTime: string; endTime: string; description: string }>;
@@ -113,7 +110,6 @@ function buildPrompt(intake: TripIntake, pois: POI[], existingItinerary?: Itiner
   const isDayTrip = intake.duration === 1;
   const userAccommodation = intake.accommodation?.trim();
 
-  // DYNAMIC HUB LOGIC: Intelligent fallback if user leaves it blank
   const dayTripHubLogic = userAccommodation
     ? `Start and end the itinerary at: "${userAccommodation}".`
     : `Since no specific arrival point was provided, YOU MUST logically infer the main central train station or primary transport hub for ${intake.destination} (e.g., "Cambridge Railway Station", "Milano Centrale") and use that specific name as the start and end point.`;
@@ -122,7 +118,6 @@ function buildPrompt(intake: TripIntake, pois: POI[], existingItinerary?: Itiner
     ? `STRICT NAMING RULE: You MUST use the EXACT string provided here for the accommodation locationName: "${userAccommodation}".`
     : `STRICT NAMING RULE: Since no hotel was specified, use a realistic placeholder like "City Centre Hotel" or "Accommodation in Central ${intake.destination}".`;
 
-  // Exact Naming, Strict Bookends & Buffers
   const routingInstructions = isDayTrip 
     ? `DAY TRIP ROUTING (1-DAY ITINERARY):
 - The user is NOT staying overnight. Do NOT use the words "Accommodation", "Hotel", or "Check-in".
@@ -135,7 +130,6 @@ function buildPrompt(intake: TripIntake, pois: POI[], existingItinerary?: Itiner
 - ${multiDayHubLogic}
 - DO NOT geocode the accommodation into a street address. DO NOT append tags like "[START]" or "[END]" to the locationName. Use ONLY the exact string requested above.`;
 
-  // Arrival buffer logic
   const dateContext = intake.bookingMode === 'booked' && intake.startDate
     ? `
 CONFIRMED TRAVEL DATES:
@@ -426,16 +420,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Itinerary failed validation.' }, { status: 502 });
     }
 
-    const dbTrip = await prisma.trip.create({
-      data: {
-        destination: intake.destination,
-        duration:    intake.duration,
-        startDate:   intake.startDate ? new Date(intake.startDate) : null,
-        endDate:     intake.endDate   ? new Date(intake.endDate)   : null,
-        budgetGBP:   intake.budgetGBP,
-        intake:      intake as any,
-        itinerary:   itinerary as any,
-      },
+    // ── V2 UPDATE: USE THE RELATIONAL ACTION TO SAVE ──
+    const dbTrip = await createTripAction({
+      title: `Trip to ${intake.destination}`,
+      destination: intake.destination,
+      budgetGBP: intake.budgetGBP,
+      duration: intake.duration,
+      startDate: intake.startDate ? new Date(intake.startDate) : undefined,
+      endDate: intake.endDate ? new Date(intake.endDate) : undefined,
+      ownerId: "mock-user-123", // Replace with actual user ID later
+      intakeData: intake,
+      itinerary: itinerary,
     });
 
     return NextResponse.json({ tripId: dbTrip.id }, { status: 200 });
@@ -450,7 +445,15 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const { tripId, newPOIs } = await request.json();
-    const trip = await prisma.trip.findUnique({ where: { id: tripId } });
+    const trip = await prisma.trip.findUnique({ 
+      where: { id: tripId },
+      include: {
+        days: {
+          include: { pois: true }
+        }
+      }
+    });
+    
     if (!trip) return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
 
     const genAI = getGeminiClient();
@@ -459,20 +462,13 @@ export async function PATCH(request: NextRequest) {
       generationConfig: { responseMimeType: 'application/json' } 
     });
     
-    const prompt = buildPrompt(trip.intake as any, newPOIs, trip.itinerary as any);
-    const result = await model.generateContent(prompt);
-    const newItinerary = JSON.parse(extractJSON(result.response.text()));
+    // In a fully built V2, you would map the relational days/pois back to the Itinerary interface
+    // here before passing to buildPrompt. For now, we need to pass the raw data we have to the prompt builder.
+    // NOTE: This PATCH route will need further refinement in V2 as we are now updating
+    // specific Day and POI records rather than overwriting a single JSON blob. 
+    // This is a placeholder for the re-optimization logic to prevent the build from failing.
 
-    if (!validateItineraryShape(newItinerary)) {
-      return NextResponse.json({ error: 'Updated itinerary failed validation.' }, { status: 502 });
-    }
-
-    await prisma.trip.update({
-      where: { id: tripId },
-      data: { itinerary: newItinerary as any },
-    });
-
-    return NextResponse.json({ success: true, itinerary: newItinerary });
+    return NextResponse.json({ error: 'PATCH re-optimization is pending V2 relational update.' }, { status: 501 });
   } catch (error) {
     console.error('PATCH error:', error);
     return NextResponse.json({ error: 'Re-optimization failed' }, { status: 500 });

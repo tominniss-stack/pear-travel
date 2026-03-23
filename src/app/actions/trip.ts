@@ -3,32 +3,85 @@
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 
-// Toggle the 'Planning' vs 'Booked' status
-export async function toggleTripBookingStatus(tripId: string, currentStatus: boolean) {
+export async function createTripAction(data: {
+  title: string;
+  destination: string;
+  budgetGBP: number;
+  duration: number;
+  startDate?: Date;
+  endDate?: Date;
+  ownerId: string;
+  intakeData: any;
+  itinerary: any;
+}) {
   try {
-    await prisma.trip.update({
-      where: { id: tripId },
-      data: { isBooked: !currentStatus },
+    const result = await prisma.$transaction(async (tx) => {
+      
+      // ── THE FIX: Ensure the user exists before creating the trip ──
+      await tx.user.upsert({
+        where: { id: data.ownerId },
+        update: {},
+        create: {
+          id: data.ownerId,
+          name: 'Pear Travel Guest',
+          email: 'guest@peartravel.app'
+        }
+      });
+
+      // 1. Create the Master Trip
+      const trip = await tx.trip.create({
+        data: {
+          title: data.title,
+          destination: data.destination,
+          budgetGBP: data.budgetGBP,
+          duration: data.duration,
+          startDate: data.startDate,
+          endDate: data.endDate,
+          ownerId: data.ownerId,
+          intakeData: data.intakeData,
+          overviewData: data.itinerary.essentials,
+        },
+      })
+
+      // 2. Map through AI Days and create relational rows
+      for (const [index, dayData] of data.itinerary.days.entries()) {
+        await tx.day.create({
+          data: {
+            tripId: trip.id,
+            orderIndex: index,
+            location: dayData.location,
+            theme: dayData.theme,
+            pois: {
+              create: dayData.entries.map((poi: any, poiIdx: number) => ({
+                tripId: trip.id,
+                name: poi.locationName,
+                description: poi.activityDescription,
+                startTime: poi.time,
+                costGBP: poi.estimatedCostGBP || 0,
+                isFixed: poi.isFixed || false,
+                category: poi.isDining ? 'DINING' : poi.isAccommodation ? 'ACCOMMODATION' : 'ACTIVITY',
+                transitMethod: poi.transitMethod,
+                transitNote: poi.transitNote,
+                googlePlaceId: poi.placeId,
+                orderIndex: poiIdx,
+              })),
+            },
+          },
+        })
+      }
+
+      return trip
     })
-    revalidatePath(`/itinerary/${tripId}`)
-    return { success: true }
+
+    revalidatePath('/dashboard')
+    return result
   } catch (error) {
-    console.error('Failed to toggle booking status:', error)
-    return { success: false }
+    console.error('Relational Save Failed:', error)
+    throw new Error('Failed to save trip to database')
   }
 }
 
-// Rename a trip (from our feature backlog!)
-export async function renameTrip(tripId: string, newTitle: string) {
-  try {
-    await prisma.trip.update({
-      where: { id: tripId },
-      data: { title: newTitle },
-    })
-    revalidatePath(`/itinerary/${tripId}`)
-    revalidatePath('/dashboard')
-    return { success: true }
-  } catch (error) {
-    return { success: false }
-  }
+export async function toggleTripBookingStatus(tripId: string, currentStatus: boolean) {
+  await prisma.trip.update({ where: { id: tripId }, data: { isBooked: !currentStatus } })
+  revalidatePath(`/itinerary/${tripId}`)
 }

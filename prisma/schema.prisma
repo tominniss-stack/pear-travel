@@ -9,48 +9,57 @@ datasource db {
 
 // ── USERS & COLLABORATION ────────────────────────────────────────────────────
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  ownedTrips    Trip[]    @relation("TripOwner")
-  sharedTrips   Trip[]    @relation("TripCollaborators")
+  id          String   @id @default(cuid())
+  name        String?
+  email       String?  @unique
+  ownedTrips  Trip[]   @relation("TripOwner")
+  sharedTrips Trip[]   @relation("TripCollaborators")
 }
 
 // ── THE TRIP (The Master Container) ──────────────────────────────────────────
 model Trip {
-  id               String    @id @default(cuid())
-  ownerId          String
-  owner            User      @relation("TripOwner", fields: [ownerId], references: [id])
-  collaborators    User[]    @relation("TripCollaborators")
+  id           String    @id @default(cuid())
+  ownerId      String
+  owner        User      @relation("TripOwner", fields: [ownerId], references: [id])
+  collaborators User[]   @relation("TripCollaborators")
 
-  title            String    
-  destination      String    
-  startDate        DateTime? 
-  endDate          DateTime?
-  isBooked         Boolean   @default(false) // The Planning vs Booked toggle
+  title        String
+  destination  String
+  startDate    DateTime?
+  endDate      DateTime?
+  isBooked     Boolean   @default(false)
+
+  // ── VITAL FOR UI & AI LOGIC ──
+  budgetGBP    Float     @default(0)
+  duration     Int       @default(1)
   
-  // Stores "Need to Know" and Intake info (Essentials, weather, etc.)
-  overviewData     Json?     
+  // Stores Intake info (Interests, Pace, etc.)
+  intakeData   Json?     
+  
+  // Stores "Need to Know" (Essentials, Local currency info, Weather avg)
+  overviewData Json?     
 
-  days             Day[]     
-  pois             POI[]     // All POIs, including those in the "Bucket List"
+  days         Day[]
+  pois         POI[]     
 
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
 // ── THE DAY (The Schedule Bucket) ────────────────────────────────────────────
 model Day {
-  id        String   @id @default(cuid())
-  tripId    String
-  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  id         String    @id @default(cuid())
+  tripId     String
+  trip       Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
   
-  date      DateTime 
-  location  String?  // Supports Multi-city (e.g. Vienna -> Bratislava)
-  theme     String?  
-  dayNotes  String?  
+  date       DateTime? // Optional for "Planning" phase
+  orderIndex Int       // Sequence (0, 1, 2...)
+  
+  location   String?   
+  theme      String?   
+  dayNotes   String?   
 
-  pois      POI[]    
+  pois       POI[]     
 }
 
 // ── THE POI (The Activity / Booking) ─────────────────────────────────────────
@@ -59,32 +68,33 @@ model POI {
   tripId              String
   trip                Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
   
-  // THE BUCKET LIST: If dayId is null, it sits in 'Unscheduled'
   dayId               String?   
   day                 Day?      @relation(fields: [dayId], references: [id])
 
   // THE DNA
   name                String
-  category            String    @default("ACTIVITY") // FLIGHT, TRAIN, HOTEL, ACTIVITY
+  category            String    @default("ACTIVITY") 
+  description         String?
   googlePlaceId       String?   
   latitude            Float?
   longitude           Float?
   
   // THE LOGISTICS
-  startTime           DateTime? // Map to 'arrivalTime' in your recalc
-  endTime             DateTime? // Map to 'departureTime' in your recalc
+  startTime           String?   // Store as "HH:mm" for waterfall logic
+  endTime             String?   
+  costGBP             Float     @default(0)
   isFixed             Boolean   @default(false)
-  dwellTime           Int?      // Minutes (Duration)
-  transitTimeOutbound Int?      // Buffer to next stop
+  dwellTime           Int?      // Minutes
+  orderIndex          Int       // Position within the day
+  
+  // TRANSIT INFO
+  transitMethod       String?   
+  transitNote         String?   
 
-  // THE FILING CABINET & NOTES
+  // DOCUMENTATION
   reservationRef      String?   
   documentUrl         String?   
   userNotes           String?   
-  schedulingReason    String?   // "Why" it's unscheduled (too far, etc.)
-
-  // THE SAFETY NET
-  deletedAt           DateTime? 
 
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt

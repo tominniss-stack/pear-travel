@@ -1,70 +1,67 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// PATCH /api/itinerary/[id]
-// Updates an existing trip's itinerary in the database.
-// ─────────────────────────────────────────────────────────────────────────────
-
 import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from 'next/server';
-import type { Itinerary } from '@/types';
-
-// ── Response validator ────────────────────────────────────────────────────────
-
-function validateItineraryShape(obj: unknown): obj is Itinerary {
-  if (typeof obj !== 'object' || obj === null) return false;
-  const it = obj as Record<string, unknown>;
-  return (
-    typeof it.id === 'string' && 
-    Array.isArray(it.days) && 
-    typeof it.essentials === 'object' &&
-    (Array.isArray(it.unscheduledOptions) || it.unscheduledOptions === undefined)
-  );
-}
-
-// ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const resolvedParams = await params;
-    const tripId = resolvedParams.id;
+    const { id } = await params;
+    const body = await request.json();
+    const { itinerary } = body;
 
-    if (!tripId) {
-      return NextResponse.json({ error: 'Trip ID is required.' }, { status: 400 });
+    if (!itinerary || !itinerary.days) {
+      return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
     }
 
-    const body = await request.json().catch(() => null);
-    if (!body || !body.itinerary) {
-      return NextResponse.json({ error: 'Itinerary is required in request body.' }, { status: 400 });
-    }
+    // ── RELATIONAL "NUKE & PAVE" SAVE ──
+    // We run this in a transaction so it's perfectly safe. It either all saves, or none of it does.
+    await prisma.$transaction(async (tx) => {
+      
+      // 1. Clear the old schedule for this trip
+      await tx.pOI.deleteMany({ where: { tripId: id } });
+      await tx.day.deleteMany({ where: { tripId: id } });
 
-    // Validate the itinerary shape
-    if (!validateItineraryShape(body.itinerary)) {
-      return NextResponse.json({ error: 'Itinerary failed validation.' }, { status: 400 });
-    }
+      // 2. Update the master Trip record (in case total costs or essentials changed)
+      await tx.trip.update({
+        where: { id },
+        data: {
+          budgetGBP: itinerary.totalEstimatedCostGBP,
+          overviewData: itinerary.essentials,
+        },
+      });
 
-    // Verify the trip exists
-    const existingTrip = await prisma.trip.findUnique({
-      where: { id: tripId },
+      // 3. Rebuild the Days and POIs based on the new Drag & Drop layout
+      for (const [index, dayData] of itinerary.days.entries()) {
+        await tx.day.create({
+          data: {
+            tripId: id,
+            orderIndex: index,
+            location: dayData.location || '',
+            theme: dayData.theme || '',
+            pois: {
+              create: dayData.entries.map((poi: any, poiIdx: number) => ({
+                tripId: id,
+                name: poi.locationName,
+                description: poi.activityDescription,
+                startTime: poi.time,
+                costGBP: poi.estimatedCostGBP || 0,
+                isFixed: poi.isFixed || false,
+                category: poi.isDining ? 'DINING' : poi.isAccommodation ? 'ACCOMMODATION' : 'ACTIVITY',
+                transitMethod: poi.transitMethod,
+                transitNote: poi.transitNote,
+                googlePlaceId: poi.placeId,
+                orderIndex: poiIdx,
+              })),
+            },
+          },
+        });
+      }
     });
 
-    if (!existingTrip) {
-      return NextResponse.json({ error: 'Trip not found.' }, { status: 404 });
-    }
-
-    // Update the trip in the database
-    const updatedTrip = await prisma.trip.update({
-      where: { id: tripId },
-      data: {
-        itinerary: body.itinerary as any,
-      },
-    });
-
-    return NextResponse.json({ success: true, tripId: updatedTrip.id }, { status: 200 });
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Unhandled PATCH Route Error:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json({ error: `Failed: ${message}` }, { status: 500 });
+    console.error('Failed to update itinerary relationally:', error);
+    return NextResponse.json({ error: 'Failed to save changes to database' }, { status: 500 });
   }
 }

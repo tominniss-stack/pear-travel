@@ -59,8 +59,10 @@ export default function GeneratePage() {
           body: JSON.stringify({ intake, selectedPOIs }),
         });
 
+        // ── THE FIX: Extract the REAL error from the backend ──
         if (!response.ok) {
-          throw new Error('The server returned an error. Please try again.');
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Server Error ${response.status}: Failed to generate trip.`);
         }
 
         const data = await response.json();
@@ -94,12 +96,15 @@ export default function GeneratePage() {
             <span className="text-4xl" aria-hidden="true">😕</span>
           </div>
           <h1 className="text-xl font-bold text-slate-800">Generation Failed</h1>
-          <p className="mt-3 text-sm leading-relaxed text-slate-500 max-w-sm mx-auto">{error}</p>
+          {/* Now displaying the REAL error message here: */}
+          <p className="mt-3 text-sm font-medium leading-relaxed text-red-600 max-w-sm mx-auto bg-red-50 p-4 rounded-xl border border-red-100">
+            {error}
+          </p>
           <button
             onClick={() => router.back()}
-            className="mt-8 rounded-xl bg-brand-600 px-6 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-brand-700"
+            className="mt-8 rounded-xl bg-brand-600 px-6 py-3 text-xs tracking-widest uppercase font-black text-white shadow-md transition-all hover:bg-brand-700 hover:-translate-y-0.5"
           >
-            Go Back & Try Again
+            GO BACK & TRY AGAIN
           </button>
         </div>
       </div>
