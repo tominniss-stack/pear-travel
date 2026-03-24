@@ -312,23 +312,30 @@ export default function ItineraryDisplay({
     }
   }, [intake?.destinationPlaceId]);
 
-  // ── Dynamic Accommodation Scanner ──
+  // ── Dynamic Accommodation Scanner (Fixed for Airports) ──
   const dynamicStays = days.reduce((acc: {name: string, startDay: number, placeId?: string, poiId: string}[], day) => {
     if (day.entries.length > 0) {
-      const morningBookend = day.entries[0];
-      const isStay = morningBookend.isAccommodation || morningBookend?.transitMethod === 'Start of Day' || /(accommodation|hotel|airbnb|start of day)/i.test(morningBookend.activityDescription || '');
-      
-      if (isStay) {
+      // Find the true accommodation entry for the day, excluding airports and stations
+      const stayEntry = day.entries.find(e => {
+        const isStayKeyword = e.isAccommodation || /(accommodation|hotel|airbnb|check-in|stay)/i.test(e.activityDescription || '') || /(accommodation|hotel|airbnb)/i.test(e.locationName || '');
+        const isAirportOrStation = /(airport|flight|arrival|departure|station|terminal)/i.test(e.locationName + ' ' + e.activityDescription);
+        return isStayKeyword && !isAirportOrStation;
+      }) || day.entries.find(e => {
+         // Fallback: If no explicit hotel found, use the start of day, UNLESS it's an airport
+         return e.transitMethod === 'Start of Day' && !/(airport|flight|arrival|departure|station)/i.test(e.locationName + ' ' + e.activityDescription);
+      });
+
+      if (stayEntry) {
         const lastStay = acc[acc.length - 1];
-        const isGeneric = /^(accommodation|hotel|airbnb|start of day)/i.test(morningBookend.locationName?.trim() || '');
-        const displayName = (isGeneric && accommodationName) ? accommodationName : (morningBookend.locationName || 'Unknown Stay');
+        const isGeneric = /^(accommodation|hotel|airbnb|start of day)/i.test(stayEntry.locationName?.trim() || '');
+        const displayName = (isGeneric && accommodationName) ? accommodationName : (stayEntry.locationName || 'Unknown Stay');
 
         if (!lastStay || lastStay.name !== displayName) {
           acc.push({
             name: displayName,
             startDay: day.dayNumber,
-            placeId: morningBookend.placeId,
-            poiId: morningBookend.id
+            placeId: stayEntry.placeId,
+            poiId: stayEntry.id
           });
         }
       }
@@ -485,6 +492,69 @@ export default function ItineraryDisplay({
         
         {activeTab === 'overview' && essentials && (
           <div className="flex flex-col gap-6 animate-fade-in">
+
+            {/* ── TRANSIT / BOARDING PASS CARD ── */}
+            {trip.intake?.transitDetails && ['Flight', 'Train'].includes(trip.intake.transitDetails.mode) && (
+              <div className="relative w-full rounded-3xl bg-slate-900 dark:bg-slate-950 border border-slate-800 p-6 md:p-8 shadow-xl overflow-hidden flex flex-col md:flex-row gap-6 md:gap-0">
+                {/* Decorative glowing orb */}
+                <div className="absolute top-0 right-0 w-48 h-48 bg-brand-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none" />
+
+                {/* Outbound Half */}
+                <div className="flex-1 md:pr-8 relative">
+                   <div className="flex items-center gap-3 mb-4">
+                     <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-800 text-slate-300">
+                       {trip.intake.transitDetails.mode === 'Flight' ? '🛫' : '🚆'}
+                     </span>
+                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Outbound</h3>
+                   </div>
+                   <div className="flex items-end gap-4 mb-2">
+                     <div className="text-4xl font-black text-white">
+                       {trip.intake.transitDetails.outbound?.time || 'TBD'}
+                     </div>
+                     {trip.intake.transitDetails.outbound?.reference && (
+                       <div className="px-3 py-1 mb-1.5 rounded-full bg-slate-800 border border-slate-700 text-xs font-bold text-brand-400">
+                         {trip.intake.transitDetails.outbound.reference}
+                       </div>
+                     )}
+                   </div>
+                   <p className="text-sm font-medium text-slate-500">Arriving in {trip.destination}</p>
+                </div>
+
+                {/* Perforated Divider */}
+                <div className="hidden md:flex flex-col items-center justify-center px-4 relative">
+                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-slate-900 dark:bg-slate-950 rounded-full border border-slate-800 flex items-center justify-center z-10">
+                      <span className="text-slate-500 text-xs">{trip.intake.transitDetails.mode === 'Flight' ? '✈️' : '🚂'}</span>
+                   </div>
+                   <div className="w-px h-full border-l-2 border-dashed border-slate-800" />
+                </div>
+                <div className="md:hidden w-full border-t-2 border-dashed border-slate-800 my-2 relative">
+                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-2 bg-slate-900 dark:bg-slate-950 z-10">
+                      <span className="text-slate-500 text-xs">{trip.intake.transitDetails.mode === 'Flight' ? '✈️' : '🚂'}</span>
+                   </div>
+                </div>
+
+                {/* Return Half */}
+                <div className="flex-1 md:pl-8 relative">
+                   <div className="flex items-center gap-3 mb-4">
+                     <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-800 text-slate-300">
+                       {trip.intake.transitDetails.mode === 'Flight' ? '🛬' : '🚆'}
+                     </span>
+                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Return</h3>
+                   </div>
+                   <div className="flex items-end gap-4 mb-2">
+                     <div className="text-4xl font-black text-white">
+                       {trip.intake.transitDetails.return?.time || 'TBD'}
+                     </div>
+                     {trip.intake.transitDetails.return?.reference && (
+                       <div className="px-3 py-1 mb-1.5 rounded-full bg-slate-800 border border-slate-700 text-xs font-bold text-brand-400">
+                         {trip.intake.transitDetails.return.reference}
+                       </div>
+                     )}
+                   </div>
+                   <p className="text-sm font-medium text-slate-500">Departing from {trip.destination}</p>
+                </div>
+              </div>
+            )}
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               
@@ -492,12 +562,12 @@ export default function ItineraryDisplay({
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <span className="text-brand-500 dark:text-brand-400">🌤️</span> 
-                    {trip.startDate ? '5-Day Outlook' : 'Climate & Best Time to Go'}
+                    {trip.startDate ? `${days.length || trip.duration}-Day Outlook` : 'Climate & Best Time to Go'}
                   </h3>
                 </div>
 
                 {trip.startDate ? (
-                  <div className="flex overflow-x-auto sm:grid sm:grid-cols-5 gap-3 pb-2 -mx-2 px-2 sm:mx-0 sm:px-0 sm:pb-0 hide-scrollbar snap-x">
+                  <div className="flex overflow-x-auto gap-3 pb-4 -mx-2 px-2 sm:mx-0 sm:px-0 hide-scrollbar snap-x">
                     {Array.from({ length: days.length || trip.duration }).map((_, i) => {
                       const tripDate = new Date(trip.startDate!);
                       tripDate.setDate(tripDate.getDate() + i);
@@ -508,7 +578,7 @@ export default function ItineraryDisplay({
                       return (
                         <div 
                           key={i} 
-                          className={`snap-start flex-shrink-0 min-w-[110px] sm:min-w-0 flex flex-col items-center p-4 rounded-2xl border transition-colors ${
+                          className={`snap-start flex-shrink-0 min-w-[120px] flex flex-col items-center p-4 rounded-2xl border transition-colors ${
                             isToday 
                               ? 'bg-brand-50 border-brand-300 dark:bg-brand-900/30 dark:border-brand-700' 
                               : 'bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700'

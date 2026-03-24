@@ -2,7 +2,7 @@
 // POST /api/itinerary
 // Accepts TripIntake + selectedPOIs, calls Gemini to generate a structured
 // day-by-day itinerary, saves the result to PostgreSQL, and returns the DB ID.
-// Includes V2 Hard Constraints, Dining Profiles, and Date Logic.
+// Includes V2 Hard Constraints, Flexible Transit Logic, and Date Routing.
 //
 // PATCH /api/itinerary
 // Performs an intelligent RE-OPTIMISATION by taking the existing plan
@@ -12,10 +12,10 @@
 import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { createTripAction } from '@/app/actions/trip'; // <-- Import the new relational save action
+import { createTripAction } from '@/app/actions/trip'; 
 import type { TripIntake, POI, Itinerary } from '@/types';
 
-export const maxDuration = 60; // Allow the AI up to 60 seconds to re-optimize
+export const maxDuration = 60; 
 
 // ── Gemini client initialiser ─────────────────────────────────────────────────
 
@@ -32,33 +32,6 @@ function buildActivityCapInstructions(duration: number): string {
   if (duration <= 2) return '3–4 activities per day (balanced pacing)';
   if (duration <= 4) return '4–5 activities per day (moderate pacing)';
   return '3–5 activities per day (spread out to avoid burnout on longer trips)';
-}
-
-function getDefaultDurationByCategory(category: string): number {
-  const categoryLower = category.toLowerCase();
-  
-  if (categoryLower.includes('museum') || categoryLower.includes('gallery') || 
-      categoryLower.includes('cathedral') || categoryLower.includes('monument')) {
-    return 150; 
-  }
-  
-  if (categoryLower.includes('restaurant') || categoryLower.includes('cafe') || 
-      categoryLower.includes('bar') || categoryLower.includes('food')) {
-    return 75; 
-  }
-  
-  if (categoryLower.includes('market') || categoryLower.includes('shopping') || 
-      categoryLower.includes('neighborhood') || categoryLower.includes('district')) {
-    return 60; 
-  }
-  
-  if (categoryLower.includes('viewpoint') || categoryLower.includes('view') || 
-      categoryLower.includes('photo') || categoryLower.includes('architecture') ||
-      categoryLower.includes('park') || categoryLower.includes('plaza')) {
-    return 40; 
-  }
-  
-  return 90; 
 }
 
 function parseAnchorPoints(anchorText: string): {
@@ -110,39 +83,57 @@ function buildPrompt(intake: TripIntake, pois: POI[], existingItinerary?: Itiner
   const isDayTrip = intake.duration === 1;
   const userAccommodation = intake.accommodation?.trim();
 
+  // ── EXTRACT FLEXIBLE TRANSIT DATA ──
+  const transitMode = intake.transitDetails?.mode || 'Transit';
+  const outTime = intake.transitDetails?.outbound?.time || '09:00';
+  const outRef = intake.transitDetails?.outbound?.reference ? ` (${intake.transitDetails.outbound.reference})` : '';
+  const retTime = intake.transitDetails?.return?.time || '18:00';
+  const retRef = intake.transitDetails?.return?.reference ? ` (${intake.transitDetails.return.reference})` : '';
+
+  const isFlightOrTrain = transitMode === 'Flight' || transitMode === 'Train';
+  const arrivalHubName = isFlightOrTrain ? `Arrival ${transitMode} Station/Airport` : 'Arrival Hub';
+  const departureHubName = isFlightOrTrain ? `Departure ${transitMode} Station/Airport` : 'Departure Hub';
+
   const dayTripHubLogic = userAccommodation
     ? `Start and end the itinerary at: "${userAccommodation}".`
-    : `Since no specific arrival point was provided, YOU MUST logically infer the main central train station or primary transport hub for ${intake.destination} (e.g., "Cambridge Railway Station", "Milano Centrale") and use that specific name as the start and end point.`;
+    : `Start and end the itinerary at: "${arrivalHubName}".`;
 
   const multiDayHubLogic = userAccommodation
     ? `STRICT NAMING RULE: You MUST use the EXACT string provided here for the accommodation locationName: "${userAccommodation}".`
     : `STRICT NAMING RULE: Since no hotel was specified, use a realistic placeholder like "City Centre Hotel" or "Accommodation in Central ${intake.destination}".`;
 
+  // ── ROUTING INSTRUCTIONS ──
   const routingInstructions = isDayTrip 
     ? `DAY TRIP ROUTING (1-DAY ITINERARY):
 - The user is NOT staying overnight. Do NOT use the words "Accommodation", "Hotel", or "Check-in".
-- START OF DAY: ${dayTripHubLogic}
-- ARRIVAL BUFFER: The user arrives at ${intake.arrivalTime ?? '09:00'}. You MUST schedule 15-30 minutes of transit/parking time from the Arrival Hub BEFORE starting the first leisure activity. Do not start the first activity at the exact arrival time.
-- END OF DAY: The final activity must be returning to this exact same Arrival Hub for departure at ${intake.departureTime ?? '18:00'}.`
+- START OF DAY: ${dayTripHubLogic}. Start time: ${outTime}.
+- ARRIVAL BUFFER: You MUST schedule 15-30 minutes of transit/parking time from the Arrival Hub BEFORE starting the first leisure activity. Do not start the first activity at the exact arrival time.
+- END OF DAY: The final activity must be returning to this exact same Arrival Hub for departure at ${retTime}.`
     : `HOME BASE ROUTING:
-- EVERY SINGLE DAY (Day 1, Day 2, Day 3, etc.) MUST strictly start with an entry for the accommodation.
-- EVERY SINGLE DAY MUST strictly end with an entry for the accommodation.
+- EVERY SINGLE DAY (Day 1, Day 2, Day 3, etc.) MUST strictly start with an entry for the accommodation (except Day 1 which starts at the Arrival Hub).
+- EVERY SINGLE DAY MUST strictly end with an entry for the accommodation (except the Final Day which ends at the Departure Hub).
 - ${multiDayHubLogic}
 - DO NOT geocode the accommodation into a street address. DO NOT append tags like "[START]" or "[END]" to the locationName. Use ONLY the exact string requested above.`;
 
+  // ── DATE & TRANSIT CONTEXT ──
   const dateContext = intake.bookingMode === 'booked' && intake.startDate
     ? `
-CONFIRMED TRAVEL DATES:
+CONFIRMED TRAVEL DATES & TRANSIT (${transitMode}):
   Arrival Date:      ${intake.startDate}
-  Arrival Time:      ${intake.arrivalTime ?? 'time not specified'} (This is Touchdown/Station Arrival time)
+  Arrival Time:      ${outTime}${outRef} (Touchdown/Arrival)
   Departure Date:    ${intake.endDate   ?? 'not specified'}
-  Departure Time:    ${intake.departureTime ?? 'time not specified'} (This is Takeoff/Train Departure time)
+  Departure Time:    ${retTime}${retRef} (Takeoff/Departure)
   Total Nights:      ${intake.duration}
 
   CRITICAL DATE & TRANSIT CONSTRAINTS:
-  - Day 1 Arrival: The user arrives in the city at ${intake.arrivalTime ?? '09:00'}. You MUST add at least 60-90 minutes of transit/customs time before scheduling the first "Check-in at accommodation" entry. Do NOT schedule the hotel check-in at the exact arrival time.
-  - Final Day Departure: The user leaves at ${intake.departureTime ?? '12:00'}. The final activity of the whole trip must be returning to the accommodation or traveling to the airport at least 2.5 hours BEFORE this departure time.`
-    : `Trip Duration: ${intake.duration} day(s) — exact dates not confirmed. Use 09:00 as a standard start time.`;
+  - Day 1 Arrival: The user arrives via ${transitMode} at ${outTime}. 
+    * The very FIRST entry on Day 1 MUST be the Arrival Hub (e.g. "Arrive at Airport" or "Arrive at Station").
+    * You MUST add at least 60-90 minutes of transit/customs time before scheduling the second entry: "Check-in at accommodation". 
+    * Do NOT schedule the hotel check-in at the exact arrival time.
+  - Final Day Departure: The user leaves via ${transitMode} at ${retTime}. 
+    * The very FINAL entry of the whole trip MUST be arriving back at the Departure Hub.
+    * You MUST schedule this final entry at least 2.5 hours BEFORE the ${retTime} departure time to allow for transit and security.`
+    : `Trip Duration: ${intake.duration} day(s) — exact dates and transit not confirmed. Use 09:00 as a standard start time for Day 1.`;
 
   const diningInstructions = {
     'packed-lunch': `
@@ -287,7 +278,7 @@ ${diningInstructions}
 ════════════════════════════════════════
 JSON OUTPUT STRUCTURE & FIELD RULES
 ════════════════════════════════════════
-Return ONLY valid JSON with the exact structure below:
+Return ONLY valid JSON with the exact structure below. Note the boolean properties for isDining and isAccommodation. For Flights/Trains, set isAccommodation to false.
 
 {
   "id": "gen-123",
@@ -304,7 +295,8 @@ Return ONLY valid JSON with the exact structure below:
       "googleMapsUrl": "string",
       "placeId": "string or null",
       "isDining": false,
-      "isFixed": false
+      "isFixed": false,
+      "isAccommodation": false
     }
   ],
   "essentials": {
@@ -336,9 +328,9 @@ Return ONLY valid JSON with the exact structure below:
           "estimatedCostGBP": 0,
           "googleMapsUrl": "string",
           "placeId": "string or null",
-          "isDining": boolean,
-          "isAccommodation": boolean,
-          "isFixed": boolean
+          "isDining": false,
+          "isAccommodation": false,
+          "isFixed": false
         }
       ]
     }

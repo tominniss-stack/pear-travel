@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // TripIntakeForm — Pear Travel v2
-// Refactored into a 3-step wizard with persistent local state and 2-column grid.
+// Refactored to include flexible Transit Details & clean segmented toggles.
 // ─────────────────────────────────────────────────────────────────────────────
 
 'use client';
@@ -9,7 +9,6 @@ import {
   useState,
   useCallback,
   useEffect,
-  useRef,
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePlacesWidget } from 'react-google-autocomplete';
@@ -23,6 +22,7 @@ import type {
   DiningProfile,
   Interest,
   TripIntake,
+  PrimaryTransitMode,
 } from '@/types';
 
 const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY ?? '';
@@ -46,30 +46,10 @@ const DINING_PROFILES: {
   emoji:       string;
   description: string;
 }[] = [
-  {
-    value:       'packed-lunch',
-    label:       'Packed Lunch',
-    emoji:       '🥪',
-    description: 'Self-catered — no restaurant lunches',
-  },
-  {
-    value:       'budget',
-    label:       'Budget Eats',
-    emoji:       '🍜',
-    description: 'Street food & cafés, under £15/meal',
-  },
-  {
-    value:       'mid-range',
-    label:       'Mid-Range',
-    emoji:       '🍝',
-    description: 'Bistros & restaurants, £15–40/meal',
-  },
-  {
-    value:       'fine-dining',
-    label:       'Fine Dining',
-    emoji:       '🍷',
-    description: 'Upscale & tasting menus, £40+/meal',
-  },
+  { value: 'packed-lunch', label: 'Packed Lunch', emoji: '🥪', description: 'Self-catered — no restaurant lunches' },
+  { value: 'budget',       label: 'Budget Eats',  emoji: '🍜', description: 'Street food & cafés, under £15/meal' },
+  { value: 'mid-range',    label: 'Mid-Range',    emoji: '🍝', description: 'Bistros & restaurants, £15–40/meal' },
+  { value: 'fine-dining',  label: 'Fine Dining',  emoji: '🍷', description: 'Upscale & tasting menus, £40+/meal' },
 ];
 
 const MIN_DURATION = 1;
@@ -80,18 +60,14 @@ const MAX_BUDGET   = 50_000;
 interface FormErrors {
   destination?:   string;
   dateRange?:     string;
-  arrivalTime?:   string;
-  departureTime?: string;
   duration?:      string;
   interests?:     string;
   budgetGBP?:     string;
   accommodation?: string;
+  transitMode?:   string;
 }
 
-function validateForm(
-  fields: Partial<TripIntake>,
-  bookingMode: BookingMode,
-): FormErrors {
+function validateForm(fields: Partial<TripIntake>, bookingMode: BookingMode): FormErrors {
   const errors: FormErrors = {};
 
   if (!fields.destination?.trim() || fields.destination.trim().length < 2) {
@@ -102,12 +78,7 @@ function validateForm(
     if (!fields.startDate || !fields.endDate) {
       errors.dateRange = 'Please select your arrival and departure dates.';
     }
-    if (!fields.arrivalTime) {
-      errors.arrivalTime = 'Please enter your arrival time.';
-    }
-    if (!fields.departureTime) {
-      errors.departureTime = 'Please enter your departure time.';
-    }
+    // We make transit details optional, so we don't strictly require it here anymore.
   } else {
     if (!fields.duration || fields.duration < MIN_DURATION) {
       errors.duration = `Minimum stay is ${MIN_DURATION} day.`;
@@ -133,37 +104,17 @@ function validateForm(
   return errors;
 }
 
-function FieldWrapper({
-  label,
-  htmlFor,
-  error,
-  hint,
-  children,
-  className = '',
-}: {
-  label: string;
-  htmlFor?: string;
-  error?: string;
-  hint?: string;
-  children: React.ReactNode;
-  className?: string;
-}) {
+function FieldWrapper({ label, htmlFor, error, hint, children, className = '' }: { label: string; htmlFor?: string; error?: string; hint?: string; children: React.ReactNode; className?: string; }) {
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
-      <label
-        htmlFor={htmlFor}
-        className="text-sm font-semibold text-slate-700 dark:text-slate-200 tracking-wide"
-      >
+      <label htmlFor={htmlFor} className="text-sm font-semibold text-slate-700 dark:text-slate-200 tracking-wide">
         {label}
       </label>
       {children}
-      {hint && !error && (
-        <p className="text-xs text-slate-400 dark:text-slate-500">{hint}</p>
-      )}
+      {hint && !error && <p className="text-xs text-slate-400 dark:text-slate-500">{hint}</p>}
       {error && (
         <p className="flex items-center gap-1 text-xs font-medium text-red-500">
-          <span aria-hidden="true">⚠</span>
-          {error}
+          <span aria-hidden="true">⚠</span>{error}
         </p>
       )}
     </div>
@@ -175,48 +126,30 @@ function inputClass(hasError: boolean): string {
     'w-full rounded-xl border bg-white dark:bg-slate-800 px-4 py-3.5',
     'text-base text-slate-800 dark:text-slate-100',
     'placeholder-slate-400 shadow-sm transition-all duration-200 outline-none',
-    'focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500',
-    'dark:border-slate-700 dark:focus:border-emerald-400',
-    hasError
-      ? 'border-red-400 focus:ring-red-400'
-      : 'border-slate-200 hover:border-slate-300 dark:hover:border-slate-500',
+    'focus:ring-2 focus:ring-brand-500 focus:border-brand-500',
+    'dark:border-slate-700 dark:focus:border-brand-400',
+    hasError ? 'border-red-400 focus:ring-red-400' : 'border-slate-200 hover:border-slate-300 dark:hover:border-slate-500',
   ].join(' ');
 }
 
-function BookingModeToggle({
-  value,
-  onChange,
-}: {
-  value: BookingMode;
-  onChange: (mode: BookingMode) => void;
-}) {
+function BookingModeToggle({ value, onChange }: { value: BookingMode; onChange: (mode: BookingMode) => void; }) {
   const options: { mode: BookingMode; label: string; sub: string }[] = [
     { mode: 'planning', label: 'Just Planning 🗺️', sub: 'Choose number of days' },
     { mode: 'booked', label: 'Already Booked ✈️', sub: 'Select exact dates' },
   ];
 
   return (
-    <div
-      role="group"
-      aria-label="Booking mode"
-      className="flex rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-1 gap-1"
-    >
+    <div role="group" className="flex rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-1 gap-1">
       {options.map(({ mode, label, sub }) => (
         <button
           key={mode}
           type="button"
           onClick={() => onChange(mode)}
-          aria-pressed={value === mode}
-          className={`
-            flex flex-1 flex-col items-center rounded-lg px-3 py-2.5
-            text-sm font-semibold transition-all duration-150
-            focus:outline-none focus:ring-2 focus:ring-emerald-500
-            ${
+          className={`flex flex-1 flex-col items-center rounded-lg px-3 py-2.5 text-sm font-semibold transition-all duration-150 ${
               value === mode
-                ? 'bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-300 shadow-sm'
+                ? 'bg-white dark:bg-slate-700 text-brand-700 dark:text-brand-300 shadow-sm'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
-            }
-          `}
+            }`}
         >
           {label}
           <span className="mt-0.5 text-xs font-normal opacity-70">{sub}</span>
@@ -226,84 +159,42 @@ function BookingModeToggle({
   );
 }
 
-function DateRangePicker({
-  range,
-  onChange,
-  error,
-}: {
-  range: DateRange | undefined;
-  onChange: (range: DateRange | undefined) => void;
-  error?: string;
-}) {
+function DateRangePicker({ range, onChange, error }: { range: DateRange | undefined; onChange: (range: DateRange | undefined) => void; error?: string; }) {
   const [isOpen, setIsOpen] = useState(false);
-
-  const nightCount =
-    range?.from && range?.to
-      ? differenceInCalendarDays(range.to, range.from)
-      : null;
-
-  const displayText = range?.from
-    ? range.to
-      ? `${format(range.from, 'd MMM yyyy')}  →  ${format(range.to, 'd MMM yyyy')}`
-      : `${format(range.from, 'd MMM yyyy')}  →  Select end date`
-    : 'Select arrival & departure dates';
+  const nightCount = range?.from && range?.to ? differenceInCalendarDays(range.to, range.from) : null;
+  const displayText = range?.from ? (range.to ? `${format(range.from, 'd MMM yyyy')}  →  ${format(range.to, 'd MMM yyyy')}` : `${format(range.from, 'd MMM yyyy')}  →  Select end date`) : 'Select arrival & departure dates';
 
   return (
     <div className="relative">
       <button
         type="button"
         onClick={() => setIsOpen((v) => !v)}
-        aria-expanded={isOpen}
-        className={`
-          flex w-full items-center justify-between rounded-xl border
-          bg-white dark:bg-slate-800 px-4 py-3.5 text-left shadow-sm
-          transition-all duration-200
-          focus:outline-none focus:ring-2 focus:ring-emerald-500
-          dark:border-slate-700
-          ${
-            error
-              ? 'border-red-400'
-              : 'border-slate-200 hover:border-slate-300 dark:hover:border-slate-500'
-          }
-        `}
+        className={`flex w-full items-center justify-between rounded-xl border bg-white dark:bg-slate-800 px-4 py-3.5 text-left shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-slate-700 ${error ? 'border-red-400' : 'border-slate-200 hover:border-slate-300 dark:hover:border-slate-500'}`}
       >
         <div className="flex items-center gap-2">
-          <svg className="h-4 w-4 flex-shrink-0 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" />
-          </svg>
-          <span className={`text-sm ${range?.from ? 'font-medium text-slate-800 dark:text-slate-100' : 'text-slate-400'}`}>
-            {displayText}
-          </span>
+          <svg className="h-4 w-4 flex-shrink-0 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" /></svg>
+          <span className={`text-sm ${range?.from ? 'font-medium text-slate-800 dark:text-slate-100' : 'text-slate-400'}`}>{displayText}</span>
         </div>
-
-        {nightCount !== null && (
-          <span className="flex-shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-900 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
-            {nightCount} night{nightCount !== 1 ? 's' : ''}
-          </span>
-        )}
+        {nightCount !== null && <span className="flex-shrink-0 rounded-full bg-brand-100 dark:bg-brand-900 px-2.5 py-0.5 text-xs font-bold text-brand-700 dark:text-brand-300">{nightCount} night{nightCount !== 1 ? 's' : ''}</span>}
       </button>
 
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          
           <div className="absolute left-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xl">
             <DayPicker
               mode="range"
               selected={range}
-              onSelect={(r) => {
-                onChange(r);
-                if (r?.from && r?.to) setIsOpen(false);
-              }}
+              onSelect={(r) => { onChange(r); if (r?.from && r?.to) setIsOpen(false); }}
               disabled={{ before: new Date() }}
               numberOfMonths={2}
               className="p-3 relative z-50"
               classNames={{
-                day_selected:     'bg-emerald-600 text-white rounded-full',
-                day_range_middle: 'bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 rounded-none',
-                day_range_start:  'bg-emerald-600 text-white rounded-l-full',
-                day_range_end:    'bg-emerald-600 text-white rounded-r-full',
-                day_today:        'font-bold text-emerald-600 dark:text-emerald-400',
+                day_selected:     'bg-brand-600 text-white rounded-full',
+                day_range_middle: 'bg-brand-100 dark:bg-brand-900 text-brand-800 dark:text-brand-200 rounded-none',
+                day_range_start:  'bg-brand-600 text-white rounded-l-full',
+                day_range_end:    'bg-brand-600 text-white rounded-r-full',
+                day_today:        'font-bold text-brand-600 dark:text-brand-400',
               }}
             />
           </div>
@@ -313,48 +204,13 @@ function DateRangePicker({
   );
 }
 
-function PlacesAutocompleteInput({
-  id,
-  value,
-  onPlaceSelected,
-  onInputChange,
-  placeholder,
-  error,
-  types = ['(cities)'],
-}: {
-  id: string;
-  value: string;
-  onPlaceSelected: (address: string, placeId?: string) => void;
-  onInputChange: (value: string) => void;
-  placeholder: string;
-  error?: string;
-  types?: string[];
-}) {
+function PlacesAutocompleteInput({ id, value, onPlaceSelected, onInputChange, placeholder, error, types = ['(cities)'] }: { id: string; value: string; onPlaceSelected: (address: string, placeId?: string) => void; onInputChange: (value: string) => void; placeholder: string; error?: string; types?: string[]; }) {
   const { ref } = usePlacesWidget<HTMLInputElement>({
     apiKey: GOOGLE_API_KEY,
-    onPlaceSelected: (place) => {
-      const address = place.formatted_address ?? place.name ?? '';
-      const placeId = place.place_id;
-      onPlaceSelected(address, placeId);
-    },
-    options: {
-      types,
-      fields: ['formatted_address', 'place_id', 'name', 'geometry'],
-    },
+    onPlaceSelected: (place) => onPlaceSelected(place.formatted_address ?? place.name ?? '', place.place_id),
+    options: { types, fields: ['formatted_address', 'place_id', 'name', 'geometry'] },
   });
-
-  return (
-    <input
-      ref={ref}
-      id={id}
-      type="text"
-      value={value}
-      onChange={(e) => onInputChange(e.target.value)}
-      placeholder={placeholder}
-      className={inputClass(!!error)}
-      aria-invalid={!!error}
-    />
-  );
+  return <input ref={ref} id={id} type="text" value={value} onChange={(e) => onInputChange(e.target.value)} placeholder={placeholder} className={inputClass(!!error)} aria-invalid={!!error} />;
 }
 
 export default function TripIntakeForm() {
@@ -369,64 +225,63 @@ export default function TripIntakeForm() {
   const [step, setStep] = useState(1);
   const maxStep = 3;
 
+  // Form State
   const [bookingMode, setBookingMode] = useState<BookingMode>(initialIntake.bookingMode ?? 'planning');
   const [destination, setDestination] = useState(initialIntake.destination);
   const [destPlaceId, setDestPlaceId] = useState(initialIntake.destinationPlaceId ?? '');
   const [dateRange, setDateRange] = useState<DateRange | undefined>(
     initialIntake.startDate && initialIntake.endDate
-      ? {
-          from: new Date(initialIntake.startDate),
-          to: new Date(initialIntake.endDate),
-        }
-      : undefined,
+      ? { from: new Date(initialIntake.startDate), to: new Date(initialIntake.endDate) }
+      : undefined
   );
-  const [arrivalTime, setArrivalTime] = useState(initialIntake.arrivalTime ?? '');
-  const [departureTime, setDepartureTime] = useState(initialIntake.departureTime ?? '');
-  const [duration, setDuration] = useState(initialIntake.duration);
+  
+  // Transit State
+  const [transitMode, setTransitMode] = useState<PrimaryTransitMode>(initialIntake.transitDetails?.mode || 'Not Sure');
+  const [outboundTime, setOutboundTime] = useState(initialIntake.transitDetails?.outbound?.time || '');
+  const [outboundRef, setOutboundRef] = useState(initialIntake.transitDetails?.outbound?.reference || '');
+  const [returnTime, setReturnTime] = useState(initialIntake.transitDetails?.return?.time || '');
+  const [returnRef, setReturnRef] = useState(initialIntake.transitDetails?.return?.reference || '');
+
+  const [duration, setDuration] = useState(initialIntake.duration || 3);
   const [accommodation, setAccommodation] = useState(initialIntake.accommodation);
   const [hasAccommodation, setHasAccommodation] = useState(Boolean(initialIntake.accommodation?.trim()));
-  const [interests, setInterests] = useState<Interest[]>(initialIntake.interests);
-  const [budgetGBP, setBudgetGBP] = useState(initialIntake.budgetGBP);
-  const [budgetRaw, setBudgetRaw] = useState(initialIntake.budgetGBP > 0 ? String(initialIntake.budgetGBP) : '');
+  const [interests, setInterests] = useState<Interest[]>(initialIntake.interests || []);
+  const [budgetGBP, setBudgetGBP] = useState(initialIntake.budgetGBP || 1000);
+  const [budgetRaw, setBudgetRaw] = useState(initialIntake.budgetGBP > 0 ? String(initialIntake.budgetGBP) : '1000');
   const [diningProfile, setDiningProfile] = useState<DiningProfile>(initialIntake.diningProfile ?? 'mid-range');
   const [anchorPoints, setAnchorPoints] = useState(initialIntake.anchorPoints ?? '');
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const derivedDuration =
-    dateRange?.from && dateRange?.to
-      ? Math.max(1, differenceInCalendarDays(dateRange.to, dateRange.from))
-      : duration;
+  const derivedDuration = dateRange?.from && dateRange?.to ? Math.max(1, differenceInCalendarDays(dateRange.to, dateRange.from)) : duration;
 
   useEffect(() => {
     setIntake({
-      destination:        destination.trim(),
+      destination: destination.trim(),
       destinationPlaceId: destPlaceId || undefined,
       bookingMode,
-      startDate:          dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
-      endDate:            dateRange?.to   ? format(dateRange.to,   'yyyy-MM-dd') : undefined,
-      arrivalTime:        bookingMode === 'booked' ? arrivalTime : undefined,
-      departureTime:      bookingMode === 'booked' ? departureTime : undefined,
-      duration:           derivedDuration,
-      accommodation:      hasAccommodation ? accommodation.trim() : '',
+      startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
+      endDate: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined,
+      transitDetails: bookingMode === 'booked' ? {
+        mode: transitMode,
+        outbound: outboundTime || outboundRef ? { time: outboundTime, reference: outboundRef } : undefined,
+        return: returnTime || returnRef ? { time: returnTime, reference: returnRef } : undefined,
+      } : undefined,
+      duration: derivedDuration,
+      accommodation: hasAccommodation ? accommodation.trim() : '',
       interests,
       budgetGBP,
       diningProfile,
-      anchorPoints:       anchorPoints.trim(),
+      anchorPoints: anchorPoints.trim(),
     });
   }, [
-    bookingMode, destination, destPlaceId, dateRange, arrivalTime,
-    departureTime, derivedDuration, accommodation, hasAccommodation,
-    interests, budgetGBP, diningProfile, anchorPoints, setIntake, 
+    bookingMode, destination, destPlaceId, dateRange, transitMode, outboundTime, outboundRef, returnTime, returnRef,
+    derivedDuration, accommodation, hasAccommodation, interests, budgetGBP, diningProfile, anchorPoints, setIntake
   ]);
 
   const toggleInterest = useCallback((interest: Interest) => {
-    setInterests((prev) =>
-      prev.includes(interest)
-        ? prev.filter((i) => i !== interest)
-        : [...prev, interest],
-    );
+    setInterests((prev) => prev.includes(interest) ? prev.filter((i) => i !== interest) : [...prev, interest]);
     setErrors((prev) => ({ ...prev, interests: undefined }));
   }, []);
 
@@ -440,13 +295,7 @@ export default function TripIntakeForm() {
 
   const handleBookingModeChange = useCallback((mode: BookingMode) => {
     setBookingMode(mode);
-    setErrors((prev) => ({
-      ...prev,
-      dateRange:     undefined,
-      arrivalTime:   undefined,
-      departureTime: undefined,
-      duration:      undefined,
-    }));
+    setErrors((prev) => ({ ...prev, dateRange: undefined, transitMode: undefined, duration: undefined }));
   }, []);
 
   const validateStep = useCallback((currentStep: number) => {
@@ -455,8 +304,7 @@ export default function TripIntakeForm() {
       duration: derivedDuration,
       startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
       endDate: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined,
-      arrivalTime: bookingMode === 'booked' ? arrivalTime : undefined,
-      departureTime: bookingMode === 'booked' ? departureTime : undefined,
+      transitDetails: bookingMode === 'booked' ? { mode: transitMode } : undefined,
       interests,
       budgetGBP,
       accommodation: hasAccommodation ? accommodation.trim() : '',
@@ -468,8 +316,6 @@ export default function TripIntakeForm() {
     if (currentStep === 1) {
       stepErrors.destination = validationErrors.destination;
       stepErrors.dateRange = validationErrors.dateRange;
-      stepErrors.arrivalTime = validationErrors.arrivalTime;
-      stepErrors.departureTime = validationErrors.departureTime;
       stepErrors.duration = validationErrors.duration;
     }
     if (currentStep === 2) {
@@ -482,10 +328,7 @@ export default function TripIntakeForm() {
 
     setErrors(stepErrors);
     return Object.values(stepErrors).some(Boolean) === false;
-  }, [
-    bookingMode, destination, dateRange, derivedDuration, arrivalTime,
-    departureTime, interests, budgetGBP, hasAccommodation, accommodation,
-  ]);
+  }, [ bookingMode, destination, dateRange, transitMode, derivedDuration, interests, budgetGBP, hasAccommodation, accommodation ]);
 
   const handleNext = useCallback(() => {
     if (step === maxStep) return;
@@ -502,66 +345,22 @@ export default function TripIntakeForm() {
 
   const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (step < maxStep) return handleNext();
 
-    if (step < maxStep) {
-      handleNext();
-      return;
-    }
-
-    const fieldsToValidate: Partial<TripIntake> = {
-      destination,
-      duration: derivedDuration,
-      startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
-      endDate: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined,
-      arrivalTime: bookingMode === 'booked' ? arrivalTime : undefined,
-      departureTime: bookingMode === 'booked' ? departureTime : undefined,
-      interests,
-      budgetGBP,
-      ...(hasAccommodation && { accommodation: accommodation.trim() }),
-    };
-
-    const validationErrors = validateForm(fieldsToValidate, bookingMode);
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
+    if (!validateStep(3)) return;
 
     setIsSubmitting(true);
     try {
-      const intake: TripIntake = {
-        destination:         destination.trim(),
-        destinationPlaceId:  destPlaceId || undefined,
-        bookingMode,
-        startDate:           dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
-        endDate:             dateRange?.to   ? format(dateRange.to,   'yyyy-MM-dd') : undefined,
-        arrivalTime:         bookingMode === 'booked' ? arrivalTime : undefined,
-        departureTime:       bookingMode === 'booked' ? departureTime : undefined,
-        duration:            derivedDuration,
-        accommodation:       hasAccommodation ? accommodation.trim() : '',
-        interests,
-        budgetGBP,
-        diningProfile,
-        anchorPoints:        anchorPoints.trim(),
-      };
-
-      setIntake(intake);
-      setAllPOIs([]);
-      setItinerary(null);
       const mockTripId = `trip-${Date.now()}`;
       setCurrentTripId(mockTripId);
       router.push(`/discover/${mockTripId}`);
     } catch (err) {
-      console.error('Failed to initiate trip planning:', err);
+      console.error('Failed to start trip:', err);
       setIsSubmitting(false);
     }
-  }, [
-    step, maxStep, handleNext, destination, destPlaceId, bookingMode, dateRange,
-    arrivalTime, departureTime, derivedDuration, accommodation, hasAccommodation,
-    interests, budgetGBP, diningProfile, anchorPoints, setIntake, setAllPOIs, 
-    setItinerary, setCurrentTripId, router,
-  ]);
+  }, [step, maxStep, handleNext, validateStep, setCurrentTripId, router]);
 
-  const stepLabels = ['Basics', 'The Vibe', 'Details'];
+  const stepLabels = ['Basics & Logistics', 'The Vibe', 'Accommodation & Anchors'];
 
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-10">
@@ -569,143 +368,117 @@ export default function TripIntakeForm() {
       {/* Stepper Header */}
       <div>
         <div className="mb-2 flex items-center justify-between">
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-            Step {step} of {maxStep}
-          </p>
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-            {stepLabels[step - 1]}
-          </p>
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Step {step} of {maxStep}</p>
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">{stepLabels[step - 1]}</p>
         </div>
         <div className="relative h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
-          <div
-            className="absolute left-0 top-0 h-2 rounded-full bg-emerald-600 transition-all"
-            style={{ width: `${(step / maxStep) * 100}%` }}
-          />
+          <div className="absolute left-0 top-0 h-2 rounded-full bg-brand-500 transition-all" style={{ width: `${(step / maxStep) * 100}%` }} />
         </div>
       </div>
 
-      {/* STEP 1: BASICS */}
+      {/* STEP 1: BASICS & TRANSIT */}
       {step === 1 && (
-        <div className="flex flex-col gap-8">
+        <div className="flex flex-col gap-8 animate-fade-in">
           <FieldWrapper label="How are you planning this trip?">
             <BookingModeToggle value={bookingMode} onChange={handleBookingModeChange} />
           </FieldWrapper>
 
           <div className="grid gap-8 md:grid-cols-2 md:gap-6">
-            <FieldWrapper
-              label="Where are you heading? 📍"
-              htmlFor="destination"
-              error={errors.destination}
-              hint="Start typing a city — select from the suggestions."
-            >
+            <FieldWrapper label="Where are you heading? 📍" error={errors.destination} hint="Start typing a city — select from the suggestions.">
               <PlacesAutocompleteInput
                 id="destination"
                 value={destination}
-                onPlaceSelected={(address, placeId) => {
-                  setDestination(address);
-                  setDestPlaceId(placeId ?? '');
-                  setErrors((prev) => ({ ...prev, destination: undefined }));
-                }}
-                onInputChange={(val) => {
-                  setDestination(val);
-                  setDestPlaceId('');
-                  setErrors((prev) => ({ ...prev, destination: undefined }));
-                }}
+                onPlaceSelected={(address, placeId) => { setDestination(address); setDestPlaceId(placeId ?? ''); setErrors((prev) => ({ ...prev, destination: undefined })); }}
+                onInputChange={(val) => { setDestination(val); setDestPlaceId(''); setErrors((prev) => ({ ...prev, destination: undefined })); }}
                 placeholder="e.g. Barcelona, Tokyo, Cape Town…"
                 error={errors.destination}
-                types={['(cities)']}
               />
             </FieldWrapper>
 
             {bookingMode === 'booked' ? (
-              <div className="flex flex-col gap-5">
-                <FieldWrapper label="When are you travelling? 📅" error={errors.dateRange} hint="Select arrival & departure dates.">
-                  <DateRangePicker
-                    range={dateRange}
-                    onChange={(r) => {
-                      setDateRange(r);
-                      setErrors((prev) => ({ ...prev, dateRange: undefined }));
-                    }}
-                    error={errors.dateRange}
-                  />
-                </FieldWrapper>
-                <div className="grid grid-cols-2 gap-4">
-                  <FieldWrapper label="Arrival Time ✈️" htmlFor="arrival-time" error={errors.arrivalTime}>
-                    <input
-                      id="arrival-time"
-                      type="time"
-                      value={arrivalTime}
-                      onChange={(e) => {
-                        setArrivalTime(e.target.value);
-                        setErrors((prev) => ({ ...prev, arrivalTime: undefined }));
-                      }}
-                      className={inputClass(!!errors.arrivalTime)}
-                    />
-                  </FieldWrapper>
-                  <FieldWrapper label="Departure Time 🛫" htmlFor="departure-time" error={errors.departureTime}>
-                    <input
-                      id="departure-time"
-                      type="time"
-                      value={departureTime}
-                      onChange={(e) => {
-                        setDepartureTime(e.target.value);
-                        setErrors((prev) => ({ ...prev, departureTime: undefined }));
-                      }}
-                      className={inputClass(!!errors.departureTime)}
-                    />
-                  </FieldWrapper>
-                </div>
-              </div>
+              <FieldWrapper label="When are you travelling? 📅" error={errors.dateRange} hint="Select arrival & departure dates.">
+                <DateRangePicker range={dateRange} onChange={(r) => { setDateRange(r); setErrors((prev) => ({ ...prev, dateRange: undefined })); }} error={errors.dateRange} />
+              </FieldWrapper>
             ) : (
               <FieldWrapper label="How many days? 📅" htmlFor="duration" error={errors.duration} hint={`Between ${MIN_DURATION} and ${MAX_DURATION} days.`}>
                 <div className="flex items-center gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setDuration((d) => Math.max(MIN_DURATION, d - 1))}
-                    disabled={duration <= MIN_DURATION}
-                    className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xl font-bold text-slate-600 dark:text-slate-300 shadow-sm transition-all hover:border-emerald-400 hover:text-emerald-600 disabled:opacity-30"
-                  >
-                    −
-                  </button>
-                  <input
-                    id="duration"
-                    type="number"
-                    value={duration}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value, 10);
-                      if (!isNaN(val)) {
-                        setDuration(Math.min(MAX_DURATION, Math.max(MIN_DURATION, val)));
-                        setErrors((prev) => ({ ...prev, duration: undefined }));
-                      }
-                    }}
-                    min={MIN_DURATION}
-                    max={MAX_DURATION}
-                    className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3.5 text-center text-base font-semibold text-slate-800 dark:text-slate-100 shadow-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setDuration((d) => Math.min(MAX_DURATION, d + 1))}
-                    disabled={duration >= MAX_DURATION}
-                    className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xl font-bold text-slate-600 dark:text-slate-300 shadow-sm transition-all hover:border-emerald-400 hover:text-emerald-600 disabled:opacity-30"
-                  >
-                    +
-                  </button>
+                  <button type="button" onClick={() => setDuration((d) => Math.max(MIN_DURATION, d - 1))} disabled={duration <= MIN_DURATION} className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xl font-bold text-slate-600 dark:text-slate-300 shadow-sm transition-all hover:border-brand-400 hover:text-brand-600 disabled:opacity-30">−</button>
+                  <input id="duration" type="number" value={duration} onChange={(e) => { const val = parseInt(e.target.value, 10); if (!isNaN(val)) { setDuration(Math.min(MAX_DURATION, Math.max(MIN_DURATION, val))); setErrors((prev) => ({ ...prev, duration: undefined })); } }} min={MIN_DURATION} max={MAX_DURATION} className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3.5 text-center text-base font-semibold text-slate-800 dark:text-slate-100 shadow-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+                  <button type="button" onClick={() => setDuration((d) => Math.min(MAX_DURATION, d + 1))} disabled={duration >= MAX_DURATION} className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xl font-bold text-slate-600 dark:text-slate-300 shadow-sm transition-all hover:border-brand-400 hover:text-brand-600 disabled:opacity-30">+</button>
                 </div>
               </FieldWrapper>
             )}
           </div>
+
+          {/* TRANSIT DETAILS (OPTIONAL) */}
+          {bookingMode === 'booked' && (
+            <div className="mt-4 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+              <FieldWrapper label="How are you getting there? (Optional)" error={errors.transitMode} hint="We'll use this to correctly schedule your first and last day.">
+                <div className="flex gap-2 mb-6">
+                  {(['Flight', 'Train', 'Car / Other', 'Not Sure'] as PrimaryTransitMode[]).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setTransitMode(mode)}
+                      className={`flex-1 py-2 text-sm font-semibold rounded-lg border transition-all ${
+                        transitMode === mode ? 'bg-brand-100 border-brand-300 text-brand-700 dark:bg-brand-900/40 dark:border-brand-600/50 dark:text-brand-300' : 'bg-white border-slate-200 text-slate-600 hover:border-brand-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300'
+                      }`}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </div>
+              </FieldWrapper>
+
+              {transitMode === 'Flight' || transitMode === 'Train' ? (
+                 <div className="grid md:grid-cols-2 gap-6 pt-2 border-t border-slate-200 dark:border-slate-700">
+                    <div className="space-y-4">
+                      <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Outbound {transitMode}</h4>
+                      <div className="flex gap-3">
+                        <div className="flex-1">
+                          <label className="block text-xs font-medium text-slate-500 mb-1">Number / Ref</label>
+                          <input type="text" placeholder={transitMode === 'Flight' ? 'e.g. BA314' : 'e.g. 1A2B3C'} value={outboundRef} onChange={(e) => setOutboundRef(e.target.value)} className={inputClass(false) + " py-2 text-sm"} />
+                        </div>
+                        <div className="w-24">
+                          <label className="block text-xs font-medium text-slate-500 mb-1">Arrival Time</label>
+                          <input type="time" value={outboundTime} onChange={(e) => setOutboundTime(e.target.value)} className={inputClass(false) + " py-2 text-sm px-2"} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Return {transitMode}</h4>
+                      <div className="flex gap-3">
+                        <div className="flex-1">
+                          <label className="block text-xs font-medium text-slate-500 mb-1">Number / Ref</label>
+                          <input type="text" placeholder={transitMode === 'Flight' ? 'e.g. BA315' : 'e.g. 1A2B3C'} value={returnRef} onChange={(e) => setReturnRef(e.target.value)} className={inputClass(false) + " py-2 text-sm"} />
+                        </div>
+                        <div className="w-24">
+                          <label className="block text-xs font-medium text-slate-500 mb-1">Depart Time</label>
+                          <input type="time" value={returnTime} onChange={(e) => setReturnTime(e.target.value)} className={inputClass(false) + " py-2 text-sm px-2"} />
+                        </div>
+                      </div>
+                    </div>
+                 </div>
+              ) : transitMode === 'Car / Other' ? (
+                 <div className="grid md:grid-cols-2 gap-6 pt-2 border-t border-slate-200 dark:border-slate-700">
+                    <FieldWrapper label="Estimated Arrival Time" className="flex-1">
+                      <input type="time" value={outboundTime} onChange={(e) => setOutboundTime(e.target.value)} className={inputClass(false) + " py-2 w-32"} />
+                    </FieldWrapper>
+                    <FieldWrapper label="Estimated Departure Time" className="flex-1">
+                      <input type="time" value={returnTime} onChange={(e) => setReturnTime(e.target.value)} className={inputClass(false) + " py-2 w-32"} />
+                    </FieldWrapper>
+                 </div>
+              ) : null}
+            </div>
+          )}
         </div>
       )}
 
       {/* STEP 2: THE VIBE */}
       {step === 2 && (
-        <div className="flex flex-col gap-8">
-          <FieldWrapper
-            label="What are your interests? 🎯"
-            htmlFor="interests"
-            error={errors.interests}
-            hint="Select everything that appeals — we'll use this to curate your POIs."
-          >
+        <div className="flex flex-col gap-8 animate-fade-in">
+          <FieldWrapper label="What are your interests? 🎯" error={errors.interests} hint="Select everything that appeals — we'll use this to curate your POIs.">
             <div id="interests" className="flex flex-wrap gap-2.5 pt-1">
               {INTERESTS.map(({ label, emoji }) => {
                 const isSelected = interests.includes(label);
@@ -714,14 +487,9 @@ export default function TripIntakeForm() {
                     key={label}
                     type="button"
                     onClick={() => toggleInterest(label)}
-                    aria-pressed={isSelected}
-                    className={`
-                      inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition-all
-                      ${isSelected ? 'border-emerald-500 bg-emerald-600 text-white shadow-md' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-emerald-300 hover:text-emerald-700'}
-                    `}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition-all ${isSelected ? 'border-brand-500 bg-brand-600 text-white shadow-md' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-brand-300 hover:text-brand-700'}`}
                   >
-                    <span aria-hidden="true">{emoji}</span>
-                    {label}
+                    <span aria-hidden="true">{emoji}</span>{label}
                   </button>
                 );
               })}
@@ -731,41 +499,9 @@ export default function TripIntakeForm() {
           <div className="grid gap-8 md:grid-cols-2 md:gap-6">
             <FieldWrapper label="What's your total budget? 💷" htmlFor="budgetGBP" error={errors.budgetGBP} hint="Excluding flights. We'll keep daily spend within this.">
               <div className="relative">
-                <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                  <span className="text-base font-semibold text-slate-500 dark:text-slate-400">£</span>
-                </div>
-                <input
-                  id="budgetGBP"
-                  type="text"
-                  inputMode="numeric"
-                  value={budgetRaw}
-                  onChange={handleBudgetChange}
-                  className={inputClass(!!errors.budgetGBP) + ' pl-9 pr-28'}
-                  aria-invalid={!!errors.budgetGBP}
-                />
-                {budgetGBP > 0 && (
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4">
-                    <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">
-                      {budgetGBP.toLocaleString('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 })}
-                    </span>
-                  </div>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2 pt-1">
-                {[250, 500, 1000, 2000, 5000].map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => {
-                      setBudgetGBP(preset);
-                      setBudgetRaw(String(preset));
-                      setErrors((prev) => ({ ...prev, budgetGBP: undefined }));
-                    }}
-                    className={`rounded-full border px-3 py-1 text-xs font-semibold transition-all ${budgetGBP === preset ? 'border-emerald-500 bg-emerald-600 text-white' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 hover:border-emerald-300 hover:text-emerald-600'}`}
-                  >
-                    £{preset.toLocaleString('en-GB')}
-                  </button>
-                ))}
+                <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4"><span className="text-base font-semibold text-slate-500 dark:text-slate-400">£</span></div>
+                <input id="budgetGBP" type="text" inputMode="numeric" value={budgetRaw} onChange={handleBudgetChange} className={inputClass(!!errors.budgetGBP) + ' pl-9 pr-28'} aria-invalid={!!errors.budgetGBP} />
+                {budgetGBP > 0 && <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4"><span className="text-xs font-semibold text-slate-400 dark:text-slate-500">{budgetGBP.toLocaleString('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 })}</span></div>}
               </div>
             </FieldWrapper>
 
@@ -774,20 +510,9 @@ export default function TripIntakeForm() {
                 {DINING_PROFILES.map(({ value, label, emoji, description }) => {
                   const isSelected = diningProfile === value;
                   return (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setDiningProfile(value)}
-                      className={`
-                        flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all
-                        ${isSelected ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950 shadow-md ring-2 ring-emerald-200 dark:ring-emerald-800' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-emerald-300'}
-                      `}
-                    >
+                    <button key={value} type="button" onClick={() => setDiningProfile(value)} className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all ${isSelected ? 'border-brand-500 bg-brand-50 dark:bg-brand-950 shadow-md ring-2 ring-brand-200 dark:ring-brand-800' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-brand-300'}`}>
                       <span className="text-xl" aria-hidden="true">{emoji}</span>
-                      <span className={`text-sm font-bold leading-snug ${isSelected ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-700 dark:text-slate-200'}`}>
-                        {label}
-                      </span>
-                      <span className="text-xs leading-relaxed text-slate-400 dark:text-slate-500">{description}</span>
+                      <span className={`text-sm font-bold leading-snug ${isSelected ? 'text-brand-700 dark:text-brand-300' : 'text-slate-700 dark:text-slate-200'}`}>{label}</span>
                     </button>
                   );
                 })}
@@ -799,79 +524,57 @@ export default function TripIntakeForm() {
 
       {/* STEP 3: DETAILS */}
       {step === 3 && (
-        <div className="grid gap-8 md:grid-cols-2 md:gap-6">
-          {/* Column 1: Accommodation OR Arrival Hub */}
+        <div className="grid gap-8 md:grid-cols-2 md:gap-6 animate-fade-in">
+          
           <div className="flex flex-col gap-6">
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900/50">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900/50">
               <div>
                 <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  {derivedDuration === 1 
-                    ? 'I know my arrival point (e.g. station/car park)' 
-                    : 'I have already booked accommodation'}
+                  {derivedDuration === 1 ? 'Do you know your arrival point?' : 'Have you booked accommodation?'}
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400">Used as your daily start/end point.</p>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setHasAccommodation((v) => {
-                    if (v) setAccommodation('');
-                    return !v;
-                  });
-                  setErrors((prev) => ({ ...prev, accommodation: undefined }));
-                }}
-                className={`inline-flex h-9 items-center justify-center rounded-full px-4 text-xs font-semibold ${hasAccommodation ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'}`}
-              >
-                {hasAccommodation ? 'Yes, I have' : 'No'}
-              </button>
+              
+              {/* NEW SEGMENTED TOGGLE */}
+              <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-1 shrink-0 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => { setHasAccommodation(true); setErrors((prev) => ({ ...prev, accommodation: undefined })); }}
+                  className={`flex-1 sm:flex-none px-6 py-1.5 text-xs font-bold rounded-md transition-all ${
+                    hasAccommodation 
+                      ? 'bg-white dark:bg-slate-700 text-brand-700 dark:text-brand-300 shadow-sm' 
+                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                  }`}
+                >
+                  Yes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setHasAccommodation(false); setAccommodation(''); setErrors((prev) => ({ ...prev, accommodation: undefined })); }}
+                  className={`flex-1 sm:flex-none px-6 py-1.5 text-xs font-bold rounded-md transition-all ${
+                    !hasAccommodation 
+                      ? 'bg-white dark:bg-slate-700 text-brand-700 dark:text-brand-300 shadow-sm' 
+                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                  }`}
+                >
+                  No
+                </button>
+              </div>
             </div>
 
             {hasAccommodation && (
-              <FieldWrapper 
-                label={derivedDuration === 1 ? "Where are you arriving? 🚉" : "Where are you staying? 🏨"}
-                htmlFor="accommodation" 
-                error={errors.accommodation} 
-                hint={derivedDuration === 1 ? "Enter your train station, airport, or car park." : "Enter your hotel, apartment, or area."}
-              >
-                <PlacesAutocompleteInput
-                  id="accommodation"
-                  value={accommodation}
-                  onPlaceSelected={(address, placeId) => {
-                    setAccommodation(address);
-                    setErrors((prev) => ({ ...prev, accommodation: undefined }));
-                  }}
-                  onInputChange={(val) => {
-                    setAccommodation(val);
-                    setErrors((prev) => ({ ...prev, accommodation: undefined }));
-                  }}
-                  placeholder={derivedDuration === 1 ? "e.g. Cambridge Railway Station…" : "e.g. Hotel Arts Barcelona…"}
-                  types={derivedDuration === 1 ? ['transit_station', 'geocode'] : ['establishment', 'geocode']}
-                  error={errors.accommodation}
-                />
+              <FieldWrapper label={derivedDuration === 1 ? "Where are you arriving? 🚉" : "Where are you staying? 🏨"} error={errors.accommodation} hint={derivedDuration === 1 ? "Enter your train station, airport, or car park." : "Enter your hotel, apartment, or area."}>
+                <PlacesAutocompleteInput id="accommodation" value={accommodation} onPlaceSelected={(address, placeId) => { setAccommodation(address); setErrors((prev) => ({ ...prev, accommodation: undefined })); }} onInputChange={(val) => { setAccommodation(val); setErrors((prev) => ({ ...prev, accommodation: undefined })); }} placeholder={derivedDuration === 1 ? "e.g. Cambridge Railway Station…" : "e.g. Hotel Arts Barcelona…"} types={derivedDuration === 1 ? ['transit_station', 'geocode'] : ['establishment', 'geocode']} error={errors.accommodation} />
               </FieldWrapper>
             )}
           </div>
 
-          {/* Column 2: Anchor Points */}
           <div className="flex flex-col">
-            <FieldWrapper
-              label="Anchor Points & Hard Constraints 📌"
-              htmlFor="anchorPoints"
-              hint="Pre-booked tours or non-negotiable activities."
-            >
-              <textarea
-                id="anchorPoints"
-                value={anchorPoints}
-                onChange={(e) => setAnchorPoints(e.target.value)}
-                placeholder={`e.g.\n• Sagrada Família booked: Day 2, 10:00–12:00\n• Must visit Camp Nou on Day 3`}
-                rows={6}
-                className="w-full resize-none rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3.5 text-sm leading-relaxed text-slate-800 dark:text-slate-100 placeholder-slate-400 shadow-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
-              />
+            <FieldWrapper label="Anchor Points & Hard Constraints 📌" htmlFor="anchorPoints" hint="Pre-booked tours or non-negotiable activities.">
+              <textarea id="anchorPoints" value={anchorPoints} onChange={(e) => setAnchorPoints(e.target.value)} placeholder={`e.g.\n• Sagrada Família booked: Day 2, 10:00–12:00\n• Must visit Camp Nou on Day 3`} rows={6} className="w-full resize-none rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3.5 text-sm leading-relaxed text-slate-800 dark:text-slate-100 placeholder-slate-400 shadow-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500 outline-none transition-all" />
               <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-3.5 py-3">
                 <span className="mt-0.5 flex-shrink-0 text-sm" aria-hidden="true">⚠️</span>
-                <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-400">
-                  <strong>Hard constraints:</strong> The AI will never schedule another activity during any blocked time windows you specify above.
-                </p>
+                <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-400"><strong>Hard constraints:</strong> The AI will never schedule another activity during any blocked time windows you specify above.</p>
               </div>
             </FieldWrapper>
           </div>
@@ -881,22 +584,12 @@ export default function TripIntakeForm() {
       {/* Navigation Buttons */}
       <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
         {step > 1 ? (
-          <button
-            type="button"
-            onClick={handleBack}
-            className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-          >
+          <button type="button" onClick={handleBack} className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500">
             ← Back
           </button>
-        ) : (
-          <div />
-        )}
+        ) : <div />}
 
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="relative inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-8 py-3 text-sm font-bold text-white shadow-lg transition-all duration-200 hover:bg-emerald-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-        >
+        <button type="submit" disabled={isSubmitting} className="relative inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-8 py-3 text-sm font-bold text-white shadow-lg transition-all duration-200 hover:bg-brand-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2">
           {isSubmitting ? 'Starting...' : step === maxStep ? 'Start Planning 🍐' : `Next: ${stepLabels[step]}`}
         </button>
       </div>

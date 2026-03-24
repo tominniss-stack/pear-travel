@@ -22,6 +22,23 @@ export type DiningProfile =
 
 export type BookingMode = 'booked' | 'planning';
 
+export type PrimaryTransitMode = 'Flight' | 'Train' | 'Car / Other' | 'Not Sure';
+
+// ── NEW: Flexible Transit Details ──────────────────────────────────────────────
+export interface TransitDetails {
+  mode: PrimaryTransitMode;
+  outbound?: {
+    time: string;           // The time they arrive at the destination
+    reference?: string;     // e.g., Flight Number 'BA 314'
+    station?: string;       // e.g., 'LHR' or 'Kings Cross'
+  };
+  return?: {
+    time: string;           // The time they depart the destination
+    reference?: string; 
+    station?: string;
+  };
+}
+
 // ── Trip Intake ───────────────────────────────────────────────────────────────
 
 export interface TripIntake {
@@ -30,8 +47,7 @@ export interface TripIntake {
   bookingMode:         BookingMode;
   startDate?:          string;   
   endDate?:            string;   
-  arrivalTime?:        string;   
-  departureTime?:      string;   
+  transitDetails?:     TransitDetails; // Replaces arrivalTime/departureTime
   duration:            number;
   accommodation:       string;   
   interests:           Interest[];
@@ -82,7 +98,8 @@ export interface ItineraryEntry {
   isFixed?:            boolean;   
   openingHours?:       { open: string; close: string }; // e.g., { open: "09:00", close: "17:00" }
   timeWarning?:        string; // Used by recalc.ts to flag "Closes at 17:00"
-  isAccommodation?: boolean;
+  isAccommodation?:    boolean;
+  linkedDocumentId?:   string; // New: Link a specific activity/flight to a Filing Cabinet PDF
 }
 
 export interface DayItinerary {
@@ -132,7 +149,6 @@ export interface TripStore {
   setExchangeRate:  (rate: number) => void;
   weatherForecast:  any[];
   setWeatherForecast: (forecast: any[]) => void;
-  
   
   // Intake Actions
   updateIntakeField: <K extends keyof TripIntake>(field: K, value: TripIntake[K]) => void;
