@@ -122,6 +122,13 @@ export interface CityEssentials {
   tapWater?:            string;
   apps?:                string[];
   contextualRisk?:      string;
+  localCustoms?:        string[];
+  // ── NEW: Neighbourhood Matchmaker ──
+  neighbourhoodRecommendations?: {
+    name:   string;
+    vibe:   string; // e.g., "£ • Hostels & Street Art"
+    reason: string; // e.g., "Close to your chosen nightlife POIs."
+  }[];
 }
 
 export interface Itinerary {

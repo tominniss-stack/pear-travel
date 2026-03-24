@@ -7,6 +7,7 @@ import PlaceDetailsModal, { DocumentInfo } from './PlaceDetailsModal';
 import FilingCabinet from './FilingCabinet';
 import { useTripStore } from '@/store/tripStore';
 import { fetchTripDocuments } from '@/app/actions/documents';
+import { fetchTripWeather, DailyWeather } from '@/app/actions/weather';
 
 export interface ClientTripProps {
   id: string;
@@ -16,6 +17,18 @@ export interface ClientTripProps {
   startDate: string | null;
   endDate: string | null;
   intake?: any; // Added fallback to catch DB intake if store is wiped
+}
+
+// -- Weather Emoji Mapper (Based on Open-Meteo Codes) --
+function getWeatherEmoji(code: number): string {
+  if (code === 0) return '☀️'; // Clear sky
+  if (code === 1 || code === 2 || code === 3) return '🌤️'; // Partly cloudy
+  if (code >= 45 && code <= 48) return '🌫️'; // Fog
+  if (code >= 51 && code <= 67) return '🌧️'; // Rain/Drizzle
+  if (code >= 71 && code <= 77) return '❄️'; // Snow
+  if (code >= 80 && code <= 82) return '🌦️'; // Rain showers
+  if (code >= 95 && code <= 99) return '⛈️'; // Thunderstorm
+  return '⛅'; // Default
 }
 
 // ── Smart SVG Plug Icon Generator ─────────────────────────────────────────────
@@ -178,9 +191,23 @@ function TimelineEntry({
         >
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <h4 className={`text-base font-bold leading-snug transition-colors ${hasPlaceId ? 'text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-300' : 'text-slate-900 dark:text-white'}`}>
-                {displayTitle}
-              </h4>
+              <div className="flex items-center gap-2">
+                <h4 className={`text-base font-bold leading-snug transition-colors ${hasPlaceId ? 'text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-300' : 'text-slate-900 dark:text-white'}`}>
+                  {displayTitle}
+                </h4>
+                {/* Clickable Maps Link for Accommodations */}
+                {isStay && !isFlight && (
+                  <a 
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(displayTitle)}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()} 
+                    className="text-[10px] font-bold uppercase tracking-wider text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300 bg-brand-50 dark:bg-brand-900/30 px-2 py-0.5 rounded-md transition-colors"
+                  >
+                    View Map ↗
+                  </a>
+                )}
+              </div>
               {durationMinutes !== null && durationMinutes > 0 && !isLast && (
                 <p className="mt-1 text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
                   Est. Duration: {formatSuggestedDuration(durationMinutes)}
@@ -238,6 +265,18 @@ export default function ItineraryDisplay({
   const [tripDocuments, setTripDocuments] = useState<DocumentInfo[]>([]);
 
   const { exchangeRate, setExchangeRate, displayCurrency, toggleCurrency, intake } = useTripStore();
+  
+  // NEW WEATHER STATE
+  const [weatherData, setWeatherData] = useState<DailyWeather[] | null>(null);
+
+  // NEW WEATHER FETCHER
+  useEffect(() => {
+    async function loadWeather() {
+      const data = await fetchTripWeather(trip.destination, trip.startDate, trip.duration || days.length);
+      if (data) setWeatherData(data);
+    }
+    loadWeather();
+  }, [trip.destination, trip.startDate, trip.duration, days.length]);
   
   const accommodationName = intake?.accommodation || trip.intake?.accommodation;
 
@@ -568,12 +607,17 @@ export default function ItineraryDisplay({
 
                 {trip.startDate ? (
                   <div className="flex overflow-x-auto gap-3 pb-4 -mx-2 px-2 sm:mx-0 sm:px-0 hide-scrollbar snap-x">
-                    {Array.from({ length: days.length || trip.duration }).map((_, i) => {
+                    {(weatherData || Array.from({ length: days.length || trip.duration })).map((dayData: any, i) => {
                       const tripDate = new Date(trip.startDate!);
                       tripDate.setDate(tripDate.getDate() + i);
                       const dayName = format(tripDate, 'EEE');
                       const dateString = format(tripDate, 'd MMM');
                       const isToday = format(tripDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+
+                      // Handle both real data and fallback states
+                      const emoji = weatherData ? getWeatherEmoji(dayData.weatherCode) : ['☀️', '🌤️', '🌦️', '☀️', '⛅'][i % 5];
+                      const maxT = weatherData ? `${dayData.maxTemp}°` : '22°';
+                      const minT = weatherData ? `${dayData.minTemp}°` : '14°';
 
                       return (
                         <div 
@@ -594,11 +638,11 @@ export default function ItineraryDisplay({
                           </span>
                           
                           <span className="text-3xl mb-2">
-                            {['☀️', '🌤️', '🌦️', '☀️', '⛅'][i % 5]}
+                            {emoji}
                           </span>
                           <div className="flex gap-2 font-bold tabular-nums">
-                            <span className="text-sm text-slate-900 dark:text-white">22°</span>
-                            <span className="text-sm text-slate-400">14°</span>
+                            <span className="text-sm text-slate-900 dark:text-white">{maxT}</span>
+                            <span className="text-sm text-slate-400">{minT}</span>
                           </div>
                         </div>
                       );
@@ -710,27 +754,33 @@ export default function ItineraryDisplay({
                       {phrases.map((p, i) => (
                         <div key={i} className="flex justify-between items-center border-b border-slate-100 dark:border-slate-700/50 pb-2">
                           <span className="text-sm text-slate-600 dark:text-slate-400">{p.phrase}</span>
-                          <span className="text-sm font-bold text-slate-900 dark:text-white">{p.translation}</span>
+                          <span className="text-sm font-bold text-slate-900 dark:text-white text-right">{p.translation}</span>
                         </div>
                       ))}
                     </div>
                   </div>
-                  <div className="flex flex-col justify-start">
-                    <div className="bg-slate-50 dark:bg-slate-900/50 border-l-4 border-amber-500 p-5 rounded-r-2xl border-y border-r border-slate-200 dark:border-slate-700/50">
-                      <h4 className="text-xs font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                  <div className="flex flex-col justify-start gap-5">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Tipping & Custom</h4>
+                      <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                        {essentials?.tippingEtiquette || 'Tipping is generally appreciated but not strictly mandatory. 10% is standard for good service.'}
+                      </p>
+                    </div>
+                    <div className="bg-slate-50 dark:bg-slate-900/50 border-l-4 border-amber-500 p-4 rounded-r-xl border-y border-r border-slate-200 dark:border-slate-700/50">
+                      <h4 className="text-[10px] font-black text-amber-600 dark:text-amber-500 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
                         <span>⚠️</span> Contextual Risk
                       </h4>
-                      <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">{risk}</p>
+                      <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{risk}</p>
                     </div>
                   </div>
                 </div>
               </div>
               
-              <div className={`${rightCardStyle} overflow-hidden`}>
+              <div className={`${rightCardStyle} overflow-hidden flex flex-col`}>
                 <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-6 relative z-10">Accommodation</h3>
                 
                 <div className="relative z-10 flex flex-col flex-1">
-                  {dynamicStays.length > 0 ? (
+                  {accommodationName && dynamicStays.length > 0 ? (
                     <>
                       <div className="flex flex-col gap-4 mb-6 flex-1 overflow-y-auto pr-2 custom-scrollbar">
                         {dynamicStays.map((stay, idx) => (
@@ -769,23 +819,38 @@ export default function ItineraryDisplay({
                     </>
                   ) : (
                     <>
-                      <div className="mb-4">
-                        <span className="text-[10px] font-black uppercase text-brand-500 dark:text-brand-400 tracking-widest block mb-1">Area Recommendation</span>
-                        <span className="text-xl font-bold text-slate-900 dark:text-white block leading-tight">Central Hub</span>
+                      <div className="mb-2 flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase text-brand-500 dark:text-brand-400 tracking-widest block">✨ AI Matchmaker</span>
+                        <span className="bg-brand-100 dark:bg-brand-900/50 text-brand-700 dark:text-brand-300 text-[8px] font-black uppercase px-2 py-0.5 rounded-full">Tailored for you</span>
                       </div>
-                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-6">
-                        Based on your selected activities, staying centrally minimises travel time and keeps you close to transit hubs.
-                      </p>
-                      <div className="mt-auto">
+                      
+                      <div className="flex flex-col mb-6 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                        {essentials?.neighbourhoodRecommendations && essentials.neighbourhoodRecommendations.length > 0 ? (
+                          essentials.neighbourhoodRecommendations.map((rec, idx) => (
+                            <div key={idx} className="py-3.5 border-b border-slate-100 dark:border-slate-800/60 last:border-0">
+                              <div className="flex flex-col mb-1.5">
+                                <span className="text-sm font-bold text-slate-900 dark:text-white mb-0.5">{rec.name}</span>
+                                <span className="text-[9px] font-bold text-brand-600 dark:text-brand-400 uppercase tracking-wide">{rec.vibe}</span>
+                              </div>
+                              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                                {rec.reason}
+                              </p>
+                            </div>
+                          ))
+                        ) : (
+                           <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed pt-2">
+                             Based on your selected activities, staying centrally minimises travel time and keeps you close to transit hubs.
+                           </p>
+                        )}
+                      </div>
+
+                      <div className="mt-auto pt-2 border-t border-slate-200 dark:border-slate-800/60">
                         <button 
                           onClick={() => {
-                            if (onEditRequest) {
-                              onEditRequest();
-                            } else {
-                              setActiveTab(1);
-                            }
+                            if (onEditRequest) onEditRequest();
+                            else setActiveTab(1);
                           }}
-                          className="w-full py-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 rounded-xl text-xs font-bold transition-colors shadow-sm cursor-pointer"
+                          className="w-full mt-4 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 rounded-xl text-xs font-bold transition-colors shadow-sm cursor-pointer"
                         >
                           Add Booking Details
                         </button>

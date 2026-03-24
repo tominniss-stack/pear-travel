@@ -179,6 +179,21 @@ CRITICAL ANCHOR RULES:
 4. Protect anchor times — always account for transit time; do NOT schedule another activity during an anchored block.
 `
     : '';
+const matchmakerInstructions = !userAccommodation ? `
+════════════════════════════════════════
+NEIGHBOURHOOD MATCHMAKER (AI CONCIERGE)
+════════════════════════════════════════
+The user has NOT booked accommodation yet. You must analyze the POIs they selected, their interests (${intake.interests.join(', ')}), and their budget (£${intake.budgetGBP}).
+Provide exactly 3 distinct neighbourhood/district recommendations in the 'neighbourhoodRecommendations' array:
+1. Budget/Hostel focus (£)
+2. Mid-Range/Hotel focus (££) - The "Best Fit"
+3. Premium/Boutique focus (£££)
+
+For each, provide:
+- "name": The actual name of the district (e.g., "El Born").
+- "vibe": A short tag including the price tier (e.g., "££ • Tapas & Boutique Hotels").
+- "reason": Specifically explain WHY it's good based on proximity to the specific POIs on their itinerary.
+` : '';
 
   const durationGuidelines = `
 ════════════════════════════════════════
@@ -242,7 +257,7 @@ ${anchorPointsSection || 'No anchor points defined.'}
 SELECTED POIs / NEW CANDIDATES
 ════════════════════════════════════════
 ${poisDetail}
-
+${matchmakerInstructions}
 ${durationGuidelines}
 
 ════════════════════════════════════════
@@ -299,7 +314,7 @@ Return ONLY valid JSON with the exact structure below. Note the boolean properti
       "isAccommodation": false
     }
   ],
-  "essentials": {
+"essentials": {
     "destination": "${intake.destination}",
     "airportTransit": "string",
     "tippingEtiquette": "string",
@@ -310,7 +325,14 @@ Return ONLY valid JSON with the exact structure below. Note the boolean properti
     "plugType": "string",
     "tapWater": "string",
     "apps": ["string"],
-    "contextualRisk": "string"
+    "contextualRisk": "string",
+    "neighbourhoodRecommendations": [
+      {
+        "name": "string",
+        "vibe": "string",
+        "reason": "string"
+      }
+    ]
   },
   "days": [
     {
