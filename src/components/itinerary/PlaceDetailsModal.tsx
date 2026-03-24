@@ -1,21 +1,53 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { Paperclip, UploadCloud, Link2, Loader2, FileText, FileImage, CheckCircle2 } from 'lucide-react';
 
-interface PlaceDetailsModalProps {
-  placeId: string;
-  aiNote?: string;
-  onClose: () => void;
+// Define Document structure
+export interface DocumentInfo {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  mimeType: string;
+  poiId?: string | null;
 }
 
-export default function PlaceDetailsModal({ placeId, aiNote, onClose }: PlaceDetailsModalProps) {
+interface PlaceDetailsModalProps {
+  placeId: string;       // Google Maps Place ID
+  poiId: string;         // Prisma POI ID (New: required for linking)
+  tripId: string;        // Prisma Trip ID (New: required for folder structure)
+  aiNote?: string;
+  tripDocuments?: DocumentInfo[]; // (New: All documents uploaded to this trip)
+  onClose: () => void;
+  onDocumentUpdate?: () => void;  // (New: Callback to refresh data after upload/link)
+}
+
+export default function PlaceDetailsModal({ 
+  placeId, 
+  poiId,
+  tripId,
+  aiNote, 
+  tripDocuments = [],
+  onClose,
+  onDocumentUpdate
+}: PlaceDetailsModalProps) {
+  
+  // Maps State
   const [place, setPlace] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Document State
+  const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedDocToLink, setSelectedDocToLink] = useState('');
+
+  // Derived state for the UI
+  const attachedDocs = tripDocuments.filter(doc => doc.poiId === poiId);
+  const availableDocsToLink = tripDocuments.filter(doc => !doc.poiId);
+
+  // ─── MAPS FETCHING LOGIC ───────────────────────────────────────────────────
   useEffect(() => {
-    // ── STRICT GATEKEEPER ──
-    // Ensures we only call Google if we have a real, valid ID string
     const isValidId = 
       placeId && 
       placeId !== "" && 
@@ -76,14 +108,81 @@ export default function PlaceDetailsModal({ placeId, aiNote, onClose }: PlaceDet
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose]);
 
+  // ─── DOCUMENT UPLOAD & LINKING LOGIC ───────────────────────────────────────
+  const processUpload = async (file: File) => {
+    const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      alert('Please upload a PDF or Image file.');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      // Pass tripId and poiId to the API so it knows where to store it and how to link it
+      formData.append('tripId', tripId); 
+      formData.append('poiId', poiId);
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error('Upload failed');
+      
+      // Trigger a refresh of the parent component's data
+      if (onDocumentUpdate) onDocumentUpdate();
+      
+    } catch (err) {
+      console.error(err);
+      alert('Failed to upload document.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleLinkExistingDoc = async () => {
+    if (!selectedDocToLink) return;
+    
+    try {
+      // NOTE: We will build this Server Action next!
+      // await linkDocumentToPOI(selectedDocToLink, poiId);
+      
+      setSelectedDocToLink('');
+      if (onDocumentUpdate) onDocumentUpdate();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to link document.');
+    }
+  };
+
+  // Drag Handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation(); setIsDragging(true);
+  }, []);
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation(); setIsDragging(false);
+  }, []);
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation(); setIsDragging(false);
+    if (e.dataTransfer.files?.[0]) await processUpload(e.dataTransfer.files[0]);
+  }, [tripId, poiId]);
+
+  const getFileIcon = (mimeType: string) => {
+    if (mimeType.includes('pdf')) return <FileText className="w-5 h-5 text-red-500" />;
+    if (mimeType.includes('image')) return <FileImage className="w-5 h-5 text-blue-500" />;
+    return <Paperclip className="w-5 h-5 text-slate-500" />;
+  };
+
+  // ─── RENDER ────────────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 sm:p-6" onClick={onClose}>
       <div 
-        className="relative w-full max-w-2xl bg-white dark:bg-slate-800 rounded-3xl overflow-hidden shadow-2xl animate-fade-in max-h-[90vh] flex flex-col"
+        className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl overflow-hidden shadow-2xl animate-fade-in max-h-[90vh] flex flex-col border border-slate-200 dark:border-slate-800"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close Button */}
-        <button onClick={onClose} className="absolute top-4 right-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 backdrop-blur-md">✕</button>
+        <button onClick={onClose} className="absolute top-4 right-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 backdrop-blur-md transition-colors">✕</button>
 
         {loading ? (
           <div className="p-12 text-center h-64 flex flex-col items-center justify-center">
@@ -95,23 +194,23 @@ export default function PlaceDetailsModal({ placeId, aiNote, onClose }: PlaceDet
             <span className="text-4xl mb-4">📍</span>
             <p className="text-slate-900 dark:text-white font-bold mb-2">Details Unavailable</p>
             <p className="text-slate-500 dark:text-slate-400 text-sm max-w-xs">{error}</p>
-            <button onClick={onClose} className="mt-6 px-6 py-2 bg-slate-100 dark:bg-slate-700 rounded-xl text-sm font-bold">Close</button>
+            <button onClick={onClose} className="mt-6 px-6 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-sm font-bold text-slate-900 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-700">Close</button>
           </div>
         ) : (
-          <div className="overflow-y-auto custom-scrollbar">
+          <div className="overflow-y-auto custom-scrollbar flex-1">
             {/* Image Header */}
-            {place.photos && place.photos.length > 0 ? (
-              <div className="relative h-64 w-full bg-slate-200">
+            {place?.photos && place.photos.length > 0 ? (
+              <div className="relative h-48 sm:h-64 w-full bg-slate-200 dark:bg-slate-800 shrink-0">
                 <img src={place.photos[0].getUrl({ maxWidth: 800 })} className="w-full h-full object-cover" alt="" />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent" />
-                <h2 className="absolute bottom-6 left-6 text-3xl font-black text-white">{place.name}</h2>
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/40 to-transparent" />
+                <h2 className="absolute bottom-6 left-6 right-6 text-2xl sm:text-3xl font-black text-white leading-tight">{place.name}</h2>
               </div>
             ) : (
-              <div className="p-8 bg-brand-600"><h2 className="text-3xl font-black text-white">{place.name}</h2></div>
+              <div className="p-8 bg-brand-600 shrink-0"><h2 className="text-3xl font-black text-white">{place?.name || 'Activity Details'}</h2></div>
             )}
 
-            <div className="p-6 space-y-6">
-              {/* ── AI PLANNING NOTE ── */}
+            <div className="p-6 space-y-8">
+              {/* AI Note */}
               {aiNote && (
                 <div className="rounded-2xl bg-amber-50 dark:bg-amber-900/20 p-4 border border-amber-200 dark:border-amber-800/50">
                   <p className="text-xs font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-1 flex items-center gap-2">
@@ -121,20 +220,121 @@ export default function PlaceDetailsModal({ placeId, aiNote, onClose }: PlaceDet
                 </div>
               )}
 
-              <div className="flex gap-4">
-                {place.rating && <div className="bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-3 py-1 rounded-lg font-bold text-sm">⭐ {place.rating} ({place.user_ratings_total})</div>}
-                {place.opening_hours && <div className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-3 py-1 rounded-lg font-bold text-sm">{place.opening_hours.isOpen() ? 'Open Now' : 'Closed'}</div>}
-              </div>
-              
-              <div className="space-y-1">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Address</p>
-                <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed">{place.formatted_address}</p>
+              {/* Maps Details */}
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-3">
+                  {place?.rating && <div className="bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-3 py-1.5 rounded-lg font-bold text-sm border border-amber-100 dark:border-amber-800/50">⭐ {place.rating} ({place.user_ratings_total})</div>}
+                  {place?.opening_hours && <div className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-3 py-1.5 rounded-lg font-bold text-sm border border-emerald-100 dark:border-emerald-800/50">{place.opening_hours.isOpen() ? 'Open Now' : 'Closed'}</div>}
+                </div>
+                
+                {place?.formatted_address && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Address</p>
+                    <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed">{place.formatted_address}</p>
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  {place?.url && <a href={place.url} target="_blank" rel="noreferrer" className="flex-1 text-center py-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-sm text-slate-900 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Open in Maps</a>}
+                  {place?.website && <a href={place.website} target="_blank" rel="noreferrer" className="flex-1 text-center py-2.5 bg-brand-500 text-white rounded-xl font-bold text-sm hover:bg-brand-600 transition-colors">Visit Website</a>}
+                </div>
               </div>
 
-              <div className="flex gap-3 pt-2">
-                <a href={place.url} target="_blank" rel="noreferrer" className="flex-1 text-center py-3 bg-slate-100 dark:bg-slate-700 rounded-xl font-bold text-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors">Maps</a>
-                {place.website && <a href={place.website} target="_blank" rel="noreferrer" className="flex-1 text-center py-3 bg-brand-500 text-white rounded-xl font-bold text-sm hover:bg-brand-600 transition-colors">Website</a>}
+              <hr className="border-slate-100 dark:border-slate-800" />
+
+              {/* ── TICKETS & DOCUMENTS SECTION ── */}
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-4">
+                  <Paperclip className="w-4 h-4 text-slate-400" />
+                  Tickets & Documents
+                </h3>
+
+                {/* List Attached Docs */}
+                {attachedDocs.length > 0 && (
+                  <div className="space-y-2 mb-4">
+                    {attachedDocs.map(doc => (
+                      <a 
+                        key={doc.id}
+                        href={doc.fileUrl} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="flex items-center p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl hover:border-brand-300 dark:hover:border-brand-700 transition-colors group"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 flex items-center justify-center shadow-sm mr-3">
+                          {getFileIcon(doc.mimeType)}
+                        </div>
+                        <span className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-300 truncate group-hover:text-brand-600 dark:group-hover:text-brand-400">
+                          {doc.fileName}
+                        </span>
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      </a>
+                    ))}
+                  </div>
+                )}
+
+                {/* Upload / Link Actions */}
+                <div className="bg-slate-50 dark:bg-slate-800/30 rounded-2xl border border-slate-200 dark:border-slate-800 p-4">
+                  
+                  {/* Option 1: Link Existing */}
+                  {availableDocsToLink.length > 0 && (
+                    <div className="mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
+                      <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Attach an existing trip file:</label>
+                      <div className="flex gap-2">
+                        <select 
+                          value={selectedDocToLink}
+                          onChange={(e) => setSelectedDocToLink(e.target.value)}
+                          className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-sm rounded-lg px-3 py-2 text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-brand-500"
+                        >
+                          <option value="">Select a document...</option>
+                          {availableDocsToLink.map(doc => (
+                            <option key={doc.id} value={doc.id}>{doc.fileName}</option>
+                          ))}
+                        </select>
+                        <button 
+                          onClick={handleLinkExistingDoc}
+                          disabled={!selectedDocToLink}
+                          className="px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg text-sm font-bold disabled:opacity-50 transition-opacity"
+                        >
+                          Attach
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Option 2: Upload New (Dropzone) */}
+                  <div 
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={`relative border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center transition-colors ${
+                      isDragging 
+                        ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' 
+                        : 'border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800/50'
+                    }`}
+                  >
+                    <input 
+                      type="file" 
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                      onChange={(e) => e.target.files?.[0] && processUpload(e.target.files[0])}
+                      accept=".pdf,image/jpeg,image/png,image/webp"
+                      disabled={isUploading}
+                    />
+                    
+                    {isUploading ? (
+                      <Loader2 className="w-6 h-6 text-brand-500 animate-spin mb-2" />
+                    ) : (
+                      <UploadCloud className={`w-6 h-6 mb-2 ${isDragging ? 'text-brand-500' : 'text-slate-400'}`} />
+                    )}
+                    
+                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                      {isUploading ? 'Uploading & Linking...' : 'Upload a new ticket or document'}
+                    </p>
+                    {!isUploading && <p className="text-xs text-slate-500 mt-1">PDF or Image (Max 10MB)</p>}
+                  </div>
+
+                </div>
               </div>
+
             </div>
           </div>
         )}

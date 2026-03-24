@@ -17,11 +17,13 @@ services:
       - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY} 
       - NEXTAUTH_URL=http://localhost:3004
       - NODE_ENV=development
+      # NEW: Explicitly define where local uploads should be saved inside the container
+      - UPLOAD_DIR=/app/public/uploads
     volumes:
       - ./src:/app/src
       - ./prisma:/app/prisma
       - ./public:/app/public
-      - app_node_modules:/app/node_modules
+      - ${HOST_UPLOAD_PATH}:/app/public/uploads
     depends_on:
       db:
         condition: service_healthy

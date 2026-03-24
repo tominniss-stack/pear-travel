@@ -34,13 +34,13 @@ model Trip {
   duration     Int       @default(1)
   
   // Stores Intake info (Interests, Pace, etc.)
-  intakeData   Json?     
-  
+  intakeData   Json?
   // Stores "Need to Know" (Essentials, Local currency info, Weather avg)
-  overviewData Json?     
+  overviewData Json?
 
   days         Day[]
   pois         POI[]     
+  documents    Document[] // Relation to the new Filing Cabinet
 
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -55,11 +55,12 @@ model Day {
   date       DateTime? // Optional for "Planning" phase
   orderIndex Int       // Sequence (0, 1, 2...)
   
-  location   String?   
+  location   String?
   theme      String?   
-  dayNotes   String?   
+  dayNotes   String?
 
   pois       POI[]     
+  documents  Document[] // Optional link for Day-specific docs
 }
 
 // ── THE POI (The Activity / Booking) ─────────────────────────────────────────
@@ -68,7 +69,7 @@ model POI {
   tripId              String
   trip                Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
   
-  dayId               String?   
+  dayId               String?
   day                 Day?      @relation(fields: [dayId], references: [id])
 
   // THE DNA
@@ -78,24 +79,50 @@ model POI {
   googlePlaceId       String?   
   latitude            Float?
   longitude           Float?
-  
+
   // THE LOGISTICS
   startTime           String?   // Store as "HH:mm" for waterfall logic
-  endTime             String?   
+  endTime             String?
   costGBP             Float     @default(0)
   isFixed             Boolean   @default(false)
   dwellTime           Int?      // Minutes
   orderIndex          Int       // Position within the day
   
   // TRANSIT INFO
-  transitMethod       String?   
+  transitMethod       String?
   transitNote         String?   
 
   // DOCUMENTATION
-  reservationRef      String?   
-  documentUrl         String?   
-  userNotes           String?   
+  reservationRef      String?
+  documentUrl         String?   // Keeping legacy field just in case, but prefer Document model
+  userNotes           String?
+
+  documents           Document[] // Relation to attached files (e.g., tickets)
 
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+}
+
+// ── THE FILING CABINET (Document Storage) ────────────────────────────────────
+model Document {
+  id           String    @id @default(cuid())
+  
+  // Every doc must belong to a Trip
+  tripId       String
+  trip         Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  // Optional: Link to a specific Day or POI
+  dayId        String?
+  day          Day?      @relation(fields: [dayId], references: [id], onDelete: SetNull)
+  
+  poiId        String?
+  poi          POI?      @relation(fields: [poiId], references: [id], onDelete: SetNull)
+
+  // File Metadata
+  fileName     String
+  fileUrl      String
+  mimeType     String    // e.g., 'application/pdf', 'image/jpeg'
+  sizeBytes    Int?
+
+  uploadedAt   DateTime  @default(now())
 }

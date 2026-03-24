@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import type { Itinerary, DayItinerary, ItineraryEntry, TransitMethod } from '@/types';
-import PlaceDetailsModal from './PlaceDetailsModal';
+import PlaceDetailsModal, { DocumentInfo } from './PlaceDetailsModal';
+import FilingCabinet from './FilingCabinet';
 import { useTripStore } from '@/store/tripStore';
+import { fetchTripDocuments } from '@/app/actions/documents';
 
 export interface ClientTripProps {
   id: string;
@@ -107,22 +109,25 @@ function parseTransitMinutes(note: string | undefined): number {
 function TimelineEntry({ 
   entry, nextEntry, isLast, dayNumber, accommodationName, onPlaceClick, formatCost 
 }: { 
-  entry: ItineraryEntry; nextEntry?: ItineraryEntry; isLast: boolean; dayNumber: number; accommodationName?: string; onPlaceClick: (id: string) => void; formatCost: (cost?: number) => string;
+  entry: ItineraryEntry; 
+  nextEntry?: ItineraryEntry; 
+  isLast: boolean; 
+  dayNumber: number; 
+  accommodationName?: string; 
+  onPlaceClick: (placeId: string, poiId: string) => void; 
+  formatCost: (cost?: number) => string;
 }) {
   const isStartDay = entry.transitMethod === 'Start of Day';
   const hasPlaceId = !!(entry.placeId && entry.placeId !== "" && entry.placeId !== "null");
   
-  // Robust check if this is an accommodation entry
   const isBookend = entry.isAccommodation || isStartDay || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.activityDescription || '') || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.locationName || '');
   const isFlight = /(Airport|Flight|Departure)/i.test(entry.activityDescription || '') || /(Airport|Flight|Departure)/i.test(entry.locationName || '');
   const isStay = isBookend && !isFlight;
 
-  // ── DYNAMIC NAME/ADDRESS SWAPPER (RELAXED) ──
   let displayTitle = entry.locationName || 'Unknown Location';
   let displayDesc = entry.activityDescription?.replace(/^\[.*?\]\s*/, '') ?? '';
 
   if (isStay) {
-    // Only overwrite the title with the global name if the current title is completely generic
     const isGeneric = /^(accommodation|hotel|airbnb|start of day|return to)/i.test(displayTitle.trim());
     if (isGeneric && accommodationName) {
       displayTitle = accommodationName;
@@ -160,7 +165,7 @@ function TimelineEntry({
         </div>
 
         <div 
-          onClick={() => hasPlaceId && onPlaceClick(entry.placeId!)}
+          onClick={() => hasPlaceId && onPlaceClick(entry.placeId!, entry.id)}
           className={`flex-1 mb-2 rounded-2xl border p-5 transition-all duration-200 group ${
             hasPlaceId 
               ? 'cursor-pointer hover:-translate-y-0.5 shadow-sm hover:shadow-md hover:border-brand-400' 
@@ -226,20 +231,31 @@ export default function ItineraryDisplay({
   const days = itinerary.days ?? [];
   const essentials = itinerary.essentials;
   const [activeTab, setActiveTab] = useState<'overview' | number>('overview');
-  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   
-  // ── STORE & CURRENCY LOGIC ──
+  // ── NEW: Document & Modal State ──
+  const [selectedPOI, setSelectedPOI] = useState<{placeId: string, poiId: string} | null>(null);
+  const [isFilingCabinetOpen, setIsFilingCabinetOpen] = useState(false);
+  const [tripDocuments, setTripDocuments] = useState<DocumentInfo[]>([]);
+
   const { exchangeRate, setExchangeRate, displayCurrency, toggleCurrency, intake } = useTripStore();
   
-  // Bulleproof Accommodation Name (Checks store first, falls back to DB trip prop)
   const accommodationName = intake?.accommodation || trip.intake?.accommodation;
 
+  // ── Document Fetcher ──
+  const loadDocuments = () => {
+    fetchTripDocuments(trip.id).then(docs => setTripDocuments(docs as DocumentInfo[]));
+  };
+
+  useEffect(() => {
+    loadDocuments();
+  }, [trip.id]);
+
+  // ── Smart Currency Fetcher ──
   const localCurrencyRaw = essentials?.currency || '';
   const localSymbol = localCurrencyRaw.split(' ')[0] || '€';
   const isDomesticTrip = localSymbol === '£' || localCurrencyRaw.includes('GBP');
   const symbolSpacer = localSymbol.length > 1 ? ' ' : '';
 
-  // ── Smart Currency Fetcher with 24h Cache ──
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -255,13 +271,11 @@ export default function ItineraryDisplay({
       const cachedTime = localStorage.getItem(timeKey);
       const now = Date.now();
 
-      // Use Cache if it exists and is less than 24h old
       if (cachedRate && cachedTime && (now - parseInt(cachedTime, 10)) < ONE_DAY_MS) {
         setExchangeRate(parseFloat(cachedRate));
         return;
       }
 
-      // Otherwise, fetch live rate
       fetch(`https://api.frankfurter.app/latest?from=GBP&to=${targetCurrency}`)
         .then((res) => {
           if (!res.ok) throw new Error('Currency API unavailable');
@@ -281,7 +295,7 @@ export default function ItineraryDisplay({
     }
   }, [localCurrencyRaw, setExchangeRate]);
 
-  // ── Hero Image Fetcher (Google Places) ──
+  // ── Hero Image Fetcher ──
   const [heroImage, setHeroImage] = useState<string>(`https://picsum.photos/seed/${trip.id}/1200/600`);
   
   useEffect(() => {
@@ -299,15 +313,13 @@ export default function ItineraryDisplay({
   }, [intake?.destinationPlaceId]);
 
   // ── Dynamic Accommodation Scanner ──
-  const dynamicStays = days.reduce((acc: {name: string, startDay: number, placeId?: string}[], day) => {
+  const dynamicStays = days.reduce((acc: {name: string, startDay: number, placeId?: string, poiId: string}[], day) => {
     if (day.entries.length > 0) {
       const morningBookend = day.entries[0];
       const isStay = morningBookend.isAccommodation || morningBookend?.transitMethod === 'Start of Day' || /(accommodation|hotel|airbnb|start of day)/i.test(morningBookend.activityDescription || '');
       
       if (isStay) {
         const lastStay = acc[acc.length - 1];
-        
-        // Relaxed Check: only swap if the entry is generic
         const isGeneric = /^(accommodation|hotel|airbnb|start of day)/i.test(morningBookend.locationName?.trim() || '');
         const displayName = (isGeneric && accommodationName) ? accommodationName : (morningBookend.locationName || 'Unknown Stay');
 
@@ -315,7 +327,8 @@ export default function ItineraryDisplay({
           acc.push({
             name: displayName,
             startDay: day.dayNumber,
-            placeId: morningBookend.placeId
+            placeId: morningBookend.placeId,
+            poiId: morningBookend.id
           });
         }
       }
@@ -340,13 +353,11 @@ export default function ItineraryDisplay({
     return total + (actualPlaces?.length || 0);
   }, 0);
 
-  // ── Smart Fallbacks for New UI Elements ──
   const plugType = essentials?.plugType || 'Type C / F (230V)';
   const tapWater = essentials?.tapWater || 'Safe to drink 🚰';
   const apps = essentials?.apps && essentials.apps.length > 0 
     ? essentials.apps 
     : ['Bolt (Taxis)', 'TheFork (Dining)'];
-    
   const phrases = essentials?.usefulPhrases && essentials.usefulPhrases.length > 0 
     ? essentials.usefulPhrases 
     : [
@@ -354,23 +365,36 @@ export default function ItineraryDisplay({
         { phrase: 'Thank you', translation: 'Gracias' },
         { phrase: 'The bill, please', translation: 'La cuenta, por favor' }
       ];
-      
   const risk = essentials?.contextualRisk || 'Pickpockets are common around major tourist hubs like the Metro. Keep valuables secure.';
 
-  // ── Unified Card Styles ──
   const leftCardStyle = "rounded-3xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/50 p-6 md:p-8 shadow-sm flex flex-col";
   const rightCardStyle = "rounded-3xl bg-slate-50 dark:bg-[#0f172a]/40 border border-slate-200 dark:border-slate-700/50 p-6 md:p-8 shadow-sm flex flex-col backdrop-blur-md";
 
   return (
     <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 relative">
 
-      {selectedPlaceId && (
+      {/* ── GLOBALS ── */}
+      <FilingCabinet
+        isOpen={isFilingCabinetOpen}
+        onClose={() => setIsFilingCabinetOpen(false)}
+        tripId={trip.id}
+        availablePOIs={days.flatMap(d => d.entries.map(e => ({ id: e.id, name: e.locationName, dayName: `Day ${d.dayNumber}` })))}
+        documents={tripDocuments}
+        onUploadSuccess={loadDocuments}
+      />
+
+      {selectedPOI && (
         <PlaceDetailsModal 
-          placeId={selectedPlaceId} 
-          onClose={() => setSelectedPlaceId(null)} 
+          placeId={selectedPOI.placeId} 
+          poiId={selectedPOI.poiId}
+          tripId={trip.id}
+          tripDocuments={tripDocuments}
+          onClose={() => setSelectedPOI(null)} 
+          onDocumentUpdate={loadDocuments}
         />
       )}
       
+      {/* ── HERO ── */}
       <div className="relative w-full h-72 md:h-80 rounded-3xl overflow-hidden shadow-xl group mb-6">
         <img 
           src={heroImage} 
@@ -414,8 +438,9 @@ export default function ItineraryDisplay({
         ))}
       </div>
 
+      {/* ── STICKY TABS & CABINET BUTTON ── */}
       <div className="sticky top-0 z-30 bg-slate-50/95 dark:bg-[#0B1120]/95 backdrop-blur-md pt-4 pb-0 mb-8 border-b border-slate-200 dark:border-slate-700/50 transition-colors">
-        <div className="flex overflow-x-auto hide-scrollbar">
+        <div className="flex items-center justify-between w-full overflow-x-auto hide-scrollbar">
           <div className="flex gap-8 px-2">
             <button
               onClick={() => setActiveTab('overview')}
@@ -440,6 +465,19 @@ export default function ItineraryDisplay({
               </button>
             ))}
           </div>
+
+          <button 
+            onClick={() => setIsFilingCabinetOpen(true)}
+            className="pb-4 px-2 text-sm font-bold whitespace-nowrap text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors flex items-center gap-2 group"
+          >
+            <span className="text-lg group-hover:-translate-y-0.5 transition-transform">📎</span> 
+            Trip Documents
+            {tripDocuments.length > 0 && (
+              <span className="bg-brand-100 dark:bg-brand-900/50 text-brand-700 dark:text-brand-300 px-2 py-0.5 rounded-full text-xs ml-1">
+                {tripDocuments.length}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
@@ -460,16 +498,11 @@ export default function ItineraryDisplay({
 
                 {trip.startDate ? (
                   <div className="flex overflow-x-auto sm:grid sm:grid-cols-5 gap-3 pb-2 -mx-2 px-2 sm:mx-0 sm:px-0 sm:pb-0 hide-scrollbar snap-x">
-                    {/* DYNAMIC DATE GENERATOR */}
                     {Array.from({ length: days.length || trip.duration }).map((_, i) => {
-                      // Calculate the exact date for this specific day of the trip
                       const tripDate = new Date(trip.startDate!);
                       tripDate.setDate(tripDate.getDate() + i);
-                      
-                      const dayName = format(tripDate, 'EEE'); // e.g., 'Mon'
-                      const dateString = format(tripDate, 'd MMM'); // e.g., '4 Apr'
-                      
-                      // Highlight if this specific trip day is literally "Today" in real life
+                      const dayName = format(tripDate, 'EEE');
+                      const dateString = format(tripDate, 'd MMM');
                       const isToday = format(tripDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
 
                       return (
@@ -490,7 +523,6 @@ export default function ItineraryDisplay({
                             {dateString}
                           </span>
                           
-                          {/* Placeholder Weather - Ready for API integration */}
                           <span className="text-3xl mb-2">
                             {['☀️', '🌤️', '🌦️', '☀️', '⛅'][i % 5]}
                           </span>
@@ -635,7 +667,7 @@ export default function ItineraryDisplay({
                           <div 
                             key={idx} 
                             className={`bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm flex items-start gap-3 transition-all ${stay.placeId ? 'cursor-pointer hover:border-brand-400 group' : ''}`} 
-                            onClick={() => stay.placeId && setSelectedPlaceId(stay.placeId)}
+                            onClick={() => stay.placeId && setSelectedPOI({ placeId: stay.placeId, poiId: stay.poiId })}
                           >
                             <div className="w-6 h-6 flex-shrink-0 bg-brand-600 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-sm mt-0.5">
                               {idx + 1}
@@ -721,7 +753,7 @@ export default function ItineraryDisplay({
                     isLast={index === arr.length - 1}
                     dayNumber={activeTab}
                     accommodationName={accommodationName}
-                    onPlaceClick={setSelectedPlaceId}
+                    onPlaceClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })}
                     formatCost={formatCost}
                   />
                 ))}
