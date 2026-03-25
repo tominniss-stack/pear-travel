@@ -15,9 +15,10 @@ interface POISearchProps {
 }
 
 export default function POISearch({ destination }: POISearchProps) {
-  // THE FIX: Extract these individually so React doesn't crash
-  const togglePOI = useTripStore((state) => state.togglePOI);
-  const selectedPOIs = useTripStore((state) => state.selectedPOIs);
+  // THE FIX: Use the correct Zustand selectors!
+  const allPOIs = useTripStore((state) => state.allPOIs);
+  const setAllPOIs = useTripStore((state) => state.setAllPOIs);
+  const toggleFavourite = useTripStore((state) => state.toggleFavourite);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -26,8 +27,8 @@ export default function POISearch({ destination }: POISearchProps) {
   const [hasSearched, setHasSearched] = useState(false);
 
   const isAdded = useMemo(
-    () => !!searchResult && selectedPOIs.some((poi) => poi.id === searchResult.id),
-    [searchResult, selectedPOIs],
+    () => !!searchResult && allPOIs.some((poi) => poi.placeId === searchResult.placeId && poi.isFavourited),
+    [searchResult, allPOIs],
   );
 
   const handleSearch = useCallback(
@@ -78,12 +79,20 @@ export default function POISearch({ destination }: POISearchProps) {
 
   const handleAddToTrip = useCallback(() => {
     if (searchResult) {
-      togglePOI(searchResult);
+      // 1. If it's a brand new place not in the main list, inject it!
+      if (!allPOIs.some(p => p.placeId === searchResult.placeId)) {
+        setAllPOIs([searchResult, ...allPOIs]);
+      }
+      
+      // 2. Toggle the heart so it goes into the staging area
+      toggleFavourite(searchResult.placeId);
+      
+      // 3. Clear the search
       setSearchQuery('');
       setSearchResult(null);
       setHasSearched(false);
     }
-  }, [searchResult, togglePOI]);
+  }, [searchResult, allPOIs, setAllPOIs, toggleFavourite]);
 
   return (
     <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-sm">
@@ -151,14 +160,14 @@ export default function POISearch({ destination }: POISearchProps) {
             <POICard
               poi={{ ...searchResult, isFavourited: isAdded }}
               onExpand={() => {}}
-              onToggleFavourite={togglePOI}
             />
           </div>
           <button
             onClick={handleAddToTrip}
-            className="w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
+            className={`w-full rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 dark:focus:ring-offset-slate-900 ${isAdded ? 'bg-slate-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500'}`}
+            disabled={isAdded}
           >
-            {isAdded ? '✓ Added' : 'Add to Trip'}
+            {isAdded ? '✓ Added to Staging Area' : 'Add to Trip'}
           </button>
         </div>
       )}

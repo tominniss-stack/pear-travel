@@ -105,14 +105,13 @@ export default function StagingArea({ tripId }: StagingAreaProps) {
 
   const handleRemove = useCallback((placeId: string) => toggleFavourite(placeId), [toggleFavourite]);
 
-  // ── INTELLIGENT RE-OPTIMIZE ACTION ──
+// ── INTELLIGENT RE-OPTIMIZE ACTION ──
   const handlePrimaryAction = useCallback(async () => {
     if (selectedPOIs.length === 0) return;
     setIsNavigating(true);
     
     if (itinerary && itinerary.days.length > 0) {
       try {
-        // 1. Call our new PATCH endpoint to let Gemini re-shuffle the trip
         const response = await fetch(`/api/itinerary`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -124,18 +123,13 @@ export default function StagingArea({ tripId }: StagingAreaProps) {
 
         if (!response.ok) throw new Error('Re-optimization failed');
         
-        const data = await response.json();
-
-        // 2. Update the local store with the brand-new AI schedule
-        if (data.itinerary) {
-          setItinerary(data.itinerary);
-        }
-
-        // 3. Clear the staging area locally
+        // 1. Clear the staging area locally first
         pushStagedToItinerary();
         
-        // 4. Navigate back to the Planner
-        window.location.href = `/itinerary/${tripId}`; 
+        // 2. Use Next.js magic to navigate and force the server to fetch the new DB rows
+        router.push(`/itinerary/${tripId}`);
+        router.refresh(); 
+
       } catch (error) {
         console.error('Failed to re-optimize itinerary:', error);
         setIsNavigating(false);
@@ -143,7 +137,7 @@ export default function StagingArea({ tripId }: StagingAreaProps) {
     } else {
       router.push('/generate');
     }
-  }, [selectedPOIs, router, itinerary, pushStagedToItinerary, setItinerary, tripId]);
+  }, [selectedPOIs, router, itinerary, pushStagedToItinerary, tripId]);
 
   const totalCost    = calcTotalCost(selectedPOIs);
   const count        = selectedPOIs.length;

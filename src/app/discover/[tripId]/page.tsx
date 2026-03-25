@@ -310,7 +310,7 @@ export default function DiscoverPage() {
 
   // ── Derived Data ────────────────────────────────────────────────────────────
 
-  // ── DUPLICATION FIX: Identify already scheduled IDs ──
+  // Identify already scheduled IDs to show the "IN TRIP" badge
   const scheduledPlaceIds = useMemo(() => {
     const ids = new Set<string>();
     if (itinerary) {
@@ -328,31 +328,29 @@ export default function DiscoverPage() {
     return ids;
   }, [itinerary]);
 
-  // Filter out any POIs that are already in the itinerary
-  const safePOIs = useMemo(() => {
-    return (allPOIs ?? []).filter(poi => !scheduledPlaceIds.has(poi.placeId));
-  }, [allPOIs, scheduledPlaceIds]);
-
+  // Derive categories and counts from ALL POIs
   const categories = useMemo(() => {
-    const cats = new Set(safePOIs.map((poi) => poi.category));
+    const cats = new Set((allPOIs ?? []).map((poi) => poi.category));
     return Array.from(cats).sort();
-  }, [safePOIs]);
+  }, [allPOIs]);
 
   const categoryCounts = useMemo(() => {
-    return safePOIs.reduce<Record<string, number>>((acc, poi) => {
+    return (allPOIs ?? []).reduce<Record<string, number>>((acc, poi) => {
       acc[poi.category] = (acc[poi.category] ?? 0) + 1;
       return acc;
     }, {});
-  }, [safePOIs]);
+  }, [allPOIs]);
 
+  // Filter based on active category
   const filteredPOIs = useMemo(() => {
-    if (activeCategory === 'All') return safePOIs;
-    return safePOIs.filter((poi) => poi.category === activeCategory);
-  }, [safePOIs, activeCategory]);
+    const base = allPOIs ?? [];
+    if (activeCategory === 'All') return base;
+    return base.filter((poi) => poi.category === activeCategory);
+  }, [allPOIs, activeCategory]);
 
   const favouriteCount = useMemo(
-    () => safePOIs.filter((poi) => poi.isFavourited).length,
-    [safePOIs],
+    () => (allPOIs ?? []).filter((poi) => poi.isFavourited).length,
+    [allPOIs],
   );
 
   const selectedPOI = useMemo(
@@ -501,12 +499,12 @@ export default function DiscoverPage() {
             )}
 
             {/* Results + Filters */}
-            {hasFetched && safePOIs.length > 0 && !isLoading && (
+            {hasFetched && (allPOIs ?? []).length > 0 && !isLoading && (
               <div className="flex flex-col gap-4 mt-2">
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center justify-between px-1">
                     <p className="text-sm text-slate-500 dark:text-slate-400">
-                      Found <span className="font-semibold text-slate-700 dark:text-slate-200">{safePOIs.length}</span> places
+                      Found <span className="font-semibold text-slate-700 dark:text-slate-200">{(allPOIs ?? []).length}</span> places
                     </p>
                     {favouriteCount > 0 && (
                       <p className="text-xs font-bold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20 px-2 py-1 rounded-lg border border-brand-200 dark:border-brand-800/50">
@@ -518,7 +516,7 @@ export default function DiscoverPage() {
                     categories={categories}
                     activeCategory={activeCategory}
                     onCategoryChange={handleCategoryChange}
-                    totalCount={safePOIs.length}
+                    totalCount={(allPOIs ?? []).length}
                     categoryCounts={categoryCounts}
                   />
                 </div>
@@ -531,18 +529,29 @@ export default function DiscoverPage() {
               <LoadingState destination={activeDestination} />
             ) : error ? (
               <ErrorState message={error} onRetry={fetchPOIs} />
-            ) : hasFetched && filteredPOIs.length === 0 && safePOIs.length > 0 ? (
+            ) : hasFetched && filteredPOIs.length === 0 && (allPOIs ?? []).length > 0 ? (
               <EmptyFilterState onReset={handleResetFilter} />
-            ) : hasFetched && safePOIs.length > 0 ? (
+            ) : hasFetched && (allPOIs ?? []).length > 0 ? (
               <>
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                  {filteredPOIs.map((poi) => (
-                    <POICard
-                      key={poi.placeId}
-                      poi={poi}
-                      onExpand={() => handleOpenDrawer(poi)}
-                    />
-                  ))}
+                  {filteredPOIs.map((poi) => {
+                    const isScheduled = scheduledPlaceIds.has(poi.placeId);
+                    
+                    return (
+                      <div key={poi.placeId} className="relative group">
+                        <POICard
+                          poi={poi}
+                          onExpand={() => handleOpenDrawer(poi)}
+                        />
+                        {/* THE FIX: Show a badge if it's already in the itinerary */}
+                        {isScheduled && (
+                          <div className="absolute top-4 left-4 z-10 pointer-events-none rounded-lg bg-emerald-500/90 backdrop-blur-sm px-2.5 py-1 text-[10px] font-black tracking-widest text-white shadow-sm border border-emerald-400">
+                            ✓ IN TRIP
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
                 <div className="h-28 lg:hidden" aria-hidden="true" />
               </>

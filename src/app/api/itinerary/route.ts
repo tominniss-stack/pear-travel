@@ -12,7 +12,7 @@
 import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { createTripAction } from '@/app/actions/trip'; 
+import { createTripAction, updateTripItineraryAction } from '@/app/actions/trip';
 import type { TripIntake, POI, Itinerary } from '@/types';
 
 export const maxDuration = 60; 
@@ -467,13 +467,84 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const { tripId, newPOIs } = await request.json();
-    
-    // NOTE: This PATCH route will need further refinement in V2 as we are now updating
-    // specific Day and POI records rather than overwriting a single JSON blob. 
-    // This is a placeholder for the re-optimization logic to prevent the build from failing.
+    const body = await request.json();
+    const { tripId, newPOIs } = body;
 
-    return NextResponse.json({ error: 'PATCH re-optimization is pending V2 relational update.' }, { status: 501 });
+    if (!tripId || !newPOIs || !Array.isArray(newPOIs)) {
+      return NextResponse.json({ error: 'Invalid payload' }, { status: 400 });
+    }
+
+    // 1. Fetch current relational state from PostgreSQL
+    const trip = await prisma.trip.findUnique({
+      where: { id: tripId },
+      include: {
+        days: {
+          orderBy: { orderIndex: 'asc' },
+          include: { pois: { orderBy: { orderIndex: 'asc' } } }
+        }
+      }
+    });
+
+    if (!trip) {
+      return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
+    }
+
+    // 2. Reconstruct enough of the Itinerary for the AI Context
+    // We format this specifically so the `buildPrompt` function can read it.
+    const existingItinerary = {
+      days: trip.days.map((day, idx) => ({
+        dayNumber: idx + 1,
+        entries: day.pois.map(poi => ({
+          locationName: poi.name,
+          isFixed: poi.isFixed,
+          time: poi.startTime
+        }))
+      }))
+    } as Itinerary;
+
+    const intake = typeof trip.intakeData === 'string' 
+      ? JSON.parse(trip.intakeData) 
+      : trip.intakeData;
+
+    // 3. Prompt Gemini to perform the Re-optimization
+    const genAI = getGeminiClient();
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-3.1-flash-lite-preview',
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 12000,
+        responseMimeType: 'application/json',
+      },
+    });
+
+    // Notice we are passing `existingItinerary` as the 3rd argument now!
+    const prompt = buildPrompt(intake as TripIntake, newPOIs, existingItinerary);
+    const result = await model.generateContent(prompt);
+    const rawText = result.response.text();
+
+    if (!rawText?.trim()) {
+      return NextResponse.json({ error: 'Empty response from AI.' }, { status: 502 });
+    }
+
+    const cleanedJSON = extractJSON(rawText);
+    let newItinerary: unknown;
+    try {
+      newItinerary = JSON.parse(cleanedJSON);
+    } catch (e) {
+      console.error('JSON Parse Error:', rawText.slice(0, 500));
+      return NextResponse.json({ error: 'AI returned invalid JSON.' }, { status: 502 });
+    }
+
+    if (!validateItineraryShape(newItinerary)) {
+      return NextResponse.json({ error: 'Itinerary failed validation.' }, { status: 502 });
+    }
+
+    // 4. Atomic Nuke & Pave Save
+    // This action deletes the old POIs and Days, and safely writes the new AI schedule.
+    await updateTripItineraryAction(trip.id, newItinerary as Itinerary);
+
+    return NextResponse.json({ success: true, tripId: trip.id }, { status: 200 });
+
   } catch (error) {
     console.error('PATCH error:', error);
     return NextResponse.json({ error: 'Re-optimization failed' }, { status: 500 });
