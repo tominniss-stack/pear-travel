@@ -117,23 +117,34 @@ function parseTransitMinutes(note: string | undefined): number {
   return match ? parseInt(match[1], 10) : 0;
 }
 
+function getGoogleMapsTravelMode(method?: string) {
+  if (!method) return 'transit';
+  const m = method.toLowerCase();
+  if (m.includes('walk')) return 'walking';
+  if (m.includes('cycl') || m.includes('bike')) return 'bicycling';
+  if (m.includes('taxi') || m.includes('car') || m.includes('drive')) return 'driving';
+  return 'transit';
+}
+
 // ── Sub-component: Timeline Entry ─────────────────────────────────────────────
 
 function TimelineEntry({ 
-  entry, nextEntry, isLast, dayNumber, accommodationName, onPlaceClick, formatCost 
+  entry, nextEntry, isLast, dayNumber, accommodationName, destination, onPlaceClick, formatCost 
 }: { 
   entry: ItineraryEntry; 
   nextEntry?: ItineraryEntry; 
   isLast: boolean; 
   dayNumber: number; 
   accommodationName?: string; 
+  destination: string; 
   onPlaceClick: (placeId: string, poiId: string) => void; 
   formatCost: (cost?: number) => string;
 }) {
   const isStartDay = entry.transitMethod === 'Start of Day';
   const hasPlaceId = !!(entry.placeId && entry.placeId !== "" && entry.placeId !== "null");
   
-  const isBookend = entry.isAccommodation || isStartDay || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.activityDescription || '') || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.locationName || '');
+  const isManualRest = entry.locationName === 'Room Break' || entry.locationName === 'Local Coffee / Cafe Break';
+  const isBookend = !isManualRest && (entry.isAccommodation || isStartDay || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.activityDescription || '') || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.locationName || '')) && !entry.isDining;
   const isFlight = /(Airport|Flight|Departure)/i.test(entry.activityDescription || '') || /(Airport|Flight|Departure)/i.test(entry.locationName || '');
   const isStay = isBookend && !isFlight;
 
@@ -142,9 +153,7 @@ function TimelineEntry({
 
   if (isStay) {
     const isGeneric = /^(accommodation|hotel|airbnb|start of day|return to)/i.test(displayTitle.trim());
-    if (isGeneric && accommodationName) {
-      displayTitle = accommodationName;
-    }
+    if (isGeneric && accommodationName) displayTitle = accommodationName;
   }
   
   const currentMinutes = parseTimeToMinutes(entry.time);
@@ -195,13 +204,10 @@ function TimelineEntry({
                 <h4 className={`text-base font-bold leading-snug transition-colors ${hasPlaceId ? 'text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-300' : 'text-slate-900 dark:text-white'}`}>
                   {displayTitle}
                 </h4>
-                {/* Clickable Maps Link for Accommodations */}
                 {isStay && !isFlight && (
                   <a 
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(displayTitle)}`} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()} 
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(displayTitle + ', ' + destination)}`} 
+                    target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} 
                     className="text-[10px] font-bold uppercase tracking-wider text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300 bg-brand-50 dark:bg-brand-900/30 px-2 py-0.5 rounded-md transition-colors"
                   >
                     View Map ↗
@@ -232,10 +238,16 @@ function TimelineEntry({
           </div>
           <div className="flex flex-col justify-center py-2">
             {nextEntry.transitNote && (
-              <div className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg border ${nextTransitConfig.bgColour} ${nextTransitConfig.colour}`}>
+              <a 
+                href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(displayTitle + ', ' + destination)}&destination=${encodeURIComponent(nextEntry.locationName + ', ' + destination)}&travelmode=${getGoogleMapsTravelMode(nextEntry.transitMethod)}`}
+                target="_blank" rel="noopener noreferrer"
+                className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg border hover:scale-[1.02] hover:shadow-sm transition-all ${nextTransitConfig.bgColour} ${nextTransitConfig.colour}`}
+                title={`Get directions to ${nextEntry.locationName}`}
+              >
                 <span>{nextTransitConfig.emoji}</span>
                 <span>{nextEntry.transitNote}</span>
-              </div>
+                <span className="ml-1 opacity-50 text-[10px]">↗</span>
+              </a>
             )}
           </div>
         </div>
@@ -726,26 +738,37 @@ export default function ItineraryDisplay({
               </div>
               
               <div className={`${rightCardStyle} gap-6 overflow-hidden`}>
-                 <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Local Logistics</h3>
-                 
-                 <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 flex-shrink-0 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <PlugSocketIcon type={plugType} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">Power Outlets</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{plugType}</p>
-                    </div>
-                 </div>
+   <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Local Logistics</h3>
+   
+   <div className="flex items-center gap-4">
+      <div className="h-12 w-12 flex-shrink-0 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm">
+        <PlugSocketIcon type={plugType} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">Power Outlets</p>
+        <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{plugType}</p>
+      </div>
+   </div>
 
-                 <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 flex-shrink-0 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 text-xl shadow-sm">💧</div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">Tap Water</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white whitespace-normal break-words leading-tight">{tapWater}</p>
-                    </div>
-                 </div>
-              </div>
+   <div className="flex items-center gap-4">
+      <div className="h-12 w-12 flex-shrink-0 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 text-xl shadow-sm">💧</div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">Tap Water</p>
+        <p className="text-sm font-bold text-slate-900 dark:text-white whitespace-normal break-words leading-tight">{tapWater}</p>
+      </div>
+   </div>
+
+   {/* ── REPLACED EMERGENCIES WITH PAYMENTS ── */}
+   <div className="flex items-center gap-4">
+      <div className="h-12 w-12 flex-shrink-0 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 text-xl shadow-sm">💳</div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">Payments</p>
+        <p className="text-sm font-bold text-slate-900 dark:text-white whitespace-normal break-words leading-tight">
+          Contactless is widely accepted. Carry small cash.
+        </p>
+      </div>
+   </div>
+</div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -843,24 +866,33 @@ export default function ItineraryDisplay({
                       </div>
                       
                       <div className="flex flex-col mb-6 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                        {essentials?.neighbourhoodRecommendations && essentials.neighbourhoodRecommendations.length > 0 ? (
-                          essentials.neighbourhoodRecommendations.map((rec, idx) => (
-                            <div key={idx} className="py-3.5 border-b border-slate-100 dark:border-slate-800/60 last:border-0">
-                              <div className="flex flex-col mb-1.5">
-                                <span className="text-sm font-bold text-slate-900 dark:text-white mb-0.5">{rec.name}</span>
-                                <span className="text-[9px] font-bold text-brand-600 dark:text-brand-400 uppercase tracking-wide">{rec.vibe}</span>
-                              </div>
-                              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                                {rec.reason}
-                              </p>
-                            </div>
-                          ))
-                        ) : (
-                           <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed pt-2">
-                             Based on your selected activities, staying centrally minimises travel time and keeps you close to transit hubs.
-                           </p>
-                        )}
-                      </div>
+  {essentials?.neighbourhoodRecommendations && essentials.neighbourhoodRecommendations.length > 0 ? (
+    essentials.neighbourhoodRecommendations.map((rec, idx) => (
+      <div key={idx} className="py-3.5 border-b border-slate-100 dark:border-slate-800/60 last:border-0">
+        <div className="flex flex-col mb-1.5">
+          {/* ── THE FIX: Clickable Neighbourhood Link ── */}
+          <a 
+            href={`https://www.google.com/maps/search/${encodeURIComponent(rec.name + ' Hotels ' + trip.destination)}`}
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-sm font-bold text-brand-600 dark:text-brand-400 mb-0.5 hover:underline flex items-center gap-1 group"
+          >
+            {rec.name} 
+            <span className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">↗</span>
+          </a>
+          <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{rec.vibe}</span>
+        </div>
+        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+          {rec.reason}
+        </p>
+      </div>
+    ))
+  ) : (
+     <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed pt-2">
+       Based on your selected activities, staying centrally minimises travel time and keeps you close to transit hubs.
+     </p>
+  )}
+</div>
 
                       <div className="mt-auto pt-2 border-t border-slate-200 dark:border-slate-800/60">
                         <button 
@@ -908,6 +940,7 @@ export default function ItineraryDisplay({
                     accommodationName={accommodationName}
                     onPlaceClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })}
                     formatCost={formatCost}
+                    destination={trip.destination}
                   />
                 ))}
               </div>
@@ -990,7 +1023,7 @@ export default function ItineraryDisplay({
                         : `Plan uses ${Math.round((dynamicTotalCost / trip.budgetGBP) * 100)}% of total budget.`}
                     </p>
                   </div>
-                </div>
+                </div>3
 
               </div>
             </div>
