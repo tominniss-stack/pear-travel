@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 
+// ── 1. The Creation Engine ──
 export async function createTripAction(data: {
   title: string;
   destination: string;
@@ -17,7 +18,7 @@ export async function createTripAction(data: {
   try {
     const result = await prisma.$transaction(async (tx) => {
       
-      // ── Ensure the user exists before creating the trip ──
+      // Ensure the user exists before creating the trip
       await tx.user.upsert({
         where: { id: data.ownerId },
         update: {},
@@ -28,7 +29,7 @@ export async function createTripAction(data: {
         }
       });
 
-      // 1. Create the Master Trip
+      // Create the Master Trip
       const trip = await tx.trip.create({
         data: {
           title: data.title,
@@ -43,7 +44,7 @@ export async function createTripAction(data: {
         },
       })
 
-      // 2. Map through AI Days and create relational rows
+      // Map through AI Days and create relational rows
       for (const [index, dayData] of data.itinerary.days.entries()) {
         await tx.day.create({
           data: {
@@ -81,13 +82,12 @@ export async function createTripAction(data: {
   }
 }
 
-// ── NEW: The "Nuke and Pave" Re-optimization Engine ──
+// ── 2. The "Nuke and Pave" Re-optimization Engine ──
 export async function updateTripItineraryAction(tripId: string, itinerary: any) {
   try {
     const result = await prisma.$transaction(async (tx) => {
       
       // 1. Nuke: Delete the old timeline. 
-      // (We delete POIs first to avoid foreign key constraint errors, then Days)
       await tx.pOI.deleteMany({ where: { tripId: tripId } });
       await tx.day.deleteMany({ where: { tripId: tripId } });
 
@@ -118,7 +118,7 @@ export async function updateTripItineraryAction(tripId: string, itinerary: any) 
         });
       }
 
-      // 3. Update the essentials just in case the AI generated new cultural tips based on the new places
+      // 3. Update the essentials just in case the AI generated new cultural tips
       if (itinerary.essentials) {
         await tx.trip.update({
           where: { id: tripId },
@@ -137,7 +137,43 @@ export async function updateTripItineraryAction(tripId: string, itinerary: any) 
   }
 }
 
-export async function toggleTripBookingStatus(tripId: string, currentStatus: boolean) {
-  await prisma.trip.update({ where: { id: tripId }, data: { isBooked: !currentStatus } })
-  revalidatePath(`/itinerary/${tripId}`)
+// ── 3. ACTION: RENAME TRIP ──
+export async function renameTripAction(tripId: string, newTitle: string) {
+  try {
+    await prisma.trip.update({
+      where: { id: tripId },
+      data: { title: newTitle },
+    });
+    revalidatePath('/dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to rename trip:', error);
+    throw new Error('Failed to rename trip');
+  }
+}
+
+// ── 4. ACTION: TOGGLE BOOKING STATUS ──
+export async function toggleTripBookingStatusAction(tripId: string, currentStatus: boolean) {
+  try {
+    const trip = await prisma.trip.findUnique({ where: { id: tripId } });
+    if (!trip) throw new Error('Trip not found');
+
+    const intakeData = typeof trip.intakeData === 'string' ? JSON.parse(trip.intakeData) : trip.intakeData;
+    intakeData.bookingMode = !currentStatus ? 'booked' : 'planning';
+
+    await prisma.trip.update({
+      where: { id: tripId },
+      data: { 
+        isBooked: !currentStatus,
+        intakeData: intakeData 
+      },
+    });
+    
+    revalidatePath('/dashboard');
+    revalidatePath(`/itinerary/${tripId}`);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to toggle booking status:', error);
+    throw new Error('Failed to toggle status');
+  }
 }

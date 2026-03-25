@@ -397,6 +397,11 @@ export default function ItineraryDisplay({
     return total + (actualPlaces?.length || 0);
   }, 0);
 
+  // ── THE FIX: DYNAMIC COST CALCULATOR ──
+  const dynamicTotalCost = days.reduce((sum, day) => 
+    sum + day.entries.reduce((dSum, e) => dSum + (e.estimatedCostGBP || 0), 0)
+  , 0);
+
   const plugType = essentials?.plugType || 'Type C / F (230V)';
   const tapWater = essentials?.tapWater || 'Safe to drink 🚰';
   const apps = essentials?.apps && essentials.apps.length > 0 
@@ -463,7 +468,7 @@ export default function ItineraryDisplay({
                 {trip.startDate && trip.endDate 
                   ? `${format(new Date(trip.startDate), 'd MMM')} – ${format(new Date(trip.endDate), 'd MMM yyyy')}` 
                   : `${trip.duration} Days`}
-                {' '}· {totalStops} Stops · Est. {formatCost(itinerary.totalEstimatedCostGBP)}
+                {' '}· {totalStops} Stops · Est. {formatCost(dynamicTotalCost)}
               </p>
             </div>
           </div>
@@ -475,7 +480,7 @@ export default function ItineraryDisplay({
           { label: 'Total Duration', value: `${days.length} days`, emoji: '📅' },
           { label: 'Total Stops', value: `${totalStops} stops`, emoji: '📍' },
           { label: 'Daily Budget', value: formatCost(trip.budgetGBP / (trip.duration || 1)), emoji: '🎯' }, 
-          { label: 'Est. Total Cost', value: formatCost(itinerary.totalEstimatedCostGBP), emoji: '💷' }, 
+          { label: 'Est. Total Cost', value: formatCost(dynamicTotalCost), emoji: '💷' }, 
         ].map(({ label, value, emoji }) => (
           <div key={label} className="rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/50 p-5 shadow-sm transition-colors">
             <span className="text-2xl mb-2 block">{emoji}</span>
@@ -737,7 +742,7 @@ export default function ItineraryDisplay({
                     <div className="h-12 w-12 flex-shrink-0 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 text-xl shadow-sm">💧</div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">Tap Water</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{tapWater}</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white whitespace-normal break-words leading-tight">{tapWater}</p>
                     </div>
                  </div>
               </div>
@@ -971,18 +976,18 @@ export default function ItineraryDisplay({
                   <div>
                     <div className="flex justify-between items-end mb-2">
                       <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Itinerary Cost</h4>
-                      <span className="text-[11px] font-bold text-slate-900 dark:text-white">{formatCost(itinerary.totalEstimatedCostGBP)}</span>
+                      <span className="text-[11px] font-bold text-slate-900 dark:text-white">{formatCost(dynamicTotalCost)}</span>
                     </div>
                     <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
                       <div 
-                        className={`h-full transition-all duration-1000 ${itinerary.totalEstimatedCostGBP > trip.budgetGBP ? 'bg-red-500' : 'bg-brand-500'}`}
-                        style={{ width: `${Math.min((itinerary.totalEstimatedCostGBP / trip.budgetGBP) * 100, 100)}%` }}
+                        className={`h-full transition-all duration-1000 ${dynamicTotalCost > trip.budgetGBP ? 'bg-red-500' : 'bg-brand-500'}`}
+                        style={{ width: `${Math.min((dynamicTotalCost / trip.budgetGBP) * 100, 100)}%` }}
                       />
                     </div>
                     <p className="text-[9px] text-slate-400 mt-2 italic">
-                      {itinerary.totalEstimatedCostGBP > trip.budgetGBP 
+                      {dynamicTotalCost > trip.budgetGBP 
                         ? "Plan is currently over total budget." 
-                        : `Plan uses ${Math.round((itinerary.totalEstimatedCostGBP / trip.budgetGBP) * 100)}% of total budget.`}
+                        : `Plan uses ${Math.round((dynamicTotalCost / trip.budgetGBP) * 100)}% of total budget.`}
                     </p>
                   </div>
                 </div>

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import ExportPdfButton from '@/components/ExportPdfButton';
 import SortableItinerary from '@/components/itinerary/SortableItinerary';
 import ItineraryDisplay from '@/components/itinerary/ItineraryDisplay';
-import type { Itinerary, TripIntake } from '@/types'; // <-- Added TripIntake
+import type { Itinerary, TripIntake } from '@/types'; 
 import { useTripStore } from '@/store/tripStore';
 
 export interface ClientTripProps {
@@ -16,7 +16,7 @@ export interface ClientTripProps {
   budgetGBP: number;
   startDate: string | null;
   endDate: string | null;
-  intake: TripIntake; // <-- Added intake to the props!
+  intake: TripIntake; 
 }
 
 interface ItineraryPageClientProps {
@@ -26,7 +26,7 @@ interface ItineraryPageClientProps {
 
 export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPageClientProps) {
   const setItinerary = useTripStore((state) => state.setItinerary);
-  const setIntake = useTripStore((state) => state.setIntake); // <-- Grabbed setIntake
+  const setIntake = useTripStore((state) => state.setIntake); 
   const setCurrentTripId = useTripStore((state) => state.setCurrentTripId);
   const itinerary = useTripStore((state) => state.itinerary);
 
@@ -34,8 +34,7 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    // ── THE DESYNC FIX ──
-    // Now we load everything into the backpack at once!
+    // ── THE DESYNC FIX: Sync server state to Zustand immediately ──
     setItinerary(dbItinerary);
     setIntake(dbTrip.intake); 
     setCurrentTripId(dbTrip.id);

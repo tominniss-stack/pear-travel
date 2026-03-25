@@ -112,8 +112,77 @@ function AddActivityModal({ dayNumber, destination, onClose }: { dayNumber: numb
         </div>
         <label className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/30 p-3 rounded-xl border border-slate-200 dark:border-slate-700 cursor-pointer"><input type="checkbox" checked={isDining} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIsDining(e.target.checked)} className="rounded text-brand-600 w-4 h-4" /> Mark as Dining / Restaurant</label>
         <div className="flex gap-3 justify-end mt-6">
-          <button onClick={onClose} className="px-4 py-2.5 text-sm font-bold text-slate-500">Cancel</button>
-          <button onClick={handleSave} disabled={!query.trim()} className="px-6 py-2.5 text-sm font-bold text-white bg-brand-600 rounded-xl shadow-sm disabled:opacity-50">Add to Trip</button>
+          <button onClick={onClose} className="px-4 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors">Cancel</button>
+          <button onClick={handleSave} disabled={!query.trim()} className="px-6 py-2.5 text-sm font-bold text-white bg-brand-600 rounded-xl shadow-sm hover:bg-brand-500 disabled:opacity-50 transition-colors">Add to Trip</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── NEW: Dynamic Rest Stop Modal ──
+function AddRestModal({ dayNumber, accommodationName, onClose }: { dayNumber: number; accommodationName?: string; onClose: () => void }) {
+  const addCustomEntry = useTripStore((state) => state.addCustomEntry);
+  const [restType, setRestType] = useState<'coffee' | 'hotel'>('coffee');
+
+  const handleSave = () => {
+    if (restType === 'coffee') {
+      addCustomEntry(dayNumber, {
+        locationName: 'Local Coffee / Cafe Break',
+        activityDescription: 'Take a moment to grab a coffee, rest your feet, and people-watch.',
+        transitMethod: 'Walking',
+        estimatedCostGBP: 5,
+        isDining: true, // Flags as an activity, NOT a bookend
+      });
+    } else {
+      addCustomEntry(dayNumber, {
+        locationName: accommodationName || 'Accommodation',
+        activityDescription: 'Return to the hotel to drop off bags and refresh before the evening.',
+        transitMethod: 'Walking',
+        estimatedCostGBP: 0,
+        isDining: false,
+      });
+    }
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[500] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+      <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-sm p-6 border border-slate-200 dark:border-slate-700">
+        <h3 className="text-lg font-extrabold text-slate-900 dark:text-white mb-4 text-center">Add a Rest Stop</h3>
+        <p className="text-sm text-slate-500 dark:text-slate-400 text-center mb-6">What kind of break do you need?</p>
+        
+        <div className="flex flex-col gap-3 mb-6">
+          <button 
+            onClick={() => setRestType('coffee')}
+            className={`p-4 rounded-2xl border-2 text-left transition-all ${restType === 'coffee' ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-700 hover:border-brand-300 bg-white dark:bg-slate-800'}`}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">☕</span>
+              <div>
+                <p className={`font-bold ${restType === 'coffee' ? 'text-brand-700 dark:text-brand-400' : 'text-slate-900 dark:text-white'}`}>Coffee & Snack</p>
+                <p className="text-xs text-slate-500 mt-0.5">Find a local cafe to recharge.</p>
+              </div>
+            </div>
+          </button>
+          
+          <button 
+            onClick={() => setRestType('hotel')}
+            className={`p-4 rounded-2xl border-2 text-left transition-all ${restType === 'hotel' ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' : 'border-slate-200 dark:border-slate-700 hover:border-brand-300 bg-white dark:bg-slate-800'}`}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">🏨</span>
+              <div>
+                <p className={`font-bold ${restType === 'hotel' ? 'text-brand-700 dark:text-brand-400' : 'text-slate-900 dark:text-white'}`}>Return to Room</p>
+                <p className="text-xs text-slate-500 mt-0.5">Head back to drop off bags.</p>
+              </div>
+            </div>
+          </button>
+        </div>
+
+        <div className="flex gap-3 justify-end">
+          <button onClick={onClose} className="px-4 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors">Cancel</button>
+          <button onClick={handleSave} className="px-6 py-2.5 text-sm font-bold text-white bg-brand-600 rounded-xl shadow-sm hover:bg-brand-500 transition-colors">Add to Timeline</button>
         </div>
       </div>
     </div>
@@ -253,11 +322,12 @@ function SortableTimelineEntry({
   entry, containerId, isDraggingGlobal, dayNumber, isParkingLot, accommodationName, onPlaceClick, onEditTime, onDeleteRequest, onToggleFixed, onEditAccommodation 
 }: { 
   entry: ItineraryEntry; containerId: UniqueIdentifier; isDraggingGlobal: boolean; dayNumber: number; isParkingLot: boolean; accommodationName?: string;
-  onPlaceClick: (id: string, aiNote?: string) => void; onEditTime: (target: NonNullable<ModalTarget>) => void; onDeleteRequest: (target: NonNullable<ModalTarget>) => void;
+  onPlaceClick: (placeId: string, poiId: string, aiNote?: string) => void; onEditTime: (target: NonNullable<ModalTarget>) => void; onDeleteRequest: (target: NonNullable<ModalTarget>) => void;
   onToggleFixed: (dayNumber: number, entryId: string) => void; onEditAccommodation: (target: NonNullable<ModalTarget>) => void;
 }) {
 
-  const isBookend = entry.isAccommodation || entry.transitMethod === 'Start of Day' || /(accommodation|hotel|airbnb|start of day|return to)/i.test(entry.activityDescription || '') || /(accommodation|hotel|airbnb|start of day|return to)/i.test(entry.locationName || '');
+  // If this entry was flagged as a Coffee Rest Stop, do NOT treat it as a bookend
+  const isBookend = (entry.isAccommodation || entry.transitMethod === 'Start of Day' || /(accommodation|hotel|airbnb|start of day|return to)/i.test(entry.activityDescription || '') || /(accommodation|hotel|airbnb|start of day|return to)/i.test(entry.locationName || '')) && !entry.isDining;
   const isFlight = /(airport|flight|departure)/i.test(entry.activityDescription || '') || /(airport|flight|departure)/i.test(entry.locationName || '');
   const isStay = isBookend && !isFlight;
 
@@ -284,7 +354,6 @@ function SortableTimelineEntry({
   let displayDesc = rawDesc.replace(/^\[.*?\]\s*/, '');
 
   if (isStay) {
-    // Only overwrite the title with the global name if the current title is completely generic
     const isGeneric = /^(accommodation|hotel|airbnb|start of day|return to)/i.test(displayTitle.trim());
     if (isGeneric && accommodationName) {
       displayTitle = accommodationName;
@@ -376,7 +445,7 @@ function SortableTimelineEntry({
 
           <div className="flex items-start justify-between gap-3 mb-1">
             <h4 
-              onClick={() => { if (entry.placeId) onPlaceClick(entry.placeId, annotation || undefined); }}
+              onClick={() => { if (entry.placeId) onPlaceClick(entry.placeId, entry.id, annotation || undefined); }}
               className={`text-sm font-bold line-clamp-2 leading-tight ${entry.placeId ? 'text-brand-600 dark:text-brand-400 hover:underline cursor-pointer' : 'text-slate-900 dark:text-white'}`}
             >
               {displayTitle}
@@ -427,7 +496,7 @@ function DayColumn({
   day, anyDragActive, accommodationName, onAddActivity, onAddRest, onPlaceClick, onEditTime, onDeleteRequest, onToggleFixed, onEditAccommodation 
 }: { 
   day: DayItinerary; anyDragActive: boolean; accommodationName?: string;
-  onAddActivity: (n: number) => void; onAddRest: (n: number) => void; onPlaceClick: (id: string, note?: string) => void;
+  onAddActivity: (n: number) => void; onAddRest: (n: number) => void; onPlaceClick: (placeId: string, poiId: string, note?: string) => void;
   onEditTime: (t: NonNullable<ModalTarget>) => void; onDeleteRequest: (t: NonNullable<ModalTarget>) => void;
   onToggleFixed: (dayNumber: number, entryId: string) => void; onEditAccommodation: (t: NonNullable<ModalTarget>) => void;
 }) {
@@ -468,7 +537,7 @@ function DayColumn({
 function ParkingLot({ 
   items, anyDragActive, accommodationName, onPlaceClick, onEditTime, onDeleteRequest, onToggleFixed, onEditAccommodation, onDiscoverMore
 }: { 
-  items: ItineraryEntry[]; anyDragActive: boolean; accommodationName?: string; onPlaceClick: (id: string, note?: string) => void; onEditTime: (t: NonNullable<ModalTarget>) => void; 
+  items: ItineraryEntry[]; anyDragActive: boolean; accommodationName?: string; onPlaceClick: (placeId: string, poiId: string, note?: string) => void; onEditTime: (t: NonNullable<ModalTarget>) => void; 
   onDeleteRequest: (t: NonNullable<ModalTarget>) => void; onToggleFixed: (dayNumber: number, entryId: string) => void;
   onEditAccommodation: (t: NonNullable<ModalTarget>) => void; onDiscoverMore: () => void;
 }) {
@@ -518,11 +587,12 @@ export default function SortableItinerary() {
   
   const [activeEntry, setActiveEntry] = useState<ItineraryEntry | null>(null);
   const [addingToDay, setAddingToDay] = useState<number | null>(null);
+  const [addingRestToDay, setAddingRestToDay] = useState<number | null>(null);
   const [editingTimeTarget, setEditingTimeTarget] = useState<ModalTarget>(null);
   const [editingAccTarget, setEditingAccTarget] = useState<ModalTarget>(null);
   const [deletingTarget, setDeletingTarget] = useState<ModalTarget>(null);
 
-  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+  const [selectedPOI, setSelectedPOI] = useState<{placeId: string, poiId: string} | null>(null);
   const [activeAiNote, setActiveAiNote] = useState<string | undefined>(undefined);
 
   const sensors = useSensors(
@@ -538,17 +608,6 @@ export default function SortableItinerary() {
       router.push(`/discover/${targetId}`);
     }
   }, [urlTripId, currentTripId, router]);
-
-  // ── Inject Unpinned Rest Stop ──
-  const handleAddRestStop = (dayNumber: number) => {
-    addCustomEntry(dayNumber, {
-      locationName: intake?.accommodation || 'Accommodation',
-      activityDescription: 'Mid-day rest and refresh before heading back out.',
-      transitMethod: 'Walking', 
-      estimatedCostGBP: 0,
-      isDining: false,
-    });
-  };
 
   const handleDragStart = useCallback((e: DragStartEvent) => {
     if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(15);
@@ -677,8 +736,8 @@ export default function SortableItinerary() {
     setDeletingTarget(null);
   };
 
-  const handleOpenPlaceModal = (placeId: string, aiNote?: string) => {
-    setSelectedPlaceId(placeId);
+  const handleOpenPlaceModal = (placeId: string, poiId: string, aiNote?: string) => {
+    setSelectedPOI({ placeId, poiId });
     setActiveAiNote(aiNote);
   };
 
@@ -694,7 +753,7 @@ export default function SortableItinerary() {
               {itinerary.days.map(day => (
                 <DayColumn 
                   key={day.dayNumber} day={day} anyDragActive={!!activeEntry} accommodationName={intake?.accommodation}
-                  onAddActivity={setAddingToDay} onAddRest={handleAddRestStop} onPlaceClick={handleOpenPlaceModal}
+                  onAddActivity={setAddingToDay} onAddRest={setAddingRestToDay} onPlaceClick={handleOpenPlaceModal}
                   onEditTime={setEditingTimeTarget} 
                   onDeleteRequest={setDeletingTarget} onToggleFixed={toggleEntryFixed} 
                   onEditAccommodation={setEditingAccTarget}
@@ -723,17 +782,22 @@ export default function SortableItinerary() {
       </DndContext>
 
       <AnimatePresence>
-        {selectedPlaceId && (
+        {selectedPOI && (
           <PlaceDetailsModal 
-            placeId={selectedPlaceId} 
+            placeId={selectedPOI.placeId} 
+            poiId={selectedPOI.poiId}
+            tripId={urlTripId || currentTripId || ''}
             aiNote={activeAiNote}
-            onClose={() => { setSelectedPlaceId(null); setActiveAiNote(undefined); }} 
+            onClose={() => { setSelectedPOI(null); setActiveAiNote(undefined); }} 
           />
         )}
       </AnimatePresence>
 
       {addingToDay && <AddActivityModal dayNumber={addingToDay} destination={activeDestination} onClose={() => setAddingToDay(null)} />}
       
+      {/* ── NEW REST MODAL ── */}
+      {addingRestToDay && <AddRestModal dayNumber={addingRestToDay} accommodationName={intake?.accommodation} onClose={() => setAddingRestToDay(null)} />}
+
       <AnimatePresence>
         {editingTimeTarget && (
           <TimeEditorModal 

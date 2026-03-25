@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // TripIntakeForm — Pear Travel v2
-// Refactored to include flexible Transit Details & clean segmented toggles.
+// Fixed Hydration Mismatch & Destination Cache Clearing
 // ─────────────────────────────────────────────────────────────────────────────
 
 'use client';
@@ -16,7 +16,7 @@ import { DayPicker } from 'react-day-picker';
 import type { DateRange } from 'react-day-picker';
 import { format, differenceInCalendarDays } from 'date-fns';
 import 'react-day-picker/dist/style.css';
-import { useTripStore } from '@/store/tripStore';
+import { useTripStore, useHydratedTripStore } from '@/store/tripStore';
 import type {
   BookingMode,
   DiningProfile,
@@ -78,7 +78,6 @@ function validateForm(fields: Partial<TripIntake>, bookingMode: BookingMode): Fo
     if (!fields.startDate || !fields.endDate) {
       errors.dateRange = 'Please select your arrival and departure dates.';
     }
-    // We make transit details optional, so we don't strictly require it here anymore.
   } else {
     if (!fields.duration || fields.duration < MIN_DURATION) {
       errors.duration = `Minimum stay is ${MIN_DURATION} day.`;
@@ -213,10 +212,26 @@ function PlacesAutocompleteInput({ id, value, onPlaceSelected, onInputChange, pl
   return <input ref={ref} id={id} type="text" value={value} onChange={(e) => onInputChange(e.target.value)} placeholder={placeholder} className={inputClass(!!error)} aria-invalid={!!error} />;
 }
 
+// ── HYDRATION WRAPPER ──
+// This ensures the form doesn't render until Zustand has loaded the memory,
+// preventing weird glitches where old destinations override new ones.
 export default function TripIntakeForm() {
+  const hydratedIntake = useHydratedTripStore((state) => state.intake);
+
+  if (!hydratedIntake) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center rounded-3xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
+      </div>
+    );
+  }
+
+  return <IntakeFormContent initialIntake={hydratedIntake} />;
+}
+
+function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
   const router = useRouter();
   
-  const initialIntake = useTripStore((state) => state.intake);
   const setIntake = useTripStore((state) => state.setIntake);
   const setAllPOIs = useTripStore((state) => state.setAllPOIs);
   const setItinerary = useTripStore((state) => state.setItinerary);
@@ -388,8 +403,17 @@ export default function TripIntakeForm() {
               <PlacesAutocompleteInput
                 id="destination"
                 value={destination}
-                onPlaceSelected={(address, placeId) => { setDestination(address); setDestPlaceId(placeId ?? ''); setErrors((prev) => ({ ...prev, destination: undefined })); }}
-                onInputChange={(val) => { setDestination(val); setDestPlaceId(''); setErrors((prev) => ({ ...prev, destination: undefined })); }}
+                onPlaceSelected={(address, placeId) => { 
+                  // ── THE FIX: WIPE MEMORY IF THEY CHANGE CITY ──
+                  if (placeId && placeId !== destPlaceId) {
+                    setAllPOIs([]);
+                    setItinerary(null);
+                  }
+                  setDestination(address); 
+                  setDestPlaceId(placeId ?? ''); 
+                  setErrors((prev) => ({ ...prev, destination: undefined })); 
+                }}
+                onInputChange={(val) => { setDestination(val); setErrors((prev) => ({ ...prev, destination: undefined })); }}
                 placeholder="e.g. Barcelona, Tokyo, Cape Town…"
                 error={errors.destination}
               />
@@ -535,7 +559,6 @@ export default function TripIntakeForm() {
                 <p className="text-xs text-slate-500 dark:text-slate-400">Used as your daily start/end point.</p>
               </div>
               
-              {/* NEW SEGMENTED TOGGLE */}
               <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-1 shrink-0 w-full sm:w-auto">
                 <button
                   type="button"
