@@ -100,7 +100,7 @@ function buildPrompt(intake: TripIntake, pois: POI[], existingItinerary?: Itiner
 
   const multiDayHubLogic = userAccommodation
     ? `STRICT NAMING RULE: You MUST use the EXACT string provided here for the accommodation locationName: "${userAccommodation}".`
-    : `STRICT NAMING RULE: Since no hotel was specified, use a realistic placeholder like "City Centre Hotel" or "Accommodation in Central ${intake.destination}".`;
+    : `STRICT NAMING RULE: Since no hotel was specified, use a realistic placeholder like "Accommodation in Central ${intake.destination}".`;
 
   // ── ROUTING INSTRUCTIONS ──
   const routingInstructions = isDayTrip 
@@ -179,7 +179,8 @@ CRITICAL ANCHOR RULES:
 4. Protect anchor times — always account for transit time; do NOT schedule another activity during an anchored block.
 `
     : '';
-const matchmakerInstructions = !userAccommodation ? `
+
+  const matchmakerInstructions = !userAccommodation ? `
 ════════════════════════════════════════
 NEIGHBOURHOOD MATCHMAKER (AI CONCIERGE)
 ════════════════════════════════════════
@@ -291,6 +292,13 @@ ${diningInstructions}
   - The user's daily budget of £${dailyBudget} is ONLY for activities and dining.
 
 ════════════════════════════════════════
+CULTURAL BRIEFING & ESSENTIALS RULES
+════════════════════════════════════════
+1. APPS: You MUST list the primary local rideshare/taxi app (Uber, Bolt, Grab, FreeNow, etc.) alongside the official city transit app in the 'apps' array.
+2. PHRASES: Provide exactly 6 phrases in 'usefulPhrases', including: "Hello", "Thank you", "The bill, please", "Do you speak English?", "Where is the bathroom?", and "How do I get to...?".
+3. CUSTOMS: Provide 2-3 specific local etiquette or behavioral tips in the 'localCustoms' array (e.g. "Dinner is eaten late, rarely before 9 PM").
+
+════════════════════════════════════════
 JSON OUTPUT STRUCTURE & FIELD RULES
 ════════════════════════════════════════
 Return ONLY valid JSON with the exact structure below. Note the boolean properties for isDining and isAccommodation. For Flights/Trains, set isAccommodation to false.
@@ -314,7 +322,7 @@ Return ONLY valid JSON with the exact structure below. Note the boolean properti
       "isAccommodation": false
     }
   ],
-"essentials": {
+  "essentials": {
     "destination": "${intake.destination}",
     "airportTransit": "string",
     "tippingEtiquette": "string",
@@ -326,6 +334,7 @@ Return ONLY valid JSON with the exact structure below. Note the boolean properti
     "tapWater": "string",
     "apps": ["string"],
     "contextualRisk": "string",
+    "localCustoms": ["string"],
     "neighbourhoodRecommendations": [
       {
         "name": "string",
@@ -459,25 +468,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const { tripId, newPOIs } = await request.json();
-    const trip = await prisma.trip.findUnique({ 
-      where: { id: tripId },
-      include: {
-        days: {
-          include: { pois: true }
-        }
-      }
-    });
     
-    if (!trip) return NextResponse.json({ error: 'Trip not found' }, { status: 404 });
-
-    const genAI = getGeminiClient();
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-3.1-flash-lite-preview', 
-      generationConfig: { responseMimeType: 'application/json' } 
-    });
-    
-    // In a fully built V2, you would map the relational days/pois back to the Itinerary interface
-    // here before passing to buildPrompt. For now, we need to pass the raw data we have to the prompt builder.
     // NOTE: This PATCH route will need further refinement in V2 as we are now updating
     // specific Day and POI records rather than overwriting a single JSON blob. 
     // This is a placeholder for the re-optimization logic to prevent the build from failing.

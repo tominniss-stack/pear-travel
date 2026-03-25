@@ -259,17 +259,17 @@ export default function ItineraryDisplay({
   const essentials = itinerary.essentials;
   const [activeTab, setActiveTab] = useState<'overview' | number>('overview');
   
-  // ── NEW: Document & Modal State ──
+  // ── Document & Modal State ──
   const [selectedPOI, setSelectedPOI] = useState<{placeId: string, poiId: string} | null>(null);
   const [isFilingCabinetOpen, setIsFilingCabinetOpen] = useState(false);
   const [tripDocuments, setTripDocuments] = useState<DocumentInfo[]>([]);
 
   const { exchangeRate, setExchangeRate, displayCurrency, toggleCurrency, intake } = useTripStore();
   
-  // NEW WEATHER STATE
+  // Weather State
   const [weatherData, setWeatherData] = useState<DailyWeather[] | null>(null);
 
-  // NEW WEATHER FETCHER
+  // Weather Fetcher
   useEffect(() => {
     async function loadWeather() {
       const data = await fetchTripWeather(trip.destination, trip.startDate, trip.duration || days.length);
@@ -280,7 +280,7 @@ export default function ItineraryDisplay({
   
   const accommodationName = intake?.accommodation || trip.intake?.accommodation;
 
-  // ── Document Fetcher ──
+  // Document Fetcher
   const loadDocuments = () => {
     fetchTripDocuments(trip.id).then(docs => setTripDocuments(docs as DocumentInfo[]));
   };
@@ -289,7 +289,7 @@ export default function ItineraryDisplay({
     loadDocuments();
   }, [trip.id]);
 
-  // ── Smart Currency Fetcher ──
+  // Smart Currency Fetcher
   const localCurrencyRaw = essentials?.currency || '';
   const localSymbol = localCurrencyRaw.split(' ')[0] || '€';
   const isDomesticTrip = localSymbol === '£' || localCurrencyRaw.includes('GBP');
@@ -334,7 +334,7 @@ export default function ItineraryDisplay({
     }
   }, [localCurrencyRaw, setExchangeRate]);
 
-  // ── Hero Image Fetcher ──
+  // Hero Image Fetcher
   const [heroImage, setHeroImage] = useState<string>(`https://picsum.photos/seed/${trip.id}/1200/600`);
   
   useEffect(() => {
@@ -351,16 +351,14 @@ export default function ItineraryDisplay({
     }
   }, [intake?.destinationPlaceId]);
 
-  // ── Dynamic Accommodation Scanner (Fixed for Airports) ──
+  // Dynamic Accommodation Scanner (Fixed for Airports)
   const dynamicStays = days.reduce((acc: {name: string, startDay: number, placeId?: string, poiId: string}[], day) => {
     if (day.entries.length > 0) {
-      // Find the true accommodation entry for the day, excluding airports and stations
       const stayEntry = day.entries.find(e => {
         const isStayKeyword = e.isAccommodation || /(accommodation|hotel|airbnb|check-in|stay)/i.test(e.activityDescription || '') || /(accommodation|hotel|airbnb)/i.test(e.locationName || '');
         const isAirportOrStation = /(airport|flight|arrival|departure|station|terminal)/i.test(e.locationName + ' ' + e.activityDescription);
         return isStayKeyword && !isAirportOrStation;
       }) || day.entries.find(e => {
-         // Fallback: If no explicit hotel found, use the start of day, UNLESS it's an airport
          return e.transitMethod === 'Start of Day' && !/(airport|flight|arrival|departure|station)/i.test(e.locationName + ' ' + e.activityDescription);
       });
 
@@ -409,7 +407,10 @@ export default function ItineraryDisplay({
     : [
         { phrase: 'Hello', translation: 'Hola' },
         { phrase: 'Thank you', translation: 'Gracias' },
-        { phrase: 'The bill, please', translation: 'La cuenta, por favor' }
+        { phrase: 'The bill, please', translation: 'La cuenta, por favor' },
+        { phrase: 'Do you speak English?', translation: '¿Habla inglés?' },
+        { phrase: 'Where is the bathroom?', translation: '¿Dónde está el baño?' },
+        { phrase: 'How do I get to...?', translation: '¿Cómo llego a...?' }
       ];
   const risk = essentials?.contextualRisk || 'Pickpockets are common around major tourist hubs like the Metro. Keep valuables secure.';
 
@@ -759,18 +760,30 @@ export default function ItineraryDisplay({
                       ))}
                     </div>
                   </div>
+                  
                   <div className="flex flex-col justify-start gap-5">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Local Customs</h4>
+                      <ul className="list-disc list-inside text-sm text-slate-700 dark:text-slate-300 space-y-1.5 leading-relaxed">
+                        {essentials?.localCustoms?.map((custom, i) => (
+                          <li key={i}>{custom}</li>
+                        )) || (
+                          <li>Always greet shopkeepers when entering.</li>
+                        )}
+                      </ul>
+                    </div>
                     <div>
                       <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Tipping & Custom</h4>
                       <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
                         {essentials?.tippingEtiquette || 'Tipping is generally appreciated but not strictly mandatory. 10% is standard for good service.'}
                       </p>
                     </div>
-                    <div className="bg-slate-50 dark:bg-slate-900/50 border-l-4 border-amber-500 p-4 rounded-r-xl border-y border-r border-slate-200 dark:border-slate-700/50">
-                      <h4 className="text-[10px] font-black text-amber-600 dark:text-amber-500 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-                        <span>⚠️</span> Contextual Risk
-                      </h4>
-                      <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">{risk}</p>
+                    <div className="flex items-start gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/50 mt-1">
+                      <span className="text-base mt-0.5">🛡️</span>
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">Safety Advice</h4>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{risk}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
