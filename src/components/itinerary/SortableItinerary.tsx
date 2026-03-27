@@ -171,7 +171,7 @@ function AddRestModal({ dayNumber, accommodationName, onClose }: { dayNumber: nu
 
   return (
     <div className="fixed inset-0 z-[500] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-sm p-6 border border-slate-200 dark:border-slate-700">
+      <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-sm p-6 border border-slate-200 dark:border-slate-700">
         <h3 className="text-lg font-extrabold text-slate-900 dark:text-white mb-4 text-center">Add a Rest Stop</h3>
         <p className="text-sm text-slate-500 dark:text-slate-400 text-center mb-6">What kind of break do you need?</p>
         
@@ -319,11 +319,10 @@ function SortableTimelineEntry({
   const isFlight = /(airport|flight|departure)/i.test(entry.activityDescription || '') || /(airport|flight|departure)/i.test(entry.locationName || '');
   const isStay = isBookend && !isFlight;
 
-  const [isTouch, setIsTouch] = useState(false);
-  useEffect(() => { setIsTouch(window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window); }, []);
+  const [showActions, setShowActions] = useState(false);
 
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ 
-    id: entry.id, data: { type: 'entry', containerId }, disabled: isBookend || entry.isFixed 
+    id: entry.id, data: { type: 'entry', containerId }, disabled: isBookend || entry.isFixed || showActions
   });
   
   const dndStyle = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : 1 };
@@ -343,76 +342,153 @@ function SortableTimelineEntry({
   const nextTransitConfig = getTransitConfig(nextEntry?.transitMethod);
 
   return (
-    <div ref={setNodeRef} style={dndStyle} className="mb-3 w-full group/entry">
-      
-      {/* ── CARD WRAPPER: This contains the Trash and the Card, but NOT the transit ── */}
-      <div className="relative">
-        {/* Swipe Underlay (Now scoped only to the card height) */}
-        {!isBookend && !entry.isFixed && isTouch && (
-          <div className="absolute inset-0 rounded-2xl bg-red-600 flex md:hidden items-center justify-end px-6 z-0 overflow-hidden">
-            <button onClick={() => onDeleteRequest({ entry, dayNumber })} className="flex flex-col items-center gap-1 text-white font-black uppercase text-[10px]">
-              <span className="text-xl">🗑️</span> Trash
-            </button>
-          </div>
-        )}
-
-        {/* Floating Delete Button (Desktop) */}
-        {!isBookend && !entry.isFixed && !isTouch && (
-          <button onClick={(e) => { e.stopPropagation(); onDeleteRequest({ entry, dayNumber }); }} className="absolute -top-2.5 -right-2.5 w-7 h-7 rounded-full bg-white dark:bg-slate-700 text-slate-400 hover:text-white hover:bg-red-500 hover:border-red-600 shadow-md border border-slate-200 dark:border-slate-600 hidden md:flex items-center justify-center opacity-0 group-hover/entry:opacity-100 transition-all z-20 cursor-pointer" title="Delete Activity">✕</button>
-        )}
-
-        <motion.div
-          drag={(!isBookend && !entry.isFixed && isTouch) ? "x" : false}
-          dragConstraints={{ left: -100, right: 0 }} dragElastic={0.05} dragDirectionLock
-          className={`relative z-10 flex w-full items-stretch rounded-2xl border shadow-sm transition-all ${isDragging ? 'opacity-50 scale-[0.98] ring-2 ring-brand-500 cursor-grabbing' : ''} ${entry.isFixed ? 'border-brand-300 dark:border-brand-700 bg-brand-50/30 dark:bg-brand-900/10' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'} ${!isTouch && !entry.isFixed && !isBookend ? 'hover:border-slate-300 dark:hover:border-slate-600' : ''}`}
-          style={{ touchAction: 'pan-y' }}
+    <>
+      <div ref={setNodeRef} style={dndStyle} className={`mb-3 w-full group/entry select-none outline-none ${isDragging ? 'opacity-50' : ''}`}>
+        
+        {/* ── THE CARD ── */}
+        <div 
+          className={`relative z-10 flex w-full items-stretch rounded-2xl border shadow-sm transition-all ${
+            isDragging ? 'scale-[0.98] ring-2 ring-brand-500 cursor-grabbing' : 'bg-white dark:bg-slate-800'
+          } ${
+            entry.isFixed ? 'border-brand-300 dark:border-brand-700 bg-brand-50/30 dark:bg-brand-900/10' : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+          }`}
         >
+          {/* Column 1: Time & Pin */}
           {!isParkingLot && (
-            <div className="flex flex-col items-center justify-center w-20 py-3 flex-shrink-0 border-r border-slate-100 dark:border-slate-700/50 relative bg-white dark:bg-slate-800 rounded-l-2xl">
-              {entry.timeWarning && (<div className="absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm border border-red-200 dark:border-red-800/50 z-20" title={entry.timeWarning}>⚠️ {entry.timeWarning.includes('Closes') ? 'CLOSES SOON' : 'NOT OPEN'}</div>)}
-              <button onClick={(e) => { e.stopPropagation(); if (!isBookend) onEditTime({ entry, dayNumber }); }} className={`text-sm tabular-nums font-bold transition-colors cursor-pointer mt-1 ${entry.isFixed ? 'text-brand-600 dark:text-brand-400' : isBookend ? 'text-slate-400' : 'text-slate-600 dark:text-slate-400 hover:text-brand-600'}`}>{entry.time || '--:--'}</button>
-              <div className="mt-1">
-                {!isBookend ? (<button onClick={(e) => { e.stopPropagation(); onToggleFixed(dayNumber, entry.id); }} className={`text-xs p-1 rounded transition-all cursor-pointer hover:scale-110 ${entry.isFixed ? 'opacity-100 drop-shadow-sm text-brand-600' : 'opacity-40 hover:opacity-100 grayscale hover:grayscale-0 text-slate-500'}`} title={entry.isFixed ? "Unlock activity to enable dragging and AI recalculation" : "Pin activity to lock it in place"}>{entry.isFixed ? '📌' : '📍'}</button>) : (<span className="text-[10px] opacity-40 cursor-not-allowed text-slate-500" title="Anchored Travel Element">🔒</span>)}
-              </div>
+            <div className="flex flex-col items-center justify-center w-16 md:w-20 py-3 flex-shrink-0 border-r border-slate-100 dark:border-slate-700/50 relative bg-inherit rounded-l-2xl">
+              {entry.timeWarning && (
+                <div className="absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm border border-red-200 dark:border-red-800/50 z-20" title={entry.timeWarning}>
+                  ⚠️ {entry.timeWarning.includes('Closes') ? 'CLOSES' : 'CLOSED'}
+                </div>
+              )}
+              <button 
+                onClick={(e) => { e.stopPropagation(); if (!isBookend) onEditTime({ entry, dayNumber }); }}
+                className={`text-sm tabular-nums font-bold mt-1 ${entry.isFixed ? 'text-brand-600' : isBookend ? 'text-slate-400' : 'text-slate-600 dark:text-slate-400'}`}
+              >
+                {entry.time || '--:--'}
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); onToggleFixed(dayNumber, entry.id); }} className="mt-1 p-1 text-xs">
+                {isBookend ? '🔒' : entry.isFixed ? '📌' : '📍'}
+              </button>
             </div>
           )}
 
-          <div ref={isTouch ? setActivatorNodeRef : undefined} {...(isTouch && !isBookend && !entry.isFixed ? { ...attributes, ...listeners } : {})} className={`flex-1 min-w-0 p-4 bg-white dark:bg-slate-800 ${isParkingLot ? 'pl-5 rounded-l-2xl' : 'pr-2'} ${isTouch && !isBookend && !entry.isFixed ? 'cursor-grab active:cursor-grabbing' : ''}`}>
-            {isParkingLot && annotation && (<div className="mb-1.5 flex items-center"><span className="inline-flex items-center gap-1 rounded-md bg-brand-50 dark:bg-brand-900/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-800/50 shadow-sm">✨ AI Note</span></div>)}
+          {/* Column 2: Drag Area & Content */}
+          <div 
+            ref={setActivatorNodeRef}
+            {...attributes} {...listeners}
+            className={`flex-1 min-w-0 p-4 bg-inherit ${!isBookend && !entry.isFixed ? 'cursor-grab active:cursor-grabbing' : ''}`}
+          >
+            {isParkingLot && annotation && (
+              <div className="mb-1.5 flex items-center">
+                <span className="inline-flex items-center gap-1 rounded-md bg-brand-50 dark:bg-brand-900/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-800/50 shadow-sm">✨ AI Note</span>
+              </div>
+            )}
             <div className="flex items-start justify-between gap-3 mb-1">
-              <h4 onClick={() => { if (entry.placeId) onPlaceClick(entry.placeId, entry.id, annotation || undefined); }} className={`text-sm font-bold line-clamp-2 leading-tight ${entry.placeId ? 'text-brand-600 dark:text-brand-400 hover:underline cursor-pointer' : 'text-slate-900 dark:text-white'}`}>{displayTitle}</h4>
-              {!/(Accommodation|Hotel|Airbnb|Start|Return)/i.test(entry.locationName ?? '') && entry.estimatedCostGBP > 0 && (<span className="flex-shrink-0 text-[10px] font-black text-slate-500 bg-slate-100 dark:bg-slate-700 px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-600">{formatCost(entry.estimatedCostGBP)}</span>)}
+              <h4 
+                onClick={(e) => { e.stopPropagation(); if (entry.placeId) onPlaceClick(entry.placeId, entry.id, annotation || undefined); }} 
+                className={`text-sm font-bold line-clamp-2 leading-tight relative z-20 ${entry.placeId ? 'text-brand-600 dark:text-brand-400 hover:underline cursor-pointer' : 'text-slate-900 dark:text-white'}`}
+              >
+                {displayTitle}
+              </h4>
+              {!/(Accommodation|Hotel|Airbnb|Start|Return)/i.test(entry.locationName ?? '') && entry.estimatedCostGBP > 0 && (
+                <span className="flex-shrink-0 text-[10px] font-black text-slate-500 bg-slate-100 dark:bg-slate-700 px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-600">{formatCost(entry.estimatedCostGBP)}</span>
+              )}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">{displayDesc}</p>
           </div>
 
-          {!isTouch && !isBookend && !entry.isFixed && (<div ref={!isTouch ? setActivatorNodeRef : undefined} {...attributes} {...listeners} className="w-10 flex items-center justify-center text-slate-300 hover:text-brand-500 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-r-2xl cursor-grab active:cursor-grabbing transition-colors touch-none border-l border-slate-100 dark:border-slate-700/50"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor" className="opacity-60"><circle cx="3" cy="2" r="1.5" /><circle cx="3" cy="8" r="1.5" /><circle cx="3" cy="14" r="1.5" /><circle cx="9" cy="2" r="1.5" /><circle cx="9" cy="8" r="1.5" /><circle cx="9" cy="14" r="1.5" /></svg></div>)}
-          {isBookend && (<div onClick={(e) => { e.stopPropagation(); onEditAccommodation({ entry, dayNumber }); }} className="w-10 flex items-center justify-center text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20 bg-white dark:bg-slate-800 rounded-r-2xl cursor-pointer transition-colors border-l border-slate-100 dark:border-slate-700/50" title="Edit Accommodation & Time"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></div>)}
-          {!isBookend && entry.isFixed && !isTouch && (<div className="w-10 flex-shrink-0 border-l border-slate-100 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-800/30 rounded-r-2xl" />)}
-        </motion.div>
-      </div>
-
-      {/* ── TRANSIT SECTION: Now a sibling to the relative Card wrapper (No Spill) ── */}
-      {!isParkingLot && nextEntry && (
-        <div className="flex gap-4 pl-[78px] py-1 relative z-0">
-          <div className="flex w-6 flex-col items-center flex-shrink-0"><div className="w-0.5 flex-1 bg-slate-200 dark:bg-slate-700 min-h-[32px]" /></div>
-          <div className="flex flex-col justify-center py-2 relative z-20">
-            {nextEntry.transitNote && (
-              <a 
-                href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(displayTitle + ', ' + destination)}&destination=${encodeURIComponent(nextEntry.locationName + ', ' + destination)}&travelmode=${getGoogleMapsTravelMode(nextEntry.transitMethod)}`}
-                target="_blank" rel="noopener noreferrer"
-                className={`flex items-center gap-2 text-[10px] font-bold px-2.5 py-1 rounded-lg border hover:scale-[1.02] hover:shadow-sm transition-all shadow-sm ${nextTransitConfig.bgColour} ${nextTransitConfig.colour}`}
-                title={`Get directions to ${nextEntry.locationName}`}
-              >
-                <span>{nextTransitConfig.emoji}</span><span>{nextEntry.transitNote}</span><span className="ml-0.5 opacity-50">↗</span>
-              </a>
+          {/* Column 3: Actions (The Three Dots) */}
+          <div className="flex flex-col border-l border-slate-100 dark:border-slate-700/50 bg-inherit rounded-r-2xl w-12 flex-shrink-0">
+            {isBookend ? (
+               <button onClick={(e) => { e.stopPropagation(); onEditAccommodation({ entry, dayNumber }); }} className="flex-1 flex items-center justify-center text-slate-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-r-2xl transition-colors" title="Edit Accommodation & Time">
+                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+               </button>
+            ) : entry.isFixed ? (
+               <div className="flex-1 bg-slate-50/50 dark:bg-slate-800/30 rounded-r-2xl" />
+            ) : (
+               <button 
+                 onClick={(e) => { e.stopPropagation(); setShowActions(true); }} 
+                 className="flex-1 flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-r-2xl transition-colors active:bg-slate-100"
+               >
+                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+               </button>
             )}
           </div>
         </div>
-      )}
-    </div>
+
+        {/* ── TRANSIT SIBLING (Unchanged, clean placement) ── */}
+        {!isParkingLot && nextEntry && (
+          <div className="flex gap-4 pl-[78px] py-1 relative z-0">
+            <div className="flex w-6 flex-col items-center flex-shrink-0"><div className="w-0.5 flex-1 bg-slate-200 dark:bg-slate-700 min-h-[32px]" /></div>
+            <div className="flex flex-col justify-center py-2 relative z-20">
+              {nextEntry.transitNote && (
+                <a 
+                  href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(displayTitle + ', ' + destination)}&destination=${encodeURIComponent(nextEntry.locationName + ', ' + destination)}&travelmode=${getGoogleMapsTravelMode(nextEntry.transitMethod)}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className={`flex items-center gap-2 text-[10px] font-bold px-2.5 py-1 rounded-lg border hover:scale-[1.02] hover:shadow-sm transition-all shadow-sm ${nextTransitConfig.bgColour} ${nextTransitConfig.colour}`}
+                  title={`Get directions to ${nextEntry.locationName}`}
+                >
+                  <span>{nextTransitConfig.emoji}</span><span>{nextEntry.transitNote}</span><span className="ml-0.5 opacity-50">↗</span>
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── ACTION SHEET MODAL ── */}
+      <AnimatePresence>
+        {showActions && (
+          <div className="fixed inset-0 z-[600] flex items-end justify-center bg-slate-900/40 backdrop-blur-sm sm:items-center p-4" onClick={(e) => { e.stopPropagation(); setShowActions(false); }}>
+            <motion.div
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-700"
+            >
+              <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-6 sm:hidden" />
+              <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4 text-center px-4 line-clamp-1">{displayTitle}</h3>
+
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={() => { setShowActions(false); onEditTime({ entry, dayNumber }); }}
+                  className="w-full flex items-center gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-900/30 dark:hover:text-brand-400 text-slate-900 dark:text-white font-bold transition-colors border border-slate-100 dark:border-slate-700"
+                >
+                  <span className="text-xl">⏱️</span> Edit Time
+                </button>
+
+                <button 
+                  onClick={() => { setShowActions(false); onToggleFixed(dayNumber, entry.id); }}
+                  className="w-full flex items-center gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold transition-colors border border-slate-100 dark:border-slate-700"
+                >
+                  <span className="text-xl">{entry.isFixed ? '🔓' : '📌'}</span> {entry.isFixed ? 'Unpin Activity' : 'Pin Activity (Lock Time)'}
+                </button>
+
+                <button 
+                  onClick={() => { setShowActions(false); onDeleteRequest({ entry, dayNumber }); }}
+                  className="w-full flex items-center gap-3 p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 font-bold transition-colors border border-red-100 dark:border-red-900/50"
+                >
+                  <span className="text-xl">🗑️</span> Delete Activity
+                </button>
+              </div>
+
+              <button 
+                onClick={() => setShowActions(false)}
+                className="w-full mt-4 py-4 rounded-2xl text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              >
+                Cancel
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
+// ── Drop Zone Components ───────────────────────────────────────────────────
 
 function DayColumn({ 
   day, anyDragActive, accommodationName, destination, onAddActivity, onAddRest, onPlaceClick, onEditTime, onDeleteRequest, onToggleFixed, onEditAccommodation 
@@ -444,6 +520,7 @@ function DayColumn({
     </div>
   );
 }
+
 function ParkingLot({ 
   items, anyDragActive, accommodationName, destination, onPlaceClick, onEditTime, onDeleteRequest, onToggleFixed, onEditAccommodation, onDiscoverMore
 }: { 
@@ -497,6 +574,7 @@ export default function SortableItinerary() {
   const [selectedPOI, setSelectedPOI] = useState<{placeId: string, poiId: string} | null>(null);
   const [activeAiNote, setActiveAiNote] = useState<string | undefined>(undefined);
 
+  // Added exact delay to perfectly trigger haptic when pick-up resolves
   const sensors = useSensors(
     useSensor(MouseSensor), 
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 15 } }),
@@ -509,6 +587,7 @@ export default function SortableItinerary() {
   }, [urlTripId, currentTripId, router]);
 
   const handleDragStart = useCallback((e: DragStartEvent) => {
+    // Native haptic thud perfectly timed with the dnd-kit 200ms delay
     if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(15);
     const all = itinerary?.days.flatMap(d => d.entries).concat(itinerary?.unscheduledOptions || []) || [];
     setActiveEntry(all.find(en => en.id === e.active.id) || null);
