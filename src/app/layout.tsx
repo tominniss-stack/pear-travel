@@ -1,3 +1,5 @@
+// src/app/layout.tsx
+
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
@@ -20,10 +22,6 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* The Google Maps Script: 
-          Uses NEXT_PUBLIC_ prefix so the browser can access the key.
-          strategy="beforeInteractive" ensures it loads before your form tries to use it.
-        */}
         <Script
           src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}&libraries=places`}
           strategy="beforeInteractive"
@@ -31,7 +29,6 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-50 transition-colors duration-300`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          {/* Global Pear Travel Navigation - HIDDEN ON PRINT */}
           <nav className="print:hidden border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
             <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -41,11 +38,14 @@ export default function RootLayout({
                 </span>
               </div>
               <div className="flex items-center gap-4">
-                <div className="hidden sm:flex gap-6 text-sm font-medium">
-                  <a href="/dashboard" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
+                {/* CHANGE: Removed 'hidden sm:flex' and replaced with 'flex' 
+                   to ensure dashboard links are always visible on mobile.
+                */}
+                <div className="flex gap-4 sm:gap-6 text-xs sm:text-sm font-bold uppercase tracking-wider">
+                  <a href="/dashboard" className="text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
                     My Trips
                   </a>
-                  <a href="/" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
+                  <a href="/" className="text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
                     New Plan
                   </a>
                 </div>
