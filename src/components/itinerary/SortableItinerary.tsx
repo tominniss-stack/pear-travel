@@ -37,6 +37,42 @@ function getGoogleMapsTravelMode(method?: string) {
   return 'transit';
 }
 
+function generateGoogleMapsDayUrl(entries: ItineraryEntry[], destinationCity: string): string | null {
+  const validEntries = entries.filter(e => 
+    e.locationName && 
+    !/(airport|flight|arrival|departure)/i.test(e.locationName + ' ' + (e.activityDescription || '')) &&
+    e.locationName !== 'Room Break' && 
+    e.locationName !== 'Local Coffee / Cafe Break'
+  );
+  
+  if (validEntries.length === 0) return null;
+  if (validEntries.length === 1) {
+     const placeIdParam = validEntries[0].placeId && validEntries[0].placeId !== "null" ? `&query_place_id=${validEntries[0].placeId}` : '';
+     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(validEntries[0].locationName + ', ' + destinationCity)}${placeIdParam}`;
+  }
+  
+  const origin = validEntries[0];
+  const dest = validEntries[validEntries.length - 1];
+  const waypoints = validEntries.slice(1, -1);
+  
+  let url = `https://www.google.com/maps/dir/?api=1`;
+  url += `&origin=${encodeURIComponent(origin.locationName + ', ' + destinationCity)}`;
+  if (origin.placeId && origin.placeId !== "null") url += `&origin_place_id=${origin.placeId}`;
+  
+  url += `&destination=${encodeURIComponent(dest.locationName + ', ' + destinationCity)}`;
+  if (dest.placeId && dest.placeId !== "null") url += `&destination_place_id=${dest.placeId}`;
+  
+  if (waypoints.length > 0) {
+     const limitedWaypoints = waypoints.slice(0, 9); // Google Maps limit
+     url += `&waypoints=${limitedWaypoints.map(w => encodeURIComponent(w.locationName + ', ' + destinationCity)).join('|')}`;
+     const wpPlaceIds = limitedWaypoints.map(w => (w.placeId && w.placeId !== "null") ? w.placeId : '');
+     if (wpPlaceIds.some(id => id !== '')) {
+         url += `&waypoint_place_ids=${wpPlaceIds.join('|')}`;
+     }
+  }
+  return url;
+}
+
 const TRANSIT_CONFIG: Record<TransitMethod, { emoji: string; colour: string; bgColour: string }> = {
   'Walking':          { emoji: '🚶', colour: 'text-emerald-700 dark:text-emerald-400', bgColour: 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800' },
   'Tube':             { emoji: '🚇', colour: 'text-blue-700 dark:text-blue-400',    bgColour: 'bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-800'       },
@@ -500,11 +536,26 @@ function DayColumn({
 }) {
   const containerId = getDayContainerId(day.dayNumber);
   const { setNodeRef, isOver } = useDroppable({ id: containerId });
+  const mapUrl = generateGoogleMapsDayUrl(day.entries, destination);
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-brand-600 text-white flex items-center justify-center font-black text-sm shadow-md">{day.dayNumber}</div>
-        <h3 className="font-extrabold text-slate-900 dark:text-white text-lg">Day {day.dayNumber}</h3>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-brand-600 text-white flex items-center justify-center font-black text-sm shadow-md">{day.dayNumber}</div>
+          <h3 className="font-extrabold text-slate-900 dark:text-white text-lg">Day {day.dayNumber}</h3>
+        </div>
+        {mapUrl && (
+          <a 
+            href={mapUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors flex items-center gap-1.5 shadow-sm"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon><line x1="9" y1="3" x2="9" y2="18"></line><line x1="15" y1="6" x2="15" y2="21"></line></svg>
+            Map Route
+          </a>
+        )}
       </div>
       <div ref={setNodeRef} className={`p-4 rounded-3xl border-2 transition-all min-h-[100px] ${anyDragActive ? 'border-brand-300 dark:border-brand-600 bg-brand-50/20 border-dashed' : 'border-transparent bg-slate-50/50 dark:bg-slate-800/30'} ${isOver ? 'ring-4 ring-brand-200' : ''}`}>
         <SortableContext id={containerId as string} items={day.entries.map(e => e.id)} strategy={verticalListSortingStrategy}>

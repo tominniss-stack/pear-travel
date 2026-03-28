@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import type { Itinerary, DayItinerary, ItineraryEntry, TransitMethod } from '@/types';
 import PlaceDetailsModal, { DocumentInfo } from './PlaceDetailsModal';
 import FilingCabinet from './FilingCabinet';
+import DayMap from './DayMap';
 import { useTripStore } from '@/store/tripStore';
 import { fetchTripDocuments } from '@/app/actions/documents';
 import { fetchTripWeather, DailyWeather } from '@/app/actions/weather';
@@ -126,6 +127,42 @@ function getGoogleMapsTravelMode(method?: string) {
   return 'transit';
 }
 
+function generateGoogleMapsDayUrl(entries: ItineraryEntry[], destinationCity: string): string | null {
+  const validEntries = entries.filter(e => 
+    e.locationName && 
+    !/(airport|flight|arrival|departure)/i.test(e.locationName + ' ' + (e.activityDescription || '')) &&
+    e.locationName !== 'Room Break' && 
+    e.locationName !== 'Local Coffee / Cafe Break'
+  );
+  
+  if (validEntries.length === 0) return null;
+  if (validEntries.length === 1) {
+     const placeIdParam = validEntries[0].placeId && validEntries[0].placeId !== "null" ? `&query_place_id=${validEntries[0].placeId}` : '';
+     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(validEntries[0].locationName + ', ' + destinationCity)}${placeIdParam}`;
+  }
+  
+  const origin = validEntries[0];
+  const dest = validEntries[validEntries.length - 1];
+  const waypoints = validEntries.slice(1, -1);
+  
+  let url = `https://www.google.com/maps/dir/?api=1`;
+  url += `&origin=${encodeURIComponent(origin.locationName + ', ' + destinationCity)}`;
+  if (origin.placeId && origin.placeId !== "null") url += `&origin_place_id=${origin.placeId}`;
+  
+  url += `&destination=${encodeURIComponent(dest.locationName + ', ' + destinationCity)}`;
+  if (dest.placeId && dest.placeId !== "null") url += `&destination_place_id=${dest.placeId}`;
+  
+  if (waypoints.length > 0) {
+     const limitedWaypoints = waypoints.slice(0, 9); // Google Maps limit
+     url += `&waypoints=${limitedWaypoints.map(w => encodeURIComponent(w.locationName + ', ' + destinationCity)).join('|')}`;
+     const wpPlaceIds = limitedWaypoints.map(w => (w.placeId && w.placeId !== "null") ? w.placeId : '');
+     if (wpPlaceIds.some(id => id !== '')) {
+         url += `&waypoint_place_ids=${wpPlaceIds.join('|')}`;
+     }
+  }
+  return url;
+}
+
 // ── Sub-component: Timeline Entry ─────────────────────────────────────────────
 
 function TimelineEntry({ 
@@ -204,9 +241,9 @@ function TimelineEntry({
                 <h4 className={`text-base font-bold leading-snug transition-colors ${hasPlaceId ? 'text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-300' : 'text-slate-900 dark:text-white'}`}>
                   {displayTitle}
                 </h4>
-                {isStay && !isFlight && (
+                {isStay && !isFlight && hasPlaceId && (
                   <a 
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(displayTitle + ', ' + destination)}`} 
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(displayTitle + ', ' + destination)}&query_place_id=${entry.placeId}`} 
                     target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} 
                     className="text-[10px] font-bold uppercase tracking-wider text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300 bg-brand-50 dark:bg-brand-900/30 px-2 py-0.5 rounded-md transition-colors"
                   >
@@ -270,6 +307,7 @@ export default function ItineraryDisplay({
   const days = itinerary.days ?? [];
   const essentials = itinerary.essentials;
   const [activeTab, setActiveTab] = useState<'overview' | number>('overview');
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list'); // ── NEW VIEW MODE STATE ──
   
   // ── Document & Modal State ──
   const [selectedPOI, setSelectedPOI] = useState<{placeId: string, poiId: string} | null>(null);
@@ -280,6 +318,11 @@ export default function ItineraryDisplay({
   
   // Weather State
   const [weatherData, setWeatherData] = useState<DailyWeather[] | null>(null);
+
+  // Reset to list view when tab changes
+  useEffect(() => {
+    setViewMode('list');
+  }, [activeTab]);
 
   // Weather Fetcher
   useEffect(() => {
@@ -363,7 +406,7 @@ export default function ItineraryDisplay({
     }
   }, [intake?.destinationPlaceId]);
 
-  // Dynamic Accommodation Scanner (Fixed for Airports)
+  // Dynamic Accommodation Scanner
   const dynamicStays = days.reduce((acc: {name: string, startDay: number, placeId?: string, poiId: string}[], day) => {
     if (day.entries.length > 0) {
       const stayEntry = day.entries.find(e => {
@@ -409,7 +452,6 @@ export default function ItineraryDisplay({
     return total + (actualPlaces?.length || 0);
   }, 0);
 
-  // ── THE FIX: DYNAMIC COST CALCULATOR ──
   const dynamicTotalCost = days.reduce((sum, day) => 
     sum + day.entries.reduce((dSum, e) => dSum + (e.estimatedCostGBP || 0), 0)
   , 0);
@@ -544,6 +586,18 @@ export default function ItineraryDisplay({
           </button>
         </div>
       </div>
+
+      {/* ── MOBILE FLOATING PILL TOGGLE (Only visible on Days, not Overview) ── */}
+      {typeof activeTab === 'number' && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[100] md:hidden shadow-2xl">
+           <button 
+             onClick={() => setViewMode(prev => prev === 'list' ? 'map' : 'list')}
+             className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-full px-6 py-3.5 flex items-center gap-2 font-bold text-sm tracking-wide shadow-[0_8px_30px_rgb(0,0,0,0.2)] dark:shadow-[0_8px_30px_rgb(255,255,255,0.1)] transition-transform hover:scale-105 active:scale-95 border border-slate-700 dark:border-slate-200"
+           >
+             {viewMode === 'list' ? <>🗺️ View Map</> : <>📋 View Timeline</>}
+           </button>
+        </div>
+      )}
 
       <div className="pb-20">
         
@@ -738,37 +792,36 @@ export default function ItineraryDisplay({
               </div>
               
               <div className={`${rightCardStyle} gap-6 overflow-hidden`}>
-   <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Local Logistics</h3>
-   
-   <div className="flex items-center gap-4">
-      <div className="h-12 w-12 flex-shrink-0 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm">
-        <PlugSocketIcon type={plugType} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">Power Outlets</p>
-        <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{plugType}</p>
-      </div>
-   </div>
+                 <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Local Logistics</h3>
+                 
+                 <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 flex-shrink-0 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm">
+                      <PlugSocketIcon type={plugType} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">Power Outlets</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{plugType}</p>
+                    </div>
+                 </div>
 
-   <div className="flex items-center gap-4">
-      <div className="h-12 w-12 flex-shrink-0 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 text-xl shadow-sm">💧</div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">Tap Water</p>
-        <p className="text-sm font-bold text-slate-900 dark:text-white whitespace-normal break-words leading-tight">{tapWater}</p>
-      </div>
-   </div>
+                 <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 flex-shrink-0 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 text-xl shadow-sm">💧</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">Tap Water</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white whitespace-normal break-words leading-tight">{tapWater}</p>
+                    </div>
+                 </div>
 
-   {/* ── REPLACED EMERGENCIES WITH PAYMENTS ── */}
-   <div className="flex items-center gap-4">
-      <div className="h-12 w-12 flex-shrink-0 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 text-xl shadow-sm">💳</div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">Payments</p>
-        <p className="text-sm font-bold text-slate-900 dark:text-white whitespace-normal break-words leading-tight">
-          Contactless is widely accepted. Carry small cash.
-        </p>
-      </div>
-   </div>
-</div>
+                 <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 flex-shrink-0 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 text-xl shadow-sm">💳</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">Payments</p>
+                      <p className="text-sm font-bold text-slate-900 dark:text-white whitespace-normal break-words leading-tight">
+                        Contactless is widely accepted. Carry small cash.
+                      </p>
+                    </div>
+                 </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -866,33 +919,32 @@ export default function ItineraryDisplay({
                       </div>
                       
                       <div className="flex flex-col mb-6 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-  {essentials?.neighbourhoodRecommendations && essentials.neighbourhoodRecommendations.length > 0 ? (
-    essentials.neighbourhoodRecommendations.map((rec, idx) => (
-      <div key={idx} className="py-3.5 border-b border-slate-100 dark:border-slate-800/60 last:border-0">
-        <div className="flex flex-col mb-1.5">
-          {/* ── THE FIX: Clickable Neighbourhood Link ── */}
-          <a 
-            href={`https://www.google.com/maps/search/${encodeURIComponent(rec.name + ' Hotels ' + trip.destination)}`}
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-sm font-bold text-brand-600 dark:text-brand-400 mb-0.5 hover:underline flex items-center gap-1 group"
-          >
-            {rec.name} 
-            <span className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">↗</span>
-          </a>
-          <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{rec.vibe}</span>
-        </div>
-        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-          {rec.reason}
-        </p>
-      </div>
-    ))
-  ) : (
-     <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed pt-2">
-       Based on your selected activities, staying centrally minimises travel time and keeps you close to transit hubs.
-     </p>
-  )}
-</div>
+                        {essentials?.neighbourhoodRecommendations && essentials.neighbourhoodRecommendations.length > 0 ? (
+                          essentials.neighbourhoodRecommendations.map((rec, idx) => (
+                            <div key={idx} className="py-3.5 border-b border-slate-100 dark:border-slate-800/60 last:border-0">
+                              <div className="flex flex-col mb-1.5">
+                                <a 
+                                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rec.name + ' Hotels ' + trip.destination)}`}
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-sm font-bold text-brand-600 dark:text-brand-400 mb-0.5 hover:underline flex items-center gap-1 group"
+                                >
+                                  {rec.name} 
+                                  <span className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">↗</span>
+                                </a>
+                                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{rec.vibe}</span>
+                              </div>
+                              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                                {rec.reason}
+                              </p>
+                            </div>
+                          ))
+                        ) : (
+                           <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed pt-2">
+                             Based on your selected activities, staying centrally minimises travel time and keeps you close to transit hubs.
+                           </p>
+                        )}
+                      </div>
 
                       <div className="mt-auto pt-2 border-t border-slate-200 dark:border-slate-800/60">
                         <button 
@@ -914,121 +966,171 @@ export default function ItineraryDisplay({
           </div>
         )}
 
-        {typeof activeTab === 'number' && (
-          <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 animate-fade-in">
-            <div className="flex-1">
-              <div className="flex items-center gap-4 mb-8">
-                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-brand-600 shadow-lg">
-                  <span className="text-lg font-black text-white">{activeTab}</span>
-                </div>
-                <div>
-                  <h2 className="text-2xl font-black text-slate-900 dark:text-white">Day {activeTab} Schedule</h2>
-                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                    {days.find(d => d.dayNumber === activeTab)?.entries?.length || 0} stops planned for today.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-col">
-                {(days.find(d => d.dayNumber === activeTab)?.entries || []).map((entry, index, arr) => (
-                  <TimelineEntry
-                    key={`${entry.id}-${entry.time}`}
-                    entry={entry}
-                    nextEntry={arr[index + 1]}
-                    isLast={index === arr.length - 1}
-                    dayNumber={activeTab}
-                    accommodationName={accommodationName}
-                    onPlaceClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })}
-                    formatCost={formatCost}
-                    destination={trip.destination}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div className="w-full lg:w-80 flex-shrink-0">
-              <div className="sticky top-28 flex flex-col gap-4">
+        {typeof activeTab === 'number' && (() => {
+          const activeDay = days.find(d => d.dayNumber === activeTab);
+          const mapUrl = activeDay ? generateGoogleMapsDayUrl(activeDay.entries, trip.destination) : null;
+          
+          return (
+            <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 animate-fade-in">
+              <div className="flex-1">
                 
-                <div className="rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 shadow-sm">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-sm font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest">Day {activeTab} Spend</h3>
-                    {!isDomesticTrip && (
-                      <button onClick={toggleCurrency} className="text-[10px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">
-                        {displayCurrency === 'GBP' ? 'LOCAL £' : 'GBP £'}
-                      </button>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-end justify-between mb-2">
-                    <div>
-                      <span className={`text-3xl font-black block ${(days.find(d => d.dayNumber === activeTab)?.estimatedDailySpendGBP || 0) > (trip.budgetGBP / trip.duration) ? 'text-red-500' : 'text-slate-900 dark:text-white'}`}>
-                        {formatCost(days.find(d => d.dayNumber === activeTab)?.estimatedDailySpendGBP || 0)}
-                      </span>
-                      <span className="text-xs font-bold text-slate-500 uppercase">Spent</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-lg font-bold text-slate-700 dark:text-slate-300 block">{formatCost(trip.budgetGBP / trip.duration)}</span>
-                      <span className="text-xs font-bold text-slate-500 uppercase">Daily Limit</span>
-                    </div>
-                  </div>
-
-                  <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-900 mt-4 border border-slate-200 dark:border-slate-700">
-                    <div 
-                      className={`h-full rounded-full transition-all duration-1000 ${(days.find(d => d.dayNumber === activeTab)?.estimatedDailySpendGBP || 0) > (trip.budgetGBP / trip.duration) ? 'bg-red-500' : 'bg-brand-500'}`} 
-                      style={{ width: `${Math.min((((days.find(d => d.dayNumber === activeTab)?.estimatedDailySpendGBP || 0) / (trip.budgetGBP / trip.duration)) * 100) || 0, 100)}%` }} 
-                    />
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-[#0f172a]/40 p-5 backdrop-blur-sm shadow-sm flex flex-col gap-6">
-                  
-                  <div>
-                    {(() => {
-                      const currentDayNum = typeof activeTab === 'number' ? activeTab : days.length;
-                      const spendToDate = days
-                        .filter(d => d.dayNumber <= currentDayNum)
-                        .reduce((sum, d) => sum + (d.estimatedDailySpendGBP || 0), 0);
+                {viewMode === 'list' ? (
+                  <>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-brand-600 shadow-lg">
+                          <span className="text-lg font-black text-white">{activeTab}</span>
+                        </div>
+                        <div>
+                          <h2 className="text-2xl font-black text-slate-900 dark:text-white">Day {activeTab} Schedule</h2>
+                          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                            {activeDay?.entries?.length || 0} stops planned for today.
+                          </p>
+                        </div>
+                      </div>
                       
-                      return (
-                        <>
-                          <div className="flex justify-between items-end mb-2">
-                            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Spend to Date (Day {currentDayNum})</h4>
-                            <span className="text-[11px] font-bold text-slate-900 dark:text-white">{formatCost(spendToDate)}</span>
-                          </div>
-                          <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                            <div 
-                              className={`h-full transition-all duration-1000 ${spendToDate > (trip.budgetGBP / trip.duration) * currentDayNum ? 'bg-amber-500' : 'bg-slate-400 dark:bg-slate-500'}`}
-                              style={{ width: `${Math.min((spendToDate / trip.budgetGBP) * 100, 100)}%` }}
-                            />
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between items-end mb-2">
-                      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Itinerary Cost</h4>
-                      <span className="text-[11px] font-bold text-slate-900 dark:text-white">{formatCost(dynamicTotalCost)}</span>
+                      {mapUrl && (
+                        <a 
+                          href={mapUrl} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon><line x1="9" y1="3" x2="9" y2="18"></line><line x1="15" y1="6" x2="15" y2="21"></line></svg>
+                          Open Route in Maps
+                        </a>
+                      )}
                     </div>
-                    <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+
+                    <div className="flex flex-col">
+                      {(activeDay?.entries || []).map((entry, index, arr) => (
+                        <TimelineEntry
+                          key={`${entry.id}-${entry.time}`}
+                          entry={entry}
+                          nextEntry={arr[index + 1]}
+                          isLast={index === arr.length - 1}
+                          dayNumber={activeTab}
+                          accommodationName={accommodationName}
+                          onPlaceClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })}
+                          formatCost={formatCost}
+                          destination={trip.destination}
+                        />
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  // MAP VIEW 
+                  <div className="h-[65vh] min-h-[500px] w-full rounded-3xl overflow-hidden border-2 border-slate-200 dark:border-slate-700 shadow-lg relative">
+                     <DayMap 
+                       entries={activeDay?.entries || []} 
+                       destination={trip.destination} 
+                       onMarkerClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })}
+                     />
+                     <div className="absolute top-4 left-4 z-10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-4 py-2 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                        <h3 className="text-sm font-black text-slate-900 dark:text-white">Day {activeTab} Map</h3>
+                     </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="w-full lg:w-80 flex-shrink-0">
+                <div className="sticky top-28 flex flex-col gap-4">
+                  
+                  {/* ── DESKTOP VIEW TOGGLE (Hidden on Mobile) ── */}
+                  <div className="hidden md:flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl mb-2 border border-slate-200 dark:border-slate-700/50 shadow-inner">
+                    <button 
+                      onClick={() => setViewMode('list')} 
+                      className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                    >
+                      Timeline
+                    </button>
+                    <button 
+                      onClick={() => setViewMode('map')} 
+                      className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all ${viewMode === 'map' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                    >
+                      Interactive Map
+                    </button>
+                  </div>
+                  
+                  <div className="rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 shadow-sm">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-sm font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest">Day {activeTab} Spend</h3>
+                      {!isDomesticTrip && (
+                        <button onClick={toggleCurrency} className="text-[10px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">
+                          {displayCurrency === 'GBP' ? 'LOCAL £' : 'GBP £'}
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-end justify-between mb-2">
+                      <div>
+                        <span className={`text-3xl font-black block ${(activeDay?.estimatedDailySpendGBP || 0) > (trip.budgetGBP / trip.duration) ? 'text-red-500' : 'text-slate-900 dark:text-white'}`}>
+                          {formatCost(activeDay?.estimatedDailySpendGBP || 0)}
+                        </span>
+                        <span className="text-xs font-bold text-slate-500 uppercase">Spent</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-lg font-bold text-slate-700 dark:text-slate-300 block">{formatCost(trip.budgetGBP / trip.duration)}</span>
+                        <span className="text-xs font-bold text-slate-500 uppercase">Daily Limit</span>
+                      </div>
+                    </div>
+
+                    <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-900 mt-4 border border-slate-200 dark:border-slate-700">
                       <div 
-                        className={`h-full transition-all duration-1000 ${dynamicTotalCost > trip.budgetGBP ? 'bg-red-500' : 'bg-brand-500'}`}
-                        style={{ width: `${Math.min((dynamicTotalCost / trip.budgetGBP) * 100, 100)}%` }}
+                        className={`h-full rounded-full transition-all duration-1000 ${(activeDay?.estimatedDailySpendGBP || 0) > (trip.budgetGBP / trip.duration) ? 'bg-red-500' : 'bg-brand-500'}`} 
+                        style={{ width: `${Math.min((((activeDay?.estimatedDailySpendGBP || 0) / (trip.budgetGBP / trip.duration)) * 100) || 0, 100)}%` }} 
                       />
                     </div>
-                    <p className="text-[9px] text-slate-400 mt-2 italic">
-                      {dynamicTotalCost > trip.budgetGBP 
-                        ? "Plan is currently over total budget." 
-                        : `Plan uses ${Math.round((dynamicTotalCost / trip.budgetGBP) * 100)}% of total budget.`}
-                    </p>
                   </div>
-                </div>3
 
+                  <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-[#0f172a]/40 p-5 backdrop-blur-sm shadow-sm flex flex-col gap-6">
+                    
+                    <div>
+                      {(() => {
+                        const currentDayNum = typeof activeTab === 'number' ? activeTab : days.length;
+                        const spendToDate = days
+                          .filter(d => d.dayNumber <= currentDayNum)
+                          .reduce((sum, d) => sum + (d.estimatedDailySpendGBP || 0), 0);
+                        
+                        return (
+                          <>
+                            <div className="flex justify-between items-end mb-2">
+                              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Spend to Date (Day {currentDayNum})</h4>
+                              <span className="text-[11px] font-bold text-slate-900 dark:text-white">{formatCost(spendToDate)}</span>
+                            </div>
+                            <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full transition-all duration-1000 ${spendToDate > (trip.budgetGBP / trip.duration) * currentDayNum ? 'bg-amber-500' : 'bg-slate-400 dark:bg-slate-500'}`}
+                                style={{ width: `${Math.min((spendToDate / trip.budgetGBP) * 100, 100)}%` }}
+                              />
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-end mb-2">
+                        <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Itinerary Cost</h4>
+                        <span className="text-[11px] font-bold text-slate-900 dark:text-white">{formatCost(dynamicTotalCost)}</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full transition-all duration-1000 ${dynamicTotalCost > trip.budgetGBP ? 'bg-red-500' : 'bg-brand-500'}`}
+                          style={{ width: `${Math.min((dynamicTotalCost / trip.budgetGBP) * 100, 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-[9px] text-slate-400 mt-2 italic">
+                        {dynamicTotalCost > trip.budgetGBP 
+                          ? "Plan is currently over total budget." 
+                          : `Plan uses ${Math.round((dynamicTotalCost / trip.budgetGBP) * 100)}% of total budget.`}
+                      </p>
+                    </div>
+                  </div>
+
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
       </div>
     </div>
