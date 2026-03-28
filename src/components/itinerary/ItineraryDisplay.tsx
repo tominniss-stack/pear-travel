@@ -282,7 +282,7 @@ function PrintOnlyBooklet({
         const mapUrl = generateGoogleMapsDayUrl(day.entries, trip.destination);
         return (
           <div key={day.dayNumber} className="mb-12">
-            <div className="flex items-center justify-between border-b-2 border-black pb-2 mb-4 break-inside-avoid">
+            <div className="flex items-center justify-between border-b-2 border-black pb-2 mb-4 print:break-inside-avoid" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
               <div>
                 <h2 className="text-3xl font-black">Day {day.dayNumber}</h2>
                 <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">{day.entries?.length || 0} Planned Stops</p>
@@ -322,7 +322,11 @@ function PrintOnlyBooklet({
                   }
 
                   return (
-                    <tr key={entry.id} className="border-b border-slate-200 break-inside-avoid">
+                    <tr 
+                      key={entry.id} 
+                      className="border-b border-slate-200 print:break-inside-avoid"
+                      style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
+                    >
                       <td className="py-3 align-top font-bold whitespace-nowrap w-[15%]">
                         {entry.time ?? '—'}
                         {entry.isFixed && <span className="ml-1">📌</span>}
@@ -338,7 +342,7 @@ function PrintOnlyBooklet({
                           </div>
                         )}
                       </td>
-                      <td className="py-3 align-top text-right font-medium w-[20%]">
+                      <td className="py-3 align-top text-right font-medium w-[20%] whitespace-nowrap">
                         {formatCost(entry.estimatedCostGBP)}
                       </td>
                     </tr>

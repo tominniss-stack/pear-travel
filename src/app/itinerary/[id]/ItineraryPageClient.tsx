@@ -65,11 +65,11 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
 
   return (
     <div className="w-full py-8">
-      {/* ── Top Navigation Bar ── */}
-      <div className="mb-6 max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
+      {/* ── Top Navigation Bar (HIDDEN ON PRINT) ── */}
+      <div className="print:hidden mb-6 max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
         <Link
           href="/dashboard"
-          className="print:hidden inline-flex items-center text-sm font-bold text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
+          className="inline-flex items-center text-sm font-bold text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
         >
           <span aria-hidden="true" className="mr-2">←</span>
           Back to My Trips
