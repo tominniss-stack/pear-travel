@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
+import QRCode from 'react-qr-code';
 import type { Itinerary, DayItinerary, ItineraryEntry, TransitMethod } from '@/types';
 import PlaceDetailsModal, { DocumentInfo } from './PlaceDetailsModal';
 import FilingCabinet from './FilingCabinet';
@@ -163,7 +164,197 @@ function generateGoogleMapsDayUrl(entries: ItineraryEntry[], destinationCity: st
   return url;
 }
 
-// ── Sub-component: Timeline Entry ─────────────────────────────────────────────
+// ── Sub-component: Print Only Booklet ─────────────────────────────────────────
+
+function PrintOnlyBooklet({ 
+  trip, 
+  itinerary, 
+  formatCost, 
+  localCurrencyRaw, 
+  totalStops 
+}: { 
+  trip: ClientTripProps; 
+  itinerary: Itinerary; 
+  formatCost: (c?: number) => string; 
+  localCurrencyRaw: string; 
+  totalStops: number;
+}) {
+  const days = itinerary.days ?? [];
+  const essentials = itinerary.essentials;
+  const accommodationName = trip.intake?.accommodation;
+  
+  const phrases = essentials?.usefulPhrases && essentials.usefulPhrases.length > 0 
+    ? essentials.usefulPhrases 
+    : [
+        { phrase: 'Hello', translation: 'Hola' },
+        { phrase: 'Thank you', translation: 'Gracias' },
+        { phrase: 'The bill, please', translation: 'La cuenta, por favor' },
+      ];
+
+  const plugType = essentials?.plugType || 'Type C / F (230V)';
+  const tapWater = essentials?.tapWater || 'Safe to drink 🚰';
+  const risk = essentials?.contextualRisk || 'Stay alert around major tourist hubs.';
+  const localSymbol = localCurrencyRaw.split(' ')[0] || '€';
+
+  return (
+    <div className="hidden print:block w-full bg-white text-black font-sans print:m-0 print:p-0">
+      
+      {/* ── Page 1: Summary & Logistics ── */}
+      <div className="print:page-break-after-always pb-8">
+        <div className="mb-8 border-b-2 border-black pb-4">
+          <p className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-1">Your Travel Booklet</p>
+          <h1 className="text-5xl font-black mb-2">{trip.destination}</h1>
+          <p className="text-lg font-medium text-slate-700">
+            {trip.startDate && trip.endDate 
+              ? `${format(new Date(trip.startDate), 'd MMM')} – ${format(new Date(trip.endDate), 'd MMM yyyy')}` 
+              : `${trip.duration} Days`}
+            {' '}· {totalStops} Stops · Est. Budget: {formatCost(trip.budgetGBP)}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-12">
+          {/* Left Column: Logistics */}
+          <div>
+            <h2 className="text-xl font-bold border-b border-slate-300 pb-2 mb-4">Logistics & Comms</h2>
+            <div className="space-y-4">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">Currency</span>
+                <span className="text-base font-bold">{localCurrencyRaw} ({localSymbol})</span>
+              </div>
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">Power Outlets</span>
+                <span className="text-base font-bold">{plugType}</span>
+              </div>
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">Tap Water</span>
+                <span className="text-base font-bold">{tapWater}</span>
+              </div>
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">Transport Apps</span>
+                <span className="text-sm">{essentials?.apps?.join(', ') || 'Local transport apps recommended.'}</span>
+              </div>
+              {trip.intake?.transitDetails && (
+                <div className="mt-6 p-4 border border-slate-300 bg-slate-50 rounded-lg">
+                  <h3 className="font-bold mb-2">Transit References</h3>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span>Outbound ({trip.intake.transitDetails.mode}):</span>
+                    <strong className="font-mono">{trip.intake.transitDetails.outbound?.reference || 'TBD'}</strong>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Return:</span>
+                    <strong className="font-mono">{trip.intake.transitDetails.return?.reference || 'TBD'}</strong>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column: Survival & Safety */}
+          <div>
+            <h2 className="text-xl font-bold border-b border-slate-300 pb-2 mb-4">Culture & Safety</h2>
+            <div className="mb-6">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Survival Phrases</span>
+              <table className="w-full text-sm">
+                <tbody>
+                  {phrases.map((p, i) => (
+                    <tr key={i} className="border-b border-slate-100">
+                      <td className="py-1.5 pr-2">{p.phrase}</td>
+                      <td className="py-1.5 font-bold text-right">{p.translation}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">Safety Advice</span>
+              <p className="text-sm leading-relaxed">{risk}</p>
+            </div>
+            <div className="mt-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">Tipping</span>
+              <p className="text-sm leading-relaxed">{essentials?.tippingEtiquette || 'Standard tipping rules apply.'}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Page 2+: Daily Timelines ── */}
+      {days.map(day => {
+        const mapUrl = generateGoogleMapsDayUrl(day.entries, trip.destination);
+        return (
+          <div key={day.dayNumber} className="mb-12">
+            <div className="flex items-center justify-between border-b-2 border-black pb-2 mb-4 break-inside-avoid">
+              <div>
+                <h2 className="text-3xl font-black">Day {day.dayNumber}</h2>
+                <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">{day.entries?.length || 0} Planned Stops</p>
+              </div>
+              {mapUrl && (
+                <div className="flex items-center gap-3 text-right">
+                  <div className="text-[10px] font-bold text-slate-500 uppercase max-w-[100px] leading-tight text-right">Scan for Route Map</div>
+                  <div className="bg-white p-1 border border-slate-200 rounded-lg shadow-sm">
+                     <QRCode value={mapUrl} size={64} level="L" />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-slate-300">
+                  <th className="py-2 w-[15%] font-bold text-xs uppercase tracking-wider text-slate-500">Time</th>
+                  <th className="py-2 w-[65%] font-bold text-xs uppercase tracking-wider text-slate-500">Activity</th>
+                  <th className="py-2 w-[20%] font-bold text-xs uppercase tracking-wider text-slate-500 text-right">Est. Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {day.entries.map((entry, idx) => {
+                  let displayTitle = entry.locationName || 'Unknown Location';
+                  const displayDesc = entry.activityDescription?.replace(/^\[.*?\]\s*/, '') ?? '';
+                  
+                  const isStartDay = entry.transitMethod === 'Start of Day';
+                  const isManualRest = entry.locationName === 'Room Break' || entry.locationName === 'Local Coffee / Cafe Break';
+                  const isBookend = !isManualRest && (entry.isAccommodation || isStartDay || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.activityDescription || '') || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.locationName || '')) && !entry.isDining;
+                  const isFlight = /(Airport|Flight|Departure)/i.test(entry.activityDescription || '') || /(Airport|Flight|Departure)/i.test(entry.locationName || '');
+                  const isStay = isBookend && !isFlight;
+                
+                  if (isStay) {
+                    const isGeneric = /^(accommodation|hotel|airbnb|start of day|return to)/i.test(displayTitle.trim());
+                    if (isGeneric && accommodationName) displayTitle = accommodationName;
+                  }
+
+                  return (
+                    <tr key={entry.id} className="border-b border-slate-200 break-inside-avoid">
+                      <td className="py-3 align-top font-bold whitespace-nowrap w-[15%]">
+                        {entry.time ?? '—'}
+                        {entry.isFixed && <span className="ml-1">📌</span>}
+                      </td>
+                      <td className="py-3 align-top pr-4 w-[65%]">
+                        <div className="font-bold text-base mb-1">
+                          {entry.isDining ? '🍽 ' : ''}{displayTitle}
+                        </div>
+                        <p className="text-slate-600 leading-snug">{displayDesc}</p>
+                        {entry.transitNote && idx !== day.entries.length - 1 && (
+                          <div className="mt-2 text-xs font-bold text-slate-500 flex items-center gap-1 bg-slate-50 px-2 py-1.5 w-max rounded border border-slate-200">
+                            ↳ {getTransitConfig(entry.transitMethod).emoji} {entry.transitNote}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3 align-top text-right font-medium w-[20%]">
+                        {formatCost(entry.estimatedCostGBP)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+
+// ── Sub-component: Timeline Entry (Web) ───────────────────────────────────────
 
 function TimelineEntry({ 
   entry, nextEntry, isLast, dayNumber, accommodationName, destination, onPlaceClick, formatCost 
@@ -204,28 +395,28 @@ function TimelineEntry({
   const nextTransitConfig = getTransitConfig(nextEntry?.transitMethod);
 
   return (
-    <div className="flex flex-col print:break-inside-avoid print:mb-4">
-      <div className="flex gap-4 items-start print:gap-2">
-        <div className="flex w-16 flex-shrink-0 flex-col items-end pt-1 print:w-12">
-          <span className="text-sm font-bold text-slate-700 dark:text-slate-300 tabular-nums print:text-black">
+    <div className="flex flex-col">
+      <div className="flex gap-4 items-start">
+        <div className="flex w-16 flex-shrink-0 flex-col items-end pt-1">
+          <span className="text-sm font-bold text-slate-700 dark:text-slate-300 tabular-nums">
             {entry.time ?? '—'}
-            {entry.isFixed && <span className="text-[10px] ml-0.5 print:hidden">📌</span>}
+            {entry.isFixed && <span className="text-[10px] ml-0.5">📌</span>}
           </span>
         </div>
 
         <div className="flex flex-col items-center flex-shrink-0 pt-1.5 relative">
-          <div className={`relative z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 flex-shrink-0 print:border-slate-400 print:bg-white print:text-black ${
+          <div className={`relative z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 flex-shrink-0 ${
             entry.isDining ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/50' : 
             isStartDay ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/50' : 
             'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800'
           }`}>
-            <span className="text-[10px] print:grayscale">{entry.isDining ? '🍽' : isStartDay ? '🌅' : '●'}</span>
+            <span className="text-[10px]">{entry.isDining ? '🍽' : isStartDay ? '🌅' : '●'}</span>
           </div>
         </div>
 
         <div 
           onClick={() => hasPlaceId && onPlaceClick(entry.placeId!, entry.id)}
-          className={`flex-1 mb-2 rounded-2xl border p-5 transition-all duration-200 group print:border-slate-300 print:bg-white print:shadow-none print:p-4 ${
+          className={`flex-1 mb-2 rounded-2xl border p-5 transition-all duration-200 group ${
             hasPlaceId 
               ? 'cursor-pointer hover:-translate-y-0.5 shadow-sm hover:shadow-md hover:border-brand-400' 
               : 'cursor-default border-slate-200 dark:border-slate-700'
@@ -238,29 +429,29 @@ function TimelineEntry({
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <h4 className={`text-base font-bold leading-snug transition-colors print:text-black ${hasPlaceId ? 'text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-300' : 'text-slate-900 dark:text-white'}`}>
+                <h4 className={`text-base font-bold leading-snug transition-colors ${hasPlaceId ? 'text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-300' : 'text-slate-900 dark:text-white'}`}>
                   {displayTitle}
                 </h4>
                 {isStay && !isFlight && hasPlaceId && (
                   <a 
                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(displayTitle + ', ' + destination)}&query_place_id=${entry.placeId}`} 
                     target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} 
-                    className="text-[10px] font-bold uppercase tracking-wider text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300 bg-brand-50 dark:bg-brand-900/30 px-2 py-0.5 rounded-md transition-colors print:hidden"
+                    className="text-[10px] font-bold uppercase tracking-wider text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300 bg-brand-50 dark:bg-brand-900/30 px-2 py-0.5 rounded-md transition-colors"
                   >
                     View Map ↗
                   </a>
                 )}
               </div>
               {durationMinutes !== null && durationMinutes > 0 && !isLast && (
-                <p className="mt-1 text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400 print:text-slate-600">
+                <p className="mt-1 text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
                   Est. Duration: {formatSuggestedDuration(durationMinutes)}
                 </p>
               )}
-              <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400 print:text-black">{displayDesc}</p>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{displayDesc}</p>
             </div>
 
             {!isBookend && (
-              <span className="flex-shrink-0 rounded-xl px-3 py-1 text-xs font-bold border bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 print:bg-white print:border-slate-300 print:text-black">
+              <span className="flex-shrink-0 rounded-xl px-3 py-1 text-xs font-bold border bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700">
                 {formatCost(entry.estimatedCostGBP)}
               </span>
             )}
@@ -269,21 +460,21 @@ function TimelineEntry({
       </div>
 
       {!isLast && nextEntry && (
-        <div className="flex gap-4 pl-[78px] py-1 print:pl-[68px]">
+        <div className="flex gap-4 pl-[78px] py-1">
           <div className="flex w-6 flex-col items-center flex-shrink-0">
-            <div className="w-0.5 flex-1 bg-slate-200 dark:bg-slate-700 min-h-[32px] print:bg-slate-300" />
+            <div className="w-0.5 flex-1 bg-slate-200 dark:bg-slate-700 min-h-[32px]" />
           </div>
           <div className="flex flex-col justify-center py-2">
             {nextEntry.transitNote && (
               <a 
                 href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(displayTitle + ', ' + destination)}&destination=${encodeURIComponent(nextEntry.locationName + ', ' + destination)}&travelmode=${getGoogleMapsTravelMode(nextEntry.transitMethod)}`}
                 target="_blank" rel="noopener noreferrer"
-                className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg border hover:scale-[1.02] hover:shadow-sm transition-all print:border-slate-300 print:bg-white print:text-slate-700 ${nextTransitConfig.bgColour} ${nextTransitConfig.colour}`}
+                className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-lg border hover:scale-[1.02] hover:shadow-sm transition-all ${nextTransitConfig.bgColour} ${nextTransitConfig.colour}`}
                 title={`Get directions to ${nextEntry.locationName}`}
               >
-                <span className="print:grayscale">{nextTransitConfig.emoji}</span>
+                <span>{nextTransitConfig.emoji}</span>
                 <span>{nextEntry.transitNote}</span>
-                <span className="ml-1 opacity-50 text-[10px] print:hidden">↗</span>
+                <span className="ml-1 opacity-50 text-[10px]">↗</span>
               </a>
             )}
           </div>
@@ -292,6 +483,7 @@ function TimelineEntry({
     </div>
   );
 }
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function ItineraryDisplay({ 
@@ -306,7 +498,7 @@ export default function ItineraryDisplay({
   const days = itinerary.days ?? [];
   const essentials = itinerary.essentials;
   const [activeTab, setActiveTab] = useState<'overview' | number>('overview');
-  const [viewMode, setViewMode] = useState<'list' | 'map'>('list'); // ── NEW VIEW MODE STATE ──
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   
   // ── Document & Modal State ──
   const [selectedPOI, setSelectedPOI] = useState<{placeId: string, poiId: string} | null>(null);
@@ -407,7 +599,7 @@ export default function ItineraryDisplay({
     if (googleObj?.maps?.places) {
       const dummyDiv = document.createElement('div');
       const service = new googleObj.maps.places.PlacesService(dummyDiv);
-      // Added utc_offset_minutes to extract destination time
+      // Fetches utc_offset_minutes to calculate accurate destination time
       service.getDetails({ placeId: intake.destinationPlaceId, fields: ['photos', 'utc_offset_minutes'] }, (place: any, status: any) => {
         if (status === googleObj.maps.places.PlacesServiceStatus.OK) {
           if (place?.photos?.length > 0) {
@@ -493,686 +685,679 @@ export default function ItineraryDisplay({
   const apps = essentials?.apps && essentials.apps.length > 0 
     ? essentials.apps 
     : ['Bolt (Taxis)', 'TheFork (Dining)'];
-  const phrases = essentials?.usefulPhrases && essentials.usefulPhrases.length > 0 
-    ? essentials.usefulPhrases 
-    : [
-        { phrase: 'Hello', translation: 'Hola' },
-        { phrase: 'Thank you', translation: 'Gracias' },
-        { phrase: 'The bill, please', translation: 'La cuenta, por favor' },
-        { phrase: 'Do you speak English?', translation: '¿Habla inglés?' },
-        { phrase: 'Where is the bathroom?', translation: '¿Dónde está el baño?' },
-        { phrase: 'How do I get to...?', translation: '¿Cómo llego a...?' }
-      ];
   const risk = essentials?.contextualRisk || 'Pickpockets are common around major tourist hubs like the Metro. Keep valuables secure.';
 
-  // Print utility overrides added to shared card styles
-  const leftCardStyle = "rounded-3xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/50 p-6 md:p-8 shadow-sm flex flex-col print:border-slate-300 print:shadow-none print:break-inside-avoid print:bg-white";
-  const rightCardStyle = "rounded-3xl bg-slate-50 dark:bg-[#0f172a]/40 border border-slate-200 dark:border-slate-700/50 p-6 md:p-8 shadow-sm flex flex-col backdrop-blur-md print:border-slate-300 print:shadow-none print:break-inside-avoid print:bg-white";
+  const leftCardStyle = "rounded-3xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/50 p-6 md:p-8 shadow-sm flex flex-col";
+  const rightCardStyle = "rounded-3xl bg-slate-50 dark:bg-[#0f172a]/40 border border-slate-200 dark:border-slate-700/50 p-6 md:p-8 shadow-sm flex flex-col backdrop-blur-md";
 
   return (
-    <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 relative print:px-0 print:max-w-full print:bg-white">
-
-      {/* ── GLOBALS ── */}
-      <FilingCabinet
-        isOpen={isFilingCabinetOpen}
-        onClose={() => setIsFilingCabinetOpen(false)}
-        tripId={trip.id}
-        availablePOIs={days.flatMap(d => d.entries.map(e => ({ id: e.id, name: e.locationName, dayName: `Day ${d.dayNumber}` })))}
-        documents={tripDocuments}
-        onUploadSuccess={loadDocuments}
+    <div className="w-full">
+      {/* ── PRINT-ONLY SHADOW DOM ── */}
+      <PrintOnlyBooklet 
+        trip={trip} 
+        itinerary={itinerary} 
+        formatCost={formatCost} 
+        localCurrencyRaw={localCurrencyRaw} 
+        totalStops={totalStops} 
       />
 
-      {selectedPOI && (
-        <PlaceDetailsModal 
-          placeId={selectedPOI.placeId} 
-          poiId={selectedPOI.poiId}
+      {/* ── WEB UI (Hidden during Print) ── */}
+      <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 relative print:hidden">
+
+        {/* ── GLOBALS ── */}
+        <FilingCabinet
+          isOpen={isFilingCabinetOpen}
+          onClose={() => setIsFilingCabinetOpen(false)}
           tripId={trip.id}
-          tripDocuments={tripDocuments}
-          onClose={() => setSelectedPOI(null)} 
-          onDocumentUpdate={loadDocuments}
+          availablePOIs={days.flatMap(d => d.entries.map(e => ({ id: e.id, name: e.locationName, dayName: `Day ${d.dayNumber}` })))}
+          documents={tripDocuments}
+          onUploadSuccess={loadDocuments}
         />
-      )}
-      
-      {/* ── HERO ── */}
-      <div className="relative w-full h-72 md:h-80 rounded-3xl overflow-hidden shadow-xl group mb-6 print:h-auto print:shadow-none print:border print:border-slate-300 print:rounded-none print:bg-white">
-        <img 
-          src={heroImage} 
-          alt={trip.destination} 
-          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500 print:hidden"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-transparent print:hidden" />
+
+        {selectedPOI && (
+          <PlaceDetailsModal 
+            placeId={selectedPOI.placeId} 
+            poiId={selectedPOI.poiId}
+            tripId={trip.id}
+            tripDocuments={tripDocuments}
+            onClose={() => setSelectedPOI(null)} 
+            onDocumentUpdate={loadDocuments}
+          />
+        )}
         
-        <div className="absolute bottom-0 left-0 p-8 md:p-10 w-full print:relative print:p-6 print:bg-white">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-            <div>
-              <span className="inline-block px-3 py-1 mb-3 text-xs font-bold uppercase tracking-widest text-brand-900 bg-brand-400 rounded-full shadow-sm print:bg-slate-100 print:text-slate-800 print:border print:border-slate-300">
-                Your Travel Booklet
-              </span>
-              <h1 className="text-4xl md:text-6xl font-black text-white tracking-tight mb-2 drop-shadow-md print:text-black print:drop-shadow-none">
-                {trip.destination}
-              </h1>
-              <p className="text-slate-200 text-lg font-medium drop-shadow-md print:text-slate-700 print:drop-shadow-none">
-                {trip.startDate && trip.endDate 
-                  ? `${format(new Date(trip.startDate), 'd MMM')} – ${format(new Date(trip.endDate), 'd MMM yyyy')}` 
-                  : `${trip.duration} Days`}
-                {' '}· {totalStops} Stops · Est. {formatCost(dynamicTotalCost)}
-              </p>
+        {/* ── HERO ── */}
+        <div className="relative w-full h-72 md:h-80 rounded-3xl overflow-hidden shadow-xl group mb-6">
+          <img 
+            src={heroImage} 
+            alt={trip.destination} 
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-transparent" />
+          
+          <div className="absolute bottom-0 left-0 p-8 md:p-10 w-full">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+              <div>
+                <span className="inline-block px-3 py-1 mb-3 text-xs font-bold uppercase tracking-widest text-brand-900 bg-brand-400 rounded-full shadow-sm">
+                  Your Travel Booklet
+                </span>
+                <h1 className="text-4xl md:text-6xl font-black text-white tracking-tight mb-2 drop-shadow-md">
+                  {trip.destination}
+                </h1>
+                <p className="text-slate-200 text-lg font-medium drop-shadow-md">
+                  {trip.startDate && trip.endDate 
+                    ? `${format(new Date(trip.startDate), 'd MMM')} – ${format(new Date(trip.endDate), 'd MMM yyyy')}` 
+                    : `${trip.duration} Days`}
+                  {' '}· {totalStops} Stops · Est. {formatCost(dynamicTotalCost)}
+                </p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* ── HERO STATS (Refined Layout with Time & Budget) ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:grid-cols-4">
-        {[
-          { label: 'Total Duration', value: `${days.length} days`, emoji: '📅' },
-          { label: 'Total Stops', value: `${totalStops} stops`, emoji: '📍' },
-          { label: 'Total Spent', value: formatCost(dynamicTotalCost), emoji: '💷', sub: `of ${formatCost(trip.budgetGBP)} budget` }, 
-          { label: 'Local Time', value: destTimeStr, emoji: isDestNight ? '🌙' : '☀️', sub: `${localTimeStr} at home` }, 
-        ].map(({ label, value, emoji, sub }) => (
-          <div key={label} className="rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/50 p-5 shadow-sm transition-colors flex flex-col justify-between print:border-slate-300 print:shadow-none print:break-inside-avoid print:bg-white">
-            <div>
-              <span className="text-2xl mb-2 block print:grayscale">{emoji}</span>
-              <span className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider print:text-slate-600">{label}</span>
-              <span className="block text-lg font-bold text-slate-900 dark:text-white mt-1 capitalize print:text-black">{value}</span>
+        {/* ── HERO STATS (Refined Layout with Time & Budget) ── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {[
+            { label: 'Total Duration', value: `${days.length} days`, emoji: '📅' },
+            { label: 'Total Stops', value: `${totalStops} stops`, emoji: '📍' },
+            { label: 'Total Spent', value: formatCost(dynamicTotalCost), emoji: '💷', sub: `of ${formatCost(trip.budgetGBP)} budget` }, 
+            { label: 'Local Time', value: destTimeStr, emoji: isDestNight ? '🌙' : '☀️', sub: `${localTimeStr} at home` }, 
+          ].map(({ label, value, emoji, sub }) => (
+            <div key={label} className="rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/50 p-5 shadow-sm transition-colors flex flex-col justify-between">
+              <div>
+                <span className="text-2xl mb-2 block">{emoji}</span>
+                <span className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{label}</span>
+                <span className="block text-lg font-bold text-slate-900 dark:text-white mt-1 capitalize">{value}</span>
+              </div>
+              {sub && <span className="block text-[10px] font-medium text-slate-400 mt-2">{sub}</span>}
             </div>
-            {sub && <span className="block text-[10px] font-medium text-slate-400 mt-2 print:text-slate-500">{sub}</span>}
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      {/* ── STICKY TABS & CABINET BUTTON ── */}
-      <div className="sticky top-0 z-30 bg-slate-50/95 dark:bg-[#0B1120]/95 backdrop-blur-md pt-4 pb-0 mb-8 border-b border-slate-200 dark:border-slate-700/50 transition-colors print:hidden">
-        <div className="flex items-center justify-between w-full overflow-x-auto hide-scrollbar">
-          <div className="flex gap-8 px-2">
-            <button
-              onClick={() => setActiveTab('overview')}
-              className={`pb-4 text-sm font-bold whitespace-nowrap transition-colors relative ${
-                activeTab === 'overview' ? 'text-brand-600 dark:text-brand-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-              }`}
-            >
-              Overview
-              {activeTab === 'overview' && <span className="absolute bottom-0 left-0 w-full h-1 bg-brand-500 dark:bg-brand-400 rounded-t-full shadow-[0_-2px_10px_rgba(74,222,128,0.5)]" />}
-            </button>
-            
-            {days.map((day) => (
+        {/* ── STICKY TABS & CABINET BUTTON ── */}
+        <div className="sticky top-0 z-30 bg-slate-50/95 dark:bg-[#0B1120]/95 backdrop-blur-md pt-4 pb-0 mb-8 border-b border-slate-200 dark:border-slate-700/50 transition-colors">
+          <div className="flex items-center justify-between w-full overflow-x-auto hide-scrollbar">
+            <div className="flex gap-8 px-2">
               <button
-                key={day.dayNumber}
-                onClick={() => setActiveTab(day.dayNumber)}
+                onClick={() => setActiveTab('overview')}
                 className={`pb-4 text-sm font-bold whitespace-nowrap transition-colors relative ${
-                  activeTab === day.dayNumber ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                  activeTab === 'overview' ? 'text-brand-600 dark:text-brand-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
-                Day {day.dayNumber}
-                {activeTab === day.dayNumber && <span className="absolute bottom-0 left-0 w-full h-1 bg-slate-900 dark:bg-white rounded-t-full shadow-[0_-2px_10px_rgba(0,0,0,0.1)] dark:shadow-[0_-2px_10px_rgba(255,255,255,0.3)]" />}
+                Overview
+                {activeTab === 'overview' && <span className="absolute bottom-0 left-0 w-full h-1 bg-brand-500 dark:bg-brand-400 rounded-t-full shadow-[0_-2px_10px_rgba(74,222,128,0.5)]" />}
               </button>
-            ))}
+              
+              {days.map((day) => (
+                <button
+                  key={day.dayNumber}
+                  onClick={() => setActiveTab(day.dayNumber)}
+                  className={`pb-4 text-sm font-bold whitespace-nowrap transition-colors relative ${
+                    activeTab === day.dayNumber ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  Day {day.dayNumber}
+                  {activeTab === day.dayNumber && <span className="absolute bottom-0 left-0 w-full h-1 bg-slate-900 dark:bg-white rounded-t-full shadow-[0_-2px_10px_rgba(0,0,0,0.1)] dark:shadow-[0_-2px_10px_rgba(255,255,255,0.3)]" />}
+                </button>
+              ))}
+            </div>
+
+            <button 
+              onClick={() => setIsFilingCabinetOpen(true)}
+              className="pb-4 px-2 text-sm font-bold whitespace-nowrap text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors flex items-center gap-2 group"
+            >
+              <span className="text-lg group-hover:-translate-y-0.5 transition-transform">📎</span> 
+              Trip Documents
+              {tripDocuments.length > 0 && (
+                <span className="bg-brand-100 dark:bg-brand-900/50 text-brand-700 dark:text-brand-300 px-2 py-0.5 rounded-full text-xs ml-1">
+                  {tripDocuments.length}
+                </span>
+              )}
+            </button>
           </div>
-
-          <button 
-            onClick={() => setIsFilingCabinetOpen(true)}
-            className="pb-4 px-2 text-sm font-bold whitespace-nowrap text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors flex items-center gap-2 group"
-          >
-            <span className="text-lg group-hover:-translate-y-0.5 transition-transform">📎</span> 
-            Trip Documents
-            {tripDocuments.length > 0 && (
-              <span className="bg-brand-100 dark:bg-brand-900/50 text-brand-700 dark:text-brand-300 px-2 py-0.5 rounded-full text-xs ml-1">
-                {tripDocuments.length}
-              </span>
-            )}
-          </button>
         </div>
-      </div>
 
-      {/* ── MOBILE FLOATING PILL TOGGLE (Only visible on Days, not Overview) ── */}
-      {typeof activeTab === 'number' && (
-        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[100] md:hidden shadow-2xl print:hidden">
-           <button 
-             onClick={() => setViewMode(prev => prev === 'list' ? 'map' : 'list')}
-             className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-full px-6 py-3.5 flex items-center gap-2 font-bold text-sm tracking-wide shadow-[0_8px_30px_rgb(0,0,0,0.2)] dark:shadow-[0_8px_30px_rgb(255,255,255,0.1)] transition-transform hover:scale-105 active:scale-95 border border-slate-700 dark:border-slate-200"
-           >
-             {viewMode === 'list' ? <>🗺️ View Map</> : <>📋 View Timeline</>}
-           </button>
-        </div>
-      )}
-
-      <div className="pb-20 print:pb-0">
-        
-        {/* OVERVIEW CONTENT: Hidden by default on print unless you want the logistics printed. Here it hides to save space, but keeping it visible if requested. We will display it on print, but nicely formatted. */}
-        {essentials && (
-          <div className={`flex-col gap-6 animate-fade-in ${activeTab === 'overview' ? 'flex' : 'hidden'} print:flex print:mb-12`}>
-
-            {/* ── TRANSIT / BOARDING PASS CARD ── */}
-            {trip.intake?.transitDetails && ['Flight', 'Train'].includes(trip.intake.transitDetails.mode) && (
-              <div className="relative w-full rounded-3xl bg-slate-900 dark:bg-slate-950 border border-slate-800 p-6 md:p-8 shadow-xl overflow-hidden flex flex-col md:flex-row gap-6 md:gap-0 print:bg-white print:border-slate-400 print:shadow-none print:break-inside-avoid">
-                {/* Decorative glowing orb */}
-                <div className="absolute top-0 right-0 w-48 h-48 bg-brand-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none print:hidden" />
-
-                {/* Outbound Half */}
-                <div className="flex-1 md:pr-8 relative">
-                   <div className="flex items-center gap-3 mb-4">
-                     <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-800 text-slate-300 print:bg-slate-100 print:text-slate-800 print:border print:border-slate-300">
-                       {trip.intake.transitDetails.mode === 'Flight' ? '🛫' : '🚆'}
-                     </span>
-                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest print:text-slate-600">Outbound</h3>
-                   </div>
-                   <div className="flex items-end gap-4 mb-2">
-                     <div className="text-4xl font-black text-white print:text-black">
-                       {trip.intake.transitDetails.outbound?.time || 'TBD'}
-                     </div>
-                     {trip.intake.transitDetails.outbound?.reference && (
-                       <div className="px-3 py-1 mb-1.5 rounded-full bg-slate-800 border border-slate-700 text-xs font-bold text-brand-400 print:bg-white print:border-slate-400 print:text-black">
-                         {trip.intake.transitDetails.outbound.reference}
-                       </div>
-                     )}
-                   </div>
-                   <p className="text-sm font-medium text-slate-500 print:text-slate-600">Arriving in {trip.destination}</p>
-                </div>
-
-                {/* Perforated Divider */}
-                <div className="hidden md:flex flex-col items-center justify-center px-4 relative">
-                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-slate-900 dark:bg-slate-950 rounded-full border border-slate-800 flex items-center justify-center z-10 print:bg-white print:border-slate-400">
-                      <span className="text-slate-500 text-xs print:grayscale">{trip.intake.transitDetails.mode === 'Flight' ? '✈️' : '🚂'}</span>
-                   </div>
-                   <div className="w-px h-full border-l-2 border-dashed border-slate-800 print:border-slate-400" />
-                </div>
-                <div className="md:hidden w-full border-t-2 border-dashed border-slate-800 my-2 relative print:border-slate-400">
-                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-2 bg-slate-900 dark:bg-slate-950 z-10 print:bg-white">
-                      <span className="text-slate-500 text-xs print:grayscale">{trip.intake.transitDetails.mode === 'Flight' ? '✈️' : '🚂'}</span>
-                   </div>
-                </div>
-
-                {/* Return Half */}
-                <div className="flex-1 md:pl-8 relative">
-                   <div className="flex items-center gap-3 mb-4">
-                     <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-800 text-slate-300 print:bg-slate-100 print:text-slate-800 print:border print:border-slate-300">
-                       {trip.intake.transitDetails.mode === 'Flight' ? '🛬' : '🚆'}
-                     </span>
-                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest print:text-slate-600">Return</h3>
-                   </div>
-                   <div className="flex items-end gap-4 mb-2">
-                     <div className="text-4xl font-black text-white print:text-black">
-                       {trip.intake.transitDetails.return?.time || 'TBD'}
-                     </div>
-                     {trip.intake.transitDetails.return?.reference && (
-                       <div className="px-3 py-1 mb-1.5 rounded-full bg-slate-800 border border-slate-700 text-xs font-bold text-brand-400 print:bg-white print:border-slate-400 print:text-black">
-                         {trip.intake.transitDetails.return.reference}
-                       </div>
-                     )}
-                   </div>
-                   <p className="text-sm font-medium text-slate-500 print:text-slate-600">Departing from {trip.destination}</p>
-                </div>
-              </div>
-            )}
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 print:grid-cols-2">
-              
-              <div className={`lg:col-span-2 ${leftCardStyle} overflow-hidden`}>
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2 print:text-black">
-                    <span className="text-brand-500 dark:text-brand-400 print:grayscale">🌤️</span> 
-                    {trip.startDate ? `${days.length || trip.duration}-Day Outlook` : 'Climate & Best Time to Go'}
-                  </h3>
-                </div>
-
-                {trip.startDate ? (
-                  <div className="flex overflow-x-auto gap-3 pb-4 -mx-2 px-2 sm:mx-0 sm:px-0 hide-scrollbar snap-x print:flex-wrap print:overflow-visible print:pb-0">
-                    {(weatherData || Array.from({ length: days.length || trip.duration })).map((dayData: any, i) => {
-                      const tripDate = new Date(trip.startDate!);
-                      tripDate.setDate(tripDate.getDate() + i);
-                      const dayName = format(tripDate, 'EEE');
-                      const dateString = format(tripDate, 'd MMM');
-                      const isToday = format(tripDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-
-                      // Handle both real data and fallback states
-                      const emoji = weatherData ? getWeatherEmoji(dayData.weatherCode) : ['☀️', '🌤️', '🌦️', '☀️', '⛅'][i % 5];
-                      const maxT = weatherData ? `${dayData.maxTemp}°` : '22°';
-                      const minT = weatherData ? `${dayData.minTemp}°` : '14°';
-
-                      return (
-                        <div 
-                          key={i} 
-                          className={`snap-start flex-shrink-0 min-w-[120px] flex flex-col items-center p-4 rounded-2xl border transition-colors print:min-w-[100px] print:border-slate-300 print:bg-white ${
-                            isToday 
-                              ? 'bg-brand-50 border-brand-300 dark:bg-brand-900/30 dark:border-brand-700' 
-                              : 'bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700'
-                          }`}
-                        >
-                          {isToday && <span className="absolute -top-2 bg-brand-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm print:bg-black print:text-white">TODAY</span>}
-                          
-                          <span className={`text-[10px] font-black uppercase mb-1 print:text-black ${isToday ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400'}`}>
-                            {dayName}
-                          </span>
-                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2 print:text-black">
-                            {dateString}
-                          </span>
-                          
-                          <span className="text-3xl mb-2 print:grayscale">
-                            {emoji}
-                          </span>
-                          <div className="flex gap-2 font-bold tabular-nums">
-                            <span className="text-sm text-slate-900 dark:text-white print:text-black">{maxT}</span>
-                            <span className="text-sm text-slate-400 print:text-slate-600">{minT}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="flex flex-col sm:flex-row gap-4 items-stretch print:flex-row">
-                    <div className="flex-1 w-full bg-slate-50 dark:bg-slate-900/50 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 flex flex-col justify-center print:bg-white print:border-slate-300">
-                      <span className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1 print:text-slate-600">Peak Season</span>
-                      <span className="block text-xl font-black text-slate-900 dark:text-white mb-2 print:text-black">May – September</span>
-                      <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed print:text-black">Warm, dry, and perfect for outdoor exploring. Expect heavier crowds in July and August.</p>
-                    </div>
-                    <div className="flex gap-4">
-                      <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 min-w-[100px] print:bg-white print:border-slate-300">
-                        <span className="text-2xl mb-2 print:grayscale">🌡️</span>
-                        <span className="text-[10px] font-black uppercase text-slate-400 print:text-slate-600">Avg High</span>
-                        <span className="text-lg font-bold text-slate-900 dark:text-white mt-1 print:text-black">24°C</span>
-                      </div>
-                      <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 min-w-[100px] print:bg-white print:border-slate-300">
-                        <span className="text-2xl mb-2 print:grayscale">☔</span>
-                        <span className="text-[10px] font-black uppercase text-slate-400 print:text-slate-600">Rain Days</span>
-                        <span className="text-lg font-bold text-slate-900 dark:text-white mt-1 print:text-black">3 / mo</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className={`${rightCardStyle} h-full justify-between overflow-hidden`}>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4 print:text-slate-600">Local Currency</h3>
-                  <div className="text-3xl font-black text-slate-900 dark:text-white mb-1 print:text-black">{localSymbol}</div>
-                  <p className="text-slate-500 dark:text-slate-400 text-sm print:text-slate-600">{localCurrencyRaw}</p>
-                </div>
-                
-                <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-700/50 print:border-slate-300">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-sm font-medium text-slate-500 dark:text-slate-400 print:text-slate-600">Exchange Rate</span>
-                    <span className="text-sm font-bold text-slate-900 dark:text-white print:text-black">£1 = {localSymbol}{symbolSpacer}{exchangeRate.toFixed(2)}</span>
-                  </div>
-                  
-                  {!isDomesticTrip && (
-                    <button 
-                      onClick={toggleCurrency} 
-                      className="w-full py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 transition-all rounded-xl text-xs font-black tracking-wide cursor-pointer shadow-sm print:hidden"
-                    >
-                      VIEW PRICES IN {displayCurrency === 'GBP' ? 'LOCAL' : 'GBP'}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 print:grid-cols-2">
-              <div className={`lg:col-span-2 ${leftCardStyle} overflow-hidden`}>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2 print:text-black">
-                  <span className="text-brand-500 dark:text-brand-400 print:grayscale">🚆</span> Transport & Comms
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {[
-                    { icon: '✈️', title: 'Airport Transit', content: essentials.airportTransit },
-                    { icon: '📱', title: 'Essential Apps', content: apps.join(', ') },
-                    { icon: '💳', title: 'Getting Around', content: essentials.transportCardAdvice },
-                    { icon: '🚨', title: 'Emergencies', content: essentials.emergencyNumbers },
-                  ].map((card) => card.content && (
-                    <div key={card.title} className="flex gap-4 items-start print:break-inside-avoid">
-                      <div className="text-2xl flex-shrink-0 leading-none mt-0.5 print:grayscale">{card.icon}</div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-bold text-slate-800 dark:text-slate-300 mb-1 truncate print:text-black">{card.title}</h4>
-                        <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed break-words print:text-slate-800">{card.content}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              
-              <div className={`${rightCardStyle} gap-6 overflow-hidden`}>
-                 <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2 print:text-slate-600">Local Logistics</h3>
-                 
-                 <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 flex-shrink-0 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm print:border-slate-300 print:shadow-none">
-                      <PlugSocketIcon type={plugType} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate print:text-slate-600">Power Outlets</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white truncate print:text-black">{plugType}</p>
-                    </div>
-                 </div>
-
-                 <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 flex-shrink-0 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 text-xl shadow-sm print:border-slate-300 print:shadow-none print:grayscale">💧</div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate print:text-slate-600">Tap Water</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white whitespace-normal break-words leading-tight print:text-black">{tapWater}</p>
-                    </div>
-                 </div>
-
-                 <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 flex-shrink-0 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 text-xl shadow-sm print:border-slate-300 print:shadow-none print:grayscale">💳</div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate print:text-slate-600">Payments</p>
-                      <p className="text-sm font-bold text-slate-900 dark:text-white whitespace-normal break-words leading-tight print:text-black">
-                        Contactless is widely accepted. Carry small cash.
-                      </p>
-                    </div>
-                 </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 print:grid-cols-2 print:page-break-before-always">
-              <div className={`lg:col-span-2 ${leftCardStyle} overflow-hidden`}>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2 print:text-black">
-                  <span className="text-brand-500 dark:text-brand-400 print:grayscale">🗣️</span> Cultural Briefing
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3 print:text-slate-600">Survival Phrases</h4>
-                    <div className="flex flex-col gap-3">
-                      {phrases.map((p, i) => (
-                        <div key={i} className="flex justify-between items-center border-b border-slate-100 dark:border-slate-700/50 pb-2 print:border-slate-300">
-                          <span className="text-sm text-slate-600 dark:text-slate-400 print:text-slate-800">{p.phrase}</span>
-                          <span className="text-sm font-bold text-slate-900 dark:text-white text-right print:text-black">{p.translation}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-col justify-start gap-5">
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2 print:text-slate-600">Local Customs</h4>
-                      <ul className="list-disc list-inside text-sm text-slate-700 dark:text-slate-300 space-y-1.5 leading-relaxed print:text-black">
-                        {essentials?.localCustoms?.map((custom, i) => (
-                          <li key={i}>{custom}</li>
-                        )) || (
-                          <li>Always greet shopkeepers when entering.</li>
-                        )}
-                      </ul>
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2 print:text-slate-600">Tipping & Custom</h4>
-                      <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed print:text-black">
-                        {essentials?.tippingEtiquette || 'Tipping is generally appreciated but not strictly mandatory. 10% is standard for good service.'}
-                      </p>
-                    </div>
-                    <div className="flex items-start gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/50 mt-1 print:border-slate-300">
-                      <span className="text-base mt-0.5 print:grayscale">🛡️</span>
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1 print:text-slate-600">Safety Advice</h4>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed print:text-black">{risk}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className={`${rightCardStyle} overflow-hidden flex flex-col`}>
-                <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-6 relative z-10 print:text-slate-600">Accommodation</h3>
-                
-                <div className="relative z-10 flex flex-col flex-1">
-                  {accommodationName && dynamicStays.length > 0 ? (
-                    <>
-                      <div className="flex flex-col gap-4 mb-6 flex-1 overflow-y-auto pr-2 custom-scrollbar print:overflow-visible">
-                        {dynamicStays.map((stay, idx) => (
-                          <div 
-                            key={idx} 
-                            className={`bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm flex items-start gap-3 transition-all print:border-slate-300 print:shadow-none print:break-inside-avoid ${stay.placeId ? 'cursor-pointer hover:border-brand-400 group print:cursor-auto' : ''}`} 
-                            onClick={() => stay.placeId && setSelectedPOI({ placeId: stay.placeId, poiId: stay.poiId })}
-                          >
-                            <div className="w-6 h-6 flex-shrink-0 bg-brand-600 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-sm mt-0.5 print:bg-slate-200 print:text-black print:border print:border-slate-400">
-                              {idx + 1}
-                            </div>
-                            <div className="flex flex-col min-w-0 flex-1">
-                              <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-0.5 print:text-slate-500">From Day {stay.startDay}</span>
-                              <span className="text-sm font-bold text-slate-900 dark:text-white block leading-tight truncate print:text-black print:whitespace-normal" title={stay.name}>
-                                {stay.name}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      
-                      <div className="mt-auto pt-4 border-t border-slate-200 dark:border-slate-700/50 print:hidden">
-                        <button 
-                          onClick={() => {
-                            if (onEditRequest) {
-                              onEditRequest();
-                            } else {
-                              setActiveTab(1);
-                            }
-                          }}
-                          className="w-full py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl text-xs font-bold transition-colors shadow-sm cursor-pointer"
-                        >
-                          Manage Bookings in Planner
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="mb-2 flex items-center gap-2 print:hidden">
-                        <span className="text-[10px] font-black uppercase text-brand-500 dark:text-brand-400 tracking-widest block">✨ AI Matchmaker</span>
-                        <span className="bg-brand-100 dark:bg-brand-900/50 text-brand-700 dark:text-brand-300 text-[8px] font-black uppercase px-2 py-0.5 rounded-full">Tailored for you</span>
-                      </div>
-                      
-                      <div className="flex flex-col mb-6 flex-1 overflow-y-auto pr-2 custom-scrollbar print:overflow-visible">
-                        {essentials?.neighbourhoodRecommendations && essentials.neighbourhoodRecommendations.length > 0 ? (
-                          essentials.neighbourhoodRecommendations.map((rec, idx) => (
-                            <div key={idx} className="py-3.5 border-b border-slate-100 dark:border-slate-800/60 last:border-0 print:border-slate-300 print:break-inside-avoid">
-                              <div className="flex flex-col mb-1.5">
-                                <a 
-                                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rec.name + ' Hotels ' + trip.destination)}`}
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="text-sm font-bold text-brand-600 dark:text-brand-400 mb-0.5 hover:underline flex items-center gap-1 group print:text-black print:no-underline"
-                                >
-                                  {rec.name} 
-                                  <span className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity print:hidden">↗</span>
-                                </a>
-                                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide print:text-slate-500">{rec.vibe}</span>
-                              </div>
-                              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed print:text-black">
-                                {rec.reason}
-                              </p>
-                            </div>
-                          ))
-                        ) : (
-                           <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed pt-2 print:text-black">
-                             Based on your selected activities, staying centrally minimises travel time and keeps you close to transit hubs.
-                           </p>
-                        )}
-                      </div>
-
-                      <div className="mt-auto pt-2 border-t border-slate-200 dark:border-slate-800/60 print:hidden">
-                        <button 
-                          onClick={() => {
-                            if (onEditRequest) onEditRequest();
-                            else setActiveTab(1);
-                          }}
-                          className="w-full mt-4 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 rounded-xl text-xs font-bold transition-colors shadow-sm cursor-pointer"
-                        >
-                          Add Booking Details
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
+        {/* ── MOBILE FLOATING PILL TOGGLE ── */}
+        {typeof activeTab === 'number' && (
+          <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[100] md:hidden shadow-2xl">
+             <button 
+               onClick={() => setViewMode(prev => prev === 'list' ? 'map' : 'list')}
+               className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-full px-6 py-3.5 flex items-center gap-2 font-bold text-sm tracking-wide shadow-[0_8px_30px_rgb(0,0,0,0.2)] dark:shadow-[0_8px_30px_rgb(255,255,255,0.1)] transition-transform hover:scale-105 active:scale-95 border border-slate-700 dark:border-slate-200"
+             >
+               {viewMode === 'list' ? <>🗺️ View Map</> : <>📋 View Timeline</>}
+             </button>
           </div>
         )}
 
-        {/* DAY VIEWS: The mapping forces ALL days to render sequentially when printed using print:block. We use print:columns-2 for paper saving. */}
-        {days.map(activeDay => {
-          const isActiveTab = activeTab === activeDay.dayNumber;
-          const mapUrl = generateGoogleMapsDayUrl(activeDay.entries, trip.destination);
+        <div className="pb-20">
           
-          return (
-            <div key={activeDay.dayNumber} className={`${isActiveTab ? 'flex' : 'hidden'} flex-col lg:flex-row gap-8 lg:gap-12 animate-fade-in print:block print:mb-12 print:page-break-after-always`}>
-              <div className="flex-1 print:w-full">
-                
-                {viewMode === 'list' || typeof window === 'undefined' ? (
-                  <>
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 print:mb-6">
-                      <div className="flex items-center gap-4">
-                        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-brand-600 shadow-lg print:bg-slate-100 print:border print:border-slate-300 print:shadow-none">
-                          <span className="text-lg font-black text-white print:text-black">{activeDay.dayNumber}</span>
-                        </div>
-                        <div>
-                          <h2 className="text-2xl font-black text-slate-900 dark:text-white print:text-black">Day {activeDay.dayNumber} Schedule</h2>
-                          <p className="text-sm font-medium text-slate-500 dark:text-slate-400 print:text-slate-600">
-                            {activeDay.entries?.length || 0} stops planned for today.
-                          </p>
-                        </div>
-                      </div>
-                      
-                      {mapUrl && (
-                        <a 
-                          href={mapUrl} target="_blank" rel="noopener noreferrer"
-                          className="inline-flex items-center justify-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors print:hidden"
-                        >
-                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon><line x1="9" y1="3" x2="9" y2="18"></line><line x1="15" y1="6" x2="15" y2="21"></line></svg>
-                          Open Route in Maps
-                        </a>
-                      )}
-                    </div>
+          {/* ── OVERVIEW CONTENT ── */}
+          {essentials && (
+            <div className={`flex-col gap-6 animate-fade-in ${activeTab === 'overview' ? 'flex' : 'hidden'}`}>
 
-                    {/* Timeline Container: Prints in two columns! */}
-                    <div className="flex flex-col print:block print:columns-2 print:gap-x-8">
-                      {(activeDay.entries || []).map((entry, index, arr) => (
-                        <TimelineEntry
-                          key={`${entry.id}-${entry.time}`}
-                          entry={entry}
-                          nextEntry={arr[index + 1]}
-                          isLast={index === arr.length - 1}
-                          dayNumber={activeDay.dayNumber}
-                          accommodationName={accommodationName}
-                          onPlaceClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })}
-                          formatCost={formatCost}
-                          destination={trip.destination}
-                        />
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  // MAP VIEW (Hidden on print to avoid layout issues with canvas elements)
-                  <div className="h-[65vh] min-h-[500px] w-full rounded-3xl overflow-hidden border-2 border-slate-200 dark:border-slate-700 shadow-lg relative print:hidden">
-                     <DayMap 
-                       entries={activeDay.entries || []} 
-                       destination={trip.destination} 
-                       onMarkerClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })}
-                     />
-                     <div className="absolute top-4 left-4 z-10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-4 py-2 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                        <h3 className="text-sm font-black text-slate-900 dark:text-white">Day {activeDay.dayNumber} Map</h3>
+              {/* Transit Card */}
+              {trip.intake?.transitDetails && ['Flight', 'Train'].includes(trip.intake.transitDetails.mode) && (
+                <div className="relative w-full rounded-3xl bg-slate-900 dark:bg-slate-950 border border-slate-800 p-6 md:p-8 shadow-xl overflow-hidden flex flex-col md:flex-row gap-6 md:gap-0">
+                  <div className="absolute top-0 right-0 w-48 h-48 bg-brand-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none" />
+
+                  <div className="flex-1 md:pr-8 relative">
+                     <div className="flex items-center gap-3 mb-4">
+                       <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-800 text-slate-300">
+                         {trip.intake.transitDetails.mode === 'Flight' ? '🛫' : '🚆'}
+                       </span>
+                       <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Outbound</h3>
+                     </div>
+                     <div className="flex items-end gap-4 mb-2">
+                       <div className="text-4xl font-black text-white">
+                         {trip.intake.transitDetails.outbound?.time || 'TBD'}
+                       </div>
+                       {trip.intake.transitDetails.outbound?.reference && (
+                         <div className="px-3 py-1 mb-1.5 rounded-full bg-slate-800 border border-slate-700 text-xs font-bold text-brand-400">
+                           {trip.intake.transitDetails.outbound.reference}
+                         </div>
+                       )}
+                     </div>
+                     <p className="text-sm font-medium text-slate-500">Arriving in {trip.destination}</p>
+                  </div>
+
+                  <div className="hidden md:flex flex-col items-center justify-center px-4 relative">
+                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-slate-900 dark:bg-slate-950 rounded-full border border-slate-800 flex items-center justify-center z-10">
+                        <span className="text-slate-500 text-xs">{trip.intake.transitDetails.mode === 'Flight' ? '✈️' : '🚂'}</span>
+                     </div>
+                     <div className="w-px h-full border-l-2 border-dashed border-slate-800" />
+                  </div>
+                  <div className="md:hidden w-full border-t-2 border-dashed border-slate-800 my-2 relative">
+                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-2 bg-slate-900 dark:bg-slate-950 z-10">
+                        <span className="text-slate-500 text-xs">{trip.intake.transitDetails.mode === 'Flight' ? '✈️' : '🚂'}</span>
                      </div>
                   </div>
-                )}
-              </div>
 
-              {/* Sidebar stats - we hide the spend logic on print to save paper and focus on logistics */}
-              <div className="w-full lg:w-80 flex-shrink-0 print:hidden">
-                <div className="sticky top-28 flex flex-col gap-4">
-                  
-                  {/* ── DESKTOP VIEW TOGGLE (Hidden on Mobile) ── */}
-                  <div className="hidden md:flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl mb-2 border border-slate-200 dark:border-slate-700/50 shadow-inner">
-                    <button 
-                      onClick={() => setViewMode('list')} 
-                      className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                    >
-                      Timeline
-                    </button>
-                    <button 
-                      onClick={() => setViewMode('map')} 
-                      className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all ${viewMode === 'map' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
-                    >
-                      Interactive Map
-                    </button>
+                  <div className="flex-1 md:pl-8 relative">
+                     <div className="flex items-center gap-3 mb-4">
+                       <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-800 text-slate-300">
+                         {trip.intake.transitDetails.mode === 'Flight' ? '🛬' : '🚆'}
+                       </span>
+                       <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Return</h3>
+                     </div>
+                     <div className="flex items-end gap-4 mb-2">
+                       <div className="text-4xl font-black text-white">
+                         {trip.intake.transitDetails.return?.time || 'TBD'}
+                       </div>
+                       {trip.intake.transitDetails.return?.reference && (
+                         <div className="px-3 py-1 mb-1.5 rounded-full bg-slate-800 border border-slate-700 text-xs font-bold text-brand-400">
+                           {trip.intake.transitDetails.return.reference}
+                         </div>
+                       )}
+                     </div>
+                     <p className="text-sm font-medium text-slate-500">Departing from {trip.destination}</p>
                   </div>
-                  
-                  <div className="rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 shadow-sm">
-                    <div className="flex items-center justify-between mb-6">
-                      <h3 className="text-sm font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest">Day {activeDay.dayNumber} Spend</h3>
-                      {!isDomesticTrip && (
-                        <button onClick={toggleCurrency} className="text-[10px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">
-                          {displayCurrency === 'GBP' ? 'LOCAL £' : 'GBP £'}
-                        </button>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-end justify-between mb-2">
-                      <div>
-                        <span className={`text-3xl font-black block ${(activeDay.estimatedDailySpendGBP || 0) > (trip.budgetGBP / trip.duration) ? 'text-red-500' : 'text-slate-900 dark:text-white'}`}>
-                          {formatCost(activeDay.estimatedDailySpendGBP || 0)}
-                        </span>
-                        <span className="text-xs font-bold text-slate-500 uppercase">Spent</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-lg font-bold text-slate-700 dark:text-slate-300 block">{formatCost(trip.budgetGBP / trip.duration)}</span>
-                        <span className="text-xs font-bold text-slate-500 uppercase">Daily Limit</span>
-                      </div>
-                    </div>
-
-                    <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-900 mt-4 border border-slate-200 dark:border-slate-700">
-                      <div 
-                        className={`h-full rounded-full transition-all duration-1000 ${(activeDay.estimatedDailySpendGBP || 0) > (trip.budgetGBP / trip.duration) ? 'bg-red-500' : 'bg-brand-500'}`} 
-                        style={{ width: `${Math.min((((activeDay.estimatedDailySpendGBP || 0) / (trip.budgetGBP / trip.duration)) * 100) || 0, 100)}%` }} 
-                      />
-                    </div>
+                </div>
+              )}
+              
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className={`lg:col-span-2 ${leftCardStyle} overflow-hidden`}>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <span className="text-brand-500 dark:text-brand-400">🌤️</span> 
+                      {trip.startDate ? `${days.length || trip.duration}-Day Outlook` : 'Climate & Best Time to Go'}
+                    </h3>
                   </div>
 
-                  <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-[#0f172a]/40 p-5 backdrop-blur-sm shadow-sm flex flex-col gap-6">
-                    
-                    <div>
-                      {(() => {
-                        const currentDayNum = activeDay.dayNumber;
-                        const spendToDate = days
-                          .filter(d => d.dayNumber <= currentDayNum)
-                          .reduce((sum, d) => sum + (d.estimatedDailySpendGBP || 0), 0);
-                        
+                  {trip.startDate ? (
+                    <div className="flex overflow-x-auto gap-3 pb-4 -mx-2 px-2 sm:mx-0 sm:px-0 hide-scrollbar snap-x">
+                      {(weatherData || Array.from({ length: days.length || trip.duration })).map((dayData: any, i) => {
+                        const tripDate = new Date(trip.startDate!);
+                        tripDate.setDate(tripDate.getDate() + i);
+                        const dayName = format(tripDate, 'EEE');
+                        const dateString = format(tripDate, 'd MMM');
+                        const isToday = format(tripDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+
+                        const emoji = weatherData ? getWeatherEmoji(dayData.weatherCode) : ['☀️', '🌤️', '🌦️', '☀️', '⛅'][i % 5];
+                        const maxT = weatherData ? `${dayData.maxTemp}°` : '22°';
+                        const minT = weatherData ? `${dayData.minTemp}°` : '14°';
+
                         return (
-                          <>
-                            <div className="flex justify-between items-end mb-2">
-                              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Spend to Date (Day {currentDayNum})</h4>
-                              <span className="text-[11px] font-bold text-slate-900 dark:text-white">{formatCost(spendToDate)}</span>
+                          <div 
+                            key={i} 
+                            className={`snap-start flex-shrink-0 min-w-[120px] flex flex-col items-center p-4 rounded-2xl border transition-colors ${
+                              isToday 
+                                ? 'bg-brand-50 border-brand-300 dark:bg-brand-900/30 dark:border-brand-700' 
+                                : 'bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700'
+                            }`}
+                          >
+                            {isToday && <span className="absolute -top-2 bg-brand-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm">TODAY</span>}
+                            
+                            <span className={`text-[10px] font-black uppercase mb-1 ${isToday ? 'text-brand-600 dark:text-brand-400' : 'text-slate-400'}`}>
+                              {dayName}
+                            </span>
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
+                              {dateString}
+                            </span>
+                            
+                            <span className="text-3xl mb-2">
+                              {emoji}
+                            </span>
+                            <div className="flex gap-2 font-bold tabular-nums">
+                              <span className="text-sm text-slate-900 dark:text-white">{maxT}</span>
+                              <span className="text-sm text-slate-400">{minT}</span>
                             </div>
-                            <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                              <div 
-                                className={`h-full transition-all duration-1000 ${spendToDate > (trip.budgetGBP / trip.duration) * currentDayNum ? 'bg-amber-500' : 'bg-slate-400 dark:bg-slate-500'}`}
-                                style={{ width: `${Math.min((spendToDate / trip.budgetGBP) * 100, 100)}%` }}
-                              />
-                            </div>
-                          </>
+                          </div>
                         );
-                      })()}
+                      })}
                     </div>
+                  ) : (
+                    <div className="flex flex-col sm:flex-row gap-4 items-stretch">
+                      <div className="flex-1 w-full bg-slate-50 dark:bg-slate-900/50 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 flex flex-col justify-center">
+                        <span className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">Peak Season</span>
+                        <span className="block text-xl font-black text-slate-900 dark:text-white mb-2">May – September</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">Warm, dry, and perfect for outdoor exploring. Expect heavier crowds in July and August.</p>
+                      </div>
+                      <div className="flex gap-4">
+                        <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 min-w-[100px]">
+                          <span className="text-2xl mb-2">🌡️</span>
+                          <span className="text-[10px] font-black uppercase text-slate-400">Avg High</span>
+                          <span className="text-lg font-bold text-slate-900 dark:text-white mt-1">24°C</span>
+                        </div>
+                        <div className="flex flex-col items-center justify-center p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 min-w-[100px]">
+                          <span className="text-2xl mb-2">☔</span>
+                          <span className="text-[10px] font-black uppercase text-slate-400">Rain Days</span>
+                          <span className="text-lg font-bold text-slate-900 dark:text-white mt-1">3 / mo</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-                    <div>
-                      <div className="flex justify-between items-end mb-2">
-                        <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Itinerary Cost</h4>
-                        <span className="text-[11px] font-bold text-slate-900 dark:text-white">{formatCost(dynamicTotalCost)}</span>
-                      </div>
-                      <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full transition-all duration-1000 ${dynamicTotalCost > trip.budgetGBP ? 'bg-red-500' : 'bg-brand-500'}`}
-                          style={{ width: `${Math.min((dynamicTotalCost / trip.budgetGBP) * 100, 100)}%` }}
-                        />
-                      </div>
-                      <p className="text-[9px] text-slate-400 mt-2 italic">
-                        {dynamicTotalCost > trip.budgetGBP 
-                          ? "Plan is currently over total budget." 
-                          : `Plan uses ${Math.round((dynamicTotalCost / trip.budgetGBP) * 100)}% of total budget.`}
-                      </p>
-                    </div>
+                <div className={`${rightCardStyle} h-full justify-between overflow-hidden`}>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4">Local Currency</h3>
+                    <div className="text-3xl font-black text-slate-900 dark:text-white mb-1">{localSymbol}</div>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm">{localCurrencyRaw}</p>
                   </div>
-
+                  
+                  <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-700/50">
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Exchange Rate</span>
+                      <span className="text-sm font-bold text-slate-900 dark:text-white">£1 = {localSymbol}{symbolSpacer}{exchangeRate.toFixed(2)}</span>
+                    </div>
+                    
+                    {!isDomesticTrip && (
+                      <button 
+                        onClick={toggleCurrency} 
+                        className="w-full py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 transition-all rounded-xl text-xs font-black tracking-wide cursor-pointer shadow-sm"
+                      >
+                        VIEW PRICES IN {displayCurrency === 'GBP' ? 'LOCAL' : 'GBP'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
 
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className={`lg:col-span-2 ${leftCardStyle} overflow-hidden`}>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+                    <span className="text-brand-500 dark:text-brand-400">🚆</span> Transport & Comms
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {[
+                      { icon: '✈️', title: 'Airport Transit', content: essentials.airportTransit },
+                      { icon: '📱', title: 'Essential Apps', content: apps.join(', ') },
+                      { icon: '💳', title: 'Getting Around', content: essentials.transportCardAdvice },
+                      { icon: '🚨', title: 'Emergencies', content: essentials.emergencyNumbers },
+                    ].map((card) => card.content && (
+                      <div key={card.title} className="flex gap-4 items-start">
+                        <div className="text-2xl flex-shrink-0 leading-none mt-0.5">{card.icon}</div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-300 mb-1 truncate">{card.title}</h4>
+                          <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed break-words">{card.content}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className={`${rightCardStyle} gap-6 overflow-hidden`}>
+                   <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Local Logistics</h3>
+                   
+                   <div className="flex items-center gap-4">
+                      <div className="h-12 w-12 flex-shrink-0 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <PlugSocketIcon type={plugType} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">Power Outlets</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{plugType}</p>
+                      </div>
+                   </div>
+
+                   <div className="flex items-center gap-4">
+                      <div className="h-12 w-12 flex-shrink-0 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 text-xl shadow-sm">💧</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">Tap Water</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white whitespace-normal break-words leading-tight">{tapWater}</p>
+                      </div>
+                   </div>
+
+                   <div className="flex items-center gap-4">
+                      <div className="h-12 w-12 flex-shrink-0 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center border border-slate-200 dark:border-slate-700 text-xl shadow-sm">💳</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">Payments</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white whitespace-normal break-words leading-tight">
+                          Contactless is widely accepted. Carry small cash.
+                        </p>
+                      </div>
+                   </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className={`lg:col-span-2 ${leftCardStyle} overflow-hidden`}>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+                    <span className="text-brand-500 dark:text-brand-400">🗣️</span> Cultural Briefing
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">Survival Phrases</h4>
+                      <div className="flex flex-col gap-3">
+                        {essentials?.usefulPhrases?.map((p, i) => (
+                          <div key={i} className="flex justify-between items-center border-b border-slate-100 dark:border-slate-700/50 pb-2">
+                            <span className="text-sm text-slate-600 dark:text-slate-400">{p.phrase}</span>
+                            <span className="text-sm font-bold text-slate-900 dark:text-white text-right">{p.translation}</span>
+                          </div>
+                        )) || (
+                          <div className="text-sm text-slate-500">No phrases loaded.</div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col justify-start gap-5">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Local Customs</h4>
+                        <ul className="list-disc list-inside text-sm text-slate-700 dark:text-slate-300 space-y-1.5 leading-relaxed">
+                          {essentials?.localCustoms?.map((custom, i) => (
+                            <li key={i}>{custom}</li>
+                          )) || (
+                            <li>Always greet shopkeepers when entering.</li>
+                          )}
+                        </ul>
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Tipping & Custom</h4>
+                        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                          {essentials?.tippingEtiquette || 'Tipping is generally appreciated but not strictly mandatory. 10% is standard for good service.'}
+                        </p>
+                      </div>
+                      <div className="flex items-start gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/50 mt-1">
+                        <span className="text-base mt-0.5">🛡️</span>
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">Safety Advice</h4>
+                          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{risk}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className={`${rightCardStyle} overflow-hidden flex flex-col`}>
+                  <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-6 relative z-10">Accommodation</h3>
+                  
+                  <div className="relative z-10 flex flex-col flex-1">
+                    {accommodationName && dynamicStays.length > 0 ? (
+                      <>
+                        <div className="flex flex-col gap-4 mb-6 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                          {dynamicStays.map((stay, idx) => (
+                            <div 
+                              key={idx} 
+                              className={`bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm flex items-start gap-3 transition-all ${stay.placeId ? 'cursor-pointer hover:border-brand-400 group' : ''}`} 
+                              onClick={() => stay.placeId && setSelectedPOI({ placeId: stay.placeId, poiId: stay.poiId })}
+                            >
+                              <div className="w-6 h-6 flex-shrink-0 bg-brand-600 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-sm mt-0.5">
+                                {idx + 1}
+                              </div>
+                              <div className="flex flex-col min-w-0 flex-1">
+                                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-0.5">From Day {stay.startDay}</span>
+                                <span className="text-sm font-bold text-slate-900 dark:text-white block leading-tight truncate" title={stay.name}>
+                                  {stay.name}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        <div className="mt-auto pt-4 border-t border-slate-200 dark:border-slate-700/50">
+                          <button 
+                            onClick={() => {
+                              if (onEditRequest) {
+                                onEditRequest();
+                              } else {
+                                setActiveTab(1);
+                              }
+                            }}
+                            className="w-full py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl text-xs font-bold transition-colors shadow-sm cursor-pointer"
+                          >
+                            Manage Bookings in Planner
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="mb-2 flex items-center gap-2">
+                          <span className="text-[10px] font-black uppercase text-brand-500 dark:text-brand-400 tracking-widest block">✨ AI Matchmaker</span>
+                          <span className="bg-brand-100 dark:bg-brand-900/50 text-brand-700 dark:text-brand-300 text-[8px] font-black uppercase px-2 py-0.5 rounded-full">Tailored for you</span>
+                        </div>
+                        
+                        <div className="flex flex-col mb-6 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                          {essentials?.neighbourhoodRecommendations && essentials.neighbourhoodRecommendations.length > 0 ? (
+                            essentials.neighbourhoodRecommendations.map((rec, idx) => (
+                              <div key={idx} className="py-3.5 border-b border-slate-100 dark:border-slate-800/60 last:border-0">
+                                <div className="flex flex-col mb-1.5">
+                                  <a 
+                                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rec.name + ' Hotels ' + trip.destination)}`}
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-sm font-bold text-brand-600 dark:text-brand-400 mb-0.5 hover:underline flex items-center gap-1 group"
+                                  >
+                                    {rec.name} 
+                                    <span className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">↗</span>
+                                  </a>
+                                  <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">{rec.vibe}</span>
+                                </div>
+                                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                                  {rec.reason}
+                                </p>
+                              </div>
+                            ))
+                          ) : (
+                             <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed pt-2">
+                               Based on your selected activities, staying centrally minimises travel time and keeps you close to transit hubs.
+                             </p>
+                          )}
+                        </div>
+
+                        <div className="mt-auto pt-2 border-t border-slate-200 dark:border-slate-800/60">
+                          <button 
+                            onClick={() => {
+                              if (onEditRequest) onEditRequest();
+                              else setActiveTab(1);
+                            }}
+                            className="w-full mt-4 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 rounded-xl text-xs font-bold transition-colors shadow-sm cursor-pointer"
+                          >
+                            Add Booking Details
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* ── DAY VIEWS ── */}
+          {days.map(activeDay => {
+            const isActiveTab = activeTab === activeDay.dayNumber;
+            const mapUrl = generateGoogleMapsDayUrl(activeDay.entries, trip.destination);
+            
+            return (
+              <div key={activeDay.dayNumber} className={`${isActiveTab ? 'flex' : 'hidden'} flex-col lg:flex-row gap-8 lg:gap-12 animate-fade-in`}>
+                <div className="flex-1">
+                  
+                  {viewMode === 'list' || typeof window === 'undefined' ? (
+                    <>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                        <div className="flex items-center gap-4">
+                          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-brand-600 shadow-lg">
+                            <span className="text-lg font-black text-white">{activeDay.dayNumber}</span>
+                          </div>
+                          <div>
+                            <h2 className="text-2xl font-black text-slate-900 dark:text-white">Day {activeDay.dayNumber} Schedule</h2>
+                            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                              {activeDay.entries?.length || 0} stops planned for today.
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {mapUrl && (
+                          <a 
+                            href={mapUrl} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors"
+                          >
+                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon><line x1="9" y1="3" x2="9" y2="18"></line><line x1="15" y1="6" x2="15" y2="21"></line></svg>
+                            Open Route in Maps
+                          </a>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col">
+                        {(activeDay.entries || []).map((entry, index, arr) => (
+                          <TimelineEntry
+                            key={`${entry.id}-${entry.time}`}
+                            entry={entry}
+                            nextEntry={arr[index + 1]}
+                            isLast={index === arr.length - 1}
+                            dayNumber={activeDay.dayNumber}
+                            accommodationName={accommodationName}
+                            onPlaceClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })}
+                            formatCost={formatCost}
+                            destination={trip.destination}
+                          />
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="h-[65vh] min-h-[500px] w-full rounded-3xl overflow-hidden border-2 border-slate-200 dark:border-slate-700 shadow-lg relative">
+                       <DayMap 
+                         entries={activeDay.entries || []} 
+                         destination={trip.destination} 
+                         onMarkerClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })}
+                       />
+                       <div className="absolute top-4 left-4 z-10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-4 py-2 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+                          <h3 className="text-sm font-black text-slate-900 dark:text-white">Day {activeDay.dayNumber} Map</h3>
+                       </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="w-full lg:w-80 flex-shrink-0">
+                  <div className="sticky top-28 flex flex-col gap-4">
+                    
+                    <div className="hidden md:flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl mb-2 border border-slate-200 dark:border-slate-700/50 shadow-inner">
+                      <button 
+                        onClick={() => setViewMode('list')} 
+                        className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                      >
+                        Timeline
+                      </button>
+                      <button 
+                        onClick={() => setViewMode('map')} 
+                        className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all ${viewMode === 'map' ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                      >
+                        Interactive Map
+                      </button>
+                    </div>
+                    
+                    <div className="rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 shadow-sm">
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-sm font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest">Day {activeDay.dayNumber} Spend</h3>
+                        {!isDomesticTrip && (
+                          <button onClick={toggleCurrency} className="text-[10px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">
+                            {displayCurrency === 'GBP' ? 'LOCAL £' : 'GBP £'}
+                          </button>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-end justify-between mb-2">
+                        <div>
+                          <span className={`text-3xl font-black block ${(activeDay.estimatedDailySpendGBP || 0) > (trip.budgetGBP / trip.duration) ? 'text-red-500' : 'text-slate-900 dark:text-white'}`}>
+                            {formatCost(activeDay.estimatedDailySpendGBP || 0)}
+                          </span>
+                          <span className="text-xs font-bold text-slate-500 uppercase">Spent</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-lg font-bold text-slate-700 dark:text-slate-300 block">{formatCost(trip.budgetGBP / trip.duration)}</span>
+                          <span className="text-xs font-bold text-slate-500 uppercase">Daily Limit</span>
+                        </div>
+                      </div>
+
+                      <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-900 mt-4 border border-slate-200 dark:border-slate-700">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-1000 ${(activeDay.estimatedDailySpendGBP || 0) > (trip.budgetGBP / trip.duration) ? 'bg-red-500' : 'bg-brand-500'}`} 
+                          style={{ width: `${Math.min((((activeDay.estimatedDailySpendGBP || 0) / (trip.budgetGBP / trip.duration)) * 100) || 0, 100)}%` }} 
+                        />
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-[#0f172a]/40 p-5 backdrop-blur-sm shadow-sm flex flex-col gap-6">
+                      
+                      <div>
+                        {(() => {
+                          const currentDayNum = activeDay.dayNumber;
+                          const spendToDate = days
+                            .filter(d => d.dayNumber <= currentDayNum)
+                            .reduce((sum, d) => sum + (d.estimatedDailySpendGBP || 0), 0);
+                          
+                          return (
+                            <>
+                              <div className="flex justify-between items-end mb-2">
+                                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Spend to Date (Day {currentDayNum})</h4>
+                                <span className="text-[11px] font-bold text-slate-900 dark:text-white">{formatCost(spendToDate)}</span>
+                              </div>
+                              <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full transition-all duration-1000 ${spendToDate > (trip.budgetGBP / trip.duration) * currentDayNum ? 'bg-amber-500' : 'bg-slate-400 dark:bg-slate-500'}`}
+                                  style={{ width: `${Math.min((spendToDate / trip.budgetGBP) * 100, 100)}%` }}
+                                />
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between items-end mb-2">
+                          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Itinerary Cost</h4>
+                          <span className="text-[11px] font-bold text-slate-900 dark:text-white">{formatCost(dynamicTotalCost)}</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                          <div 
+                            className={`h-full transition-all duration-1000 ${dynamicTotalCost > trip.budgetGBP ? 'bg-red-500' : 'bg-brand-500'}`}
+                            style={{ width: `${Math.min((dynamicTotalCost / trip.budgetGBP) * 100, 100)}%` }}
+                          />
+                        </div>
+                        <p className="text-[9px] text-slate-400 mt-2 italic">
+                          {dynamicTotalCost > trip.budgetGBP 
+                            ? "Plan is currently over total budget." 
+                            : `Plan uses ${Math.round((dynamicTotalCost / trip.budgetGBP) * 100)}% of total budget.`}
+                        </p>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+        </div>
       </div>
     </div>
   );

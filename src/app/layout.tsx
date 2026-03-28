@@ -31,8 +31,8 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-50 transition-colors duration-300`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          {/* Global Pear Travel Navigation */}
-          <nav className="border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
+          {/* Global Pear Travel Navigation - HIDDEN ON PRINT */}
+          <nav className="print:hidden border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
             <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-2xl" aria-hidden="true">🍐</span>
