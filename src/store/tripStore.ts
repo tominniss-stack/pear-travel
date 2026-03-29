@@ -212,24 +212,46 @@ export const useTripStore = create<TripStore>()(
         setItinerary: (itinerary) =>
           set({ itinerary }, false, 'setItinerary'),
 
-        // ── Legacy Compatibility: Preserved for SortableItinerary ───────────
+// ── Legacy Compatibility: Preserved for SortableItinerary ───────────
         updateAccommodation: (dayNumber: number, entryId: string, newLocation: string, newTime?: string, cascade?: boolean) =>
           set(
             (state) => {
               if (!state.itinerary) return state;
 
               const nextDays = state.itinerary.days.map((day) => {
+                // BUG 1 FIX: When on the exact day we edited...
                 if (day.dayNumber === dayNumber) {
-                  const updatedEntries = day.entries.map((e) =>
-                    e.id === entryId ? { ...e, locationName: newLocation, time: newTime || e.time, userModified: true } : e
-                  );
+                  const updatedEntries = day.entries.map((e) => {
+                    // Update the specific entry we clicked on
+                    if (e.id === entryId) {
+                      return { ...e, locationName: newLocation, time: newTime || e.time, userModified: true };
+                    }
+                    // Cascade to other bookends on the SAME day (e.g. End of Day 1)
+                    if (cascade) {
+                      const isBookend = !e.isDining && (
+                        e.type === 'ACCOMMODATION' ||
+                        /(accommodation|hotel|airbnb|start of day|return to)/i.test(e.activityDescription || '') ||
+                        /(accommodation|hotel|airbnb|start of day|return to)/i.test(e.locationName || '')
+                      );
+                      if (isBookend) {
+                        return { ...e, locationName: newLocation, userModified: true };
+                      }
+                    }
+                    return e;
+                  });
                   return { ...day, entries: updatedEntries };
                 }
 
+                // Cascade to FUTURE days
                 if (cascade && day.dayNumber > dayNumber) {
                   const updatedEntries = day.entries.map((e) => {
-                    // Uses the new V3 EntryType guard
-                    if (e.type === 'ACCOMMODATION') {
+                    const isBookend = !e.isDining && (
+                      e.type === 'ACCOMMODATION' ||
+                      /(accommodation|hotel|airbnb|start of day|return to)/i.test(e.activityDescription || '') ||
+                      /(accommodation|hotel|airbnb|start of day|return to)/i.test(e.locationName || '')
+                    );
+                    
+                    if (isBookend) {
                       return { ...e, locationName: newLocation, userModified: true };
                     }
                     return e;
@@ -241,7 +263,11 @@ export const useTripStore = create<TripStore>()(
               });
 
               // Push the manual override through the V3 recalculation pipeline
-              return { itinerary: recalculateItinerary({ ...state.itinerary, days: nextDays }, state.intake) };
+              return { 
+                itinerary: recalculateItinerary({ ...state.itinerary, days: nextDays }, state.intake),
+                // BUG 2 FIX: Update the intake.accommodation so the UI Overview card updates!
+                ...(cascade ? { intake: { ...state.intake, accommodation: newLocation } } : {})
+              };
             },
             false,
             `updateAccommodation/${dayNumber}/${entryId}`

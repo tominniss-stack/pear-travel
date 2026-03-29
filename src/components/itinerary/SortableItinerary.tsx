@@ -832,7 +832,16 @@ export default function SortableItinerary() {
       </AnimatePresence>
       <AnimatePresence>
         {editingAccTarget && (
-          <EditAccommodationModal target={editingAccTarget} destination={activeDestination} onClose={() => setEditingAccTarget(null)} onSave={(newLocation, newTime, cascade) => { updateAccommodation(editingAccTarget.dayNumber, editingAccTarget.entry.id, newLocation); setEditingAccTarget(null); }} />
+          <EditAccommodationModal 
+            target={editingAccTarget} 
+            destination={activeDestination} 
+            onClose={() => setEditingAccTarget(null)} 
+            onSave={(newLocation, newTime, cascade) => { 
+              // FIX: Now we actually pass newTime and cascade down to the store!
+              updateAccommodation(editingAccTarget.dayNumber, editingAccTarget.entry.id, newLocation, newTime, cascade); 
+              setEditingAccTarget(null); 
+            }} 
+          />
         )}
       </AnimatePresence>
       <AnimatePresence>

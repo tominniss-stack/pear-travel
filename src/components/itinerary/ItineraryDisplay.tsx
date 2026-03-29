@@ -315,7 +315,7 @@ function PrintOnlyBooklet({
                   const isBookend = !isManualRest && (entry.type === 'ACCOMMODATION' || isStartDay || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.activityDescription || '') || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.locationName || '')) && !entry.isDining;
                   const isFlight = /(Airport|Flight|Departure)/i.test(entry.activityDescription || '') || /(Airport|Flight|Departure)/i.test(entry.locationName || '');
                   const isStay = isBookend && !isFlight;
-                
+                  
                   if (isStay) {
                     const isGeneric = /^(accommodation|hotel|airbnb|start of day|return to)/i.test(displayTitle.trim());
                     if (isGeneric && accommodationName) displayTitle = accommodationName;
@@ -489,6 +489,7 @@ function TimelineEntry({
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
+
 // eslint-disable-next-line @next/next/no-server-actions-in-client-components
 export default function ItineraryDisplay({ 
   itinerary, 
@@ -1058,19 +1059,42 @@ export default function ItineraryDisplay({
                     <span className="text-brand-500 dark:text-brand-400">🗣️</span> Cultural Briefing
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">Survival Phrases</h4>
-                      <div className="flex flex-col gap-3">
-                        {essentials?.usefulPhrases?.map((p, i) => (
-                          <div key={i} className="flex justify-between items-center border-b border-slate-100 dark:border-slate-700/50 pb-2">
-                            <span className="text-sm text-slate-600 dark:text-slate-400">{p.phrase}</span>
-                            <span className="text-sm font-bold text-slate-900 dark:text-white text-right">{p.translation}</span>
+                    
+                    {/* --- LEFT COLUMN WRAPPER START --- */}
+                    <div className="flex flex-col gap-6">
+                      
+                      {/* NEW: Language & English Proficiency */}
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">Language</h4>
+                        <div className="flex items-center gap-3">
+                          <span className="text-base font-bold text-slate-900 dark:text-white">
+                            {essentials?.language || 'Local Language'}
+                          </span>
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 rounded-lg border border-brand-200 dark:border-brand-800">
+                             <span className="text-[10px] font-black uppercase tracking-wider">
+                               English: {essentials?.englishProficiency || 'Moderate'}
+                             </span>
                           </div>
-                        )) || (
-                          <div className="text-sm text-slate-500">No phrases loaded.</div>
-                        )}
+                        </div>
                       </div>
+
+                      {/* EXISTING: Survival Phrases */}
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">Survival Phrases</h4>
+                        <div className="flex flex-col gap-3">
+                          {essentials?.usefulPhrases?.map((p, i) => (
+                            <div key={i} className="flex justify-between items-center border-b border-slate-100 dark:border-slate-700/50 pb-2">
+                              <span className="text-sm text-slate-600 dark:text-slate-400">{p.phrase}</span>
+                              <span className="text-sm font-bold text-slate-900 dark:text-white text-right">{p.translation}</span>
+                            </div>
+                          )) || (
+                            <div className="text-sm text-slate-500">No phrases loaded.</div>
+                          )}
+                        </div>
+                      </div>
+
                     </div>
+                    {/* --- LEFT COLUMN WRAPPER END --- */}
                     
                     <div className="flex flex-col justify-start gap-5">
                       <div>
@@ -1104,7 +1128,7 @@ export default function ItineraryDisplay({
                   <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-6 relative z-10">Accommodation</h3>
                   
                   <div className="relative z-10 flex flex-col flex-1">
-                    {accommodationName && dynamicStays.length > 0 ? (
+                    {dynamicStays.length > 0 ? (
                       <>
                         <div className="flex flex-col gap-4 mb-6 flex-1 overflow-y-auto pr-2 custom-scrollbar">
                           {dynamicStays.map((stay, idx) => (
@@ -1118,9 +1142,28 @@ export default function ItineraryDisplay({
                               </div>
                               <div className="flex flex-col min-w-0 flex-1">
                                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-0.5">From Day {stay.startDay}</span>
-                                <span className="text-sm font-bold text-slate-900 dark:text-white block leading-tight truncate" title={stay.name}>
-                                  {stay.name}
-                                </span>
+                                
+                                {/* REPLACED: Added the explicitly clickable View Map button */}
+                                <div className="flex items-center gap-2 flex-wrap mt-1">
+                                  <span className="text-sm font-bold text-slate-900 dark:text-white leading-tight" title={stay.name}>
+                                    {stay.name}
+                                  </span>
+                                  
+                                  {/* Smart Google Maps Link: Fallback to text search if no Place ID */}
+                                  <a 
+                                    href={
+                                      stay.placeId && stay.placeId !== "null" && stay.placeId !== ""
+                                        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stay.name + ', ' + trip.destination)}&query_place_id=${stay.placeId}`
+                                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stay.name + ', ' + trip.destination)}`
+                                    } 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    onClick={(e) => e.stopPropagation()} 
+                                    className="relative z-10 inline-block cursor-pointer text-[10px] font-bold uppercase tracking-wider text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300 bg-brand-50 dark:bg-brand-900/30 px-2 py-0.5 rounded-md transition-colors"
+                                  >
+                                    View Map ↗
+                                  </a>
+                                </div>
                               </div>
                             </div>
                           ))}

@@ -94,6 +94,7 @@ export interface DayItinerary {
 
 export interface CityEssentials {
   destination: string;
+  language?: string;
   airportTransit: string;
   tippingEtiquette: string;
   transportCardAdvice: string;
@@ -119,6 +120,8 @@ export interface Itinerary {
   lockedAccommodations?: LockedAccommodation[];
 }
 
+// ... (keep the rest of your types exactly as they are)
+
 export interface TripStore {
   intake: TripIntake;
   allPOIs: POI[];       
@@ -136,8 +139,8 @@ export interface TripStore {
   removeLockedAccommodation: (placeId: string) => void;
   autoHealConflict: (dayNumber: number, entryId: string) => void;
   
-  // REFINED: Added directly to the canonical interface
-  updateAccommodation: (dayNumber: number, entryId: string, newName: string) => void;
+  // FIX: Added newTime and cascade to the signature
+  updateAccommodation: (dayNumber: number, entryId: string, newLocation: string, newTime?: string, cascade?: boolean) => void;
   
   updateIntakeField: <K extends keyof TripIntake>(field: K, value: TripIntake[K]) => void;
   setIntake: (intake: TripIntake) => void;

@@ -299,6 +299,7 @@ CULTURAL BRIEFING & ESSENTIALS RULES
 1. APPS: You MUST list the primary local rideshare/taxi app (Uber, Bolt, Grab, FreeNow, etc.) alongside the official city transit app in the 'apps' array.
 2. PHRASES: Provide exactly 6 phrases in 'usefulPhrases', including: "Hello", "Thank you", "The bill, please", "Do you speak English?", "Where is the bathroom?", and "How do I get to...?".
 3. CUSTOMS: Provide 2-3 specific local etiquette or behavioral tips in the 'localCustoms' array (e.g. "Dinner is eaten late, rarely before 9 PM").
+4. LANGUAGE: Identify the primary local language spoken in the SPECIFIC destination city/region (e.g., if the destination is Zurich, output "Swiss German"). Keep it to 1-2 words. Also provide a strict 1-3 word 'englishProficiency' rating (e.g., "Widely Spoken", "Moderate", "Rarely Spoken").
 
 ════════════════════════════════════════
 JSON OUTPUT STRUCTURE & FIELD RULES
@@ -326,6 +327,8 @@ Return ONLY valid JSON with the exact structure below. Note the boolean properti
   ],
   "essentials": {
     "destination": "${intake.destination}",
+    "language": "string", 
+    "englishProficiency": "string",
     "airportTransit": "string",
     "tippingEtiquette": "string",
     "transportCardAdvice": "string",

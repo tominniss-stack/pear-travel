@@ -45,7 +45,8 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
 
     setIsSaving(true);
     try {
-      const response = await fetch(`/api/itinerary/${dbTrip.id}`, {
+      // FIX: Changed from /api/itinerary/ to /api/trip/ to hit the correct V3 JSON handler
+      const response = await fetch(`/api/trip/${dbTrip.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ itinerary }),
@@ -65,7 +66,6 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
 
   return (
     <div className="w-full py-8">
-      {/* ── Top Navigation Bar (HIDDEN ON PRINT) ── */}
       <div className="print:hidden mb-6 max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
         <Link
           href="/dashboard"
@@ -95,7 +95,6 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
         </div>
       </div>
 
-      {/* ── Main Content Router ── */}
       {isEditing ? (
         <SortableItinerary />
       ) : (
