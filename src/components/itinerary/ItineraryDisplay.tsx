@@ -312,7 +312,7 @@ function PrintOnlyBooklet({
                   
                   const isStartDay = entry.transitMethod === 'Start of Day';
                   const isManualRest = entry.locationName === 'Room Break' || entry.locationName === 'Local Coffee / Cafe Break';
-                  const isBookend = !isManualRest && (entry.isAccommodation || isStartDay || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.activityDescription || '') || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.locationName || '')) && !entry.isDining;
+                  const isBookend = !isManualRest && (entry.type === 'ACCOMMODATION' || isStartDay || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.activityDescription || '') || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.locationName || '')) && !entry.isDining;
                   const isFlight = /(Airport|Flight|Departure)/i.test(entry.activityDescription || '') || /(Airport|Flight|Departure)/i.test(entry.locationName || '');
                   const isStay = isBookend && !isFlight;
                 
@@ -376,7 +376,7 @@ function TimelineEntry({
   const hasPlaceId = !!(entry.placeId && entry.placeId !== "" && entry.placeId !== "null");
   
   const isManualRest = entry.locationName === 'Room Break' || entry.locationName === 'Local Coffee / Cafe Break';
-  const isBookend = !isManualRest && (entry.isAccommodation || isStartDay || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.activityDescription || '') || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.locationName || '')) && !entry.isDining;
+  const isBookend = !isManualRest && (entry.type === 'ACCOMMODATION' || isStartDay || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.activityDescription || '') || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.locationName || '')) && !entry.isDining;
   const isFlight = /(Airport|Flight|Departure)/i.test(entry.activityDescription || '') || /(Airport|Flight|Departure)/i.test(entry.locationName || '');
   const isStay = isBookend && !isFlight;
 
@@ -638,7 +638,7 @@ export default function ItineraryDisplay({
   const dynamicStays = days.reduce((acc: {name: string, startDay: number, placeId?: string, poiId: string}[], day) => {
     if (day.entries.length > 0) {
       const stayEntry = day.entries.find(e => {
-        const isStayKeyword = e.isAccommodation || /(accommodation|hotel|airbnb|check-in|stay)/i.test(e.activityDescription || '') || /(accommodation|hotel|airbnb)/i.test(e.locationName || '');
+        const isStayKeyword = e.type === 'ACCOMMODATION' || /(accommodation|hotel|airbnb|check-in|stay)/i.test(e.activityDescription || '') || /(accommodation|hotel|airbnb)/i.test(e.locationName || '');
         const isAirportOrStation = /(airport|flight|arrival|departure|station|terminal)/i.test(e.locationName + ' ' + e.activityDescription);
         return isStayKeyword && !isAirportOrStation;
       }) || day.entries.find(e => {
@@ -674,7 +674,7 @@ export default function ItineraryDisplay({
 
   const totalStops = days.reduce((total, day) => {
     const actualPlaces = day.entries?.filter(entry => {
-      const isBookend = entry.isAccommodation || entry.transitMethod === 'Start of Day' || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.activityDescription || '') || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.locationName || '');
+      const isBookend = entry.type === 'ACCOMMODATION' || entry.transitMethod === 'Start of Day' || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.activityDescription || '') || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.locationName || '');
       return !isBookend;
     });
     return total + (actualPlaces?.length || 0);

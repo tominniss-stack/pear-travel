@@ -351,7 +351,7 @@ function SortableTimelineEntry({
 }) {
 
   const isManualRest = entry.locationName === 'Room Break' || entry.locationName === 'Local Coffee / Cafe Break';
-  const isBookend = !isManualRest && (entry.isAccommodation || entry.transitMethod === 'Start of Day' || /(accommodation|hotel|airbnb|start of day|return to)/i.test(entry.activityDescription || '') || /(accommodation|hotel|airbnb|start of day|return to)/i.test(entry.locationName || '')) && !entry.isDining;
+  const isBookend = !isManualRest && (entry.type === 'ACCOMMODATION' || entry.transitMethod === 'Start of Day' || /(accommodation|hotel|airbnb|start of day|return to)/i.test(entry.activityDescription || '') || /(accommodation|hotel|airbnb|start of day|return to)/i.test(entry.locationName || '')) && !entry.isDining;
   const isFlight = /(airport|flight|departure)/i.test(entry.activityDescription || '') || /(airport|flight|departure)/i.test(entry.locationName || '');
   const isStay = isBookend && !isFlight;
 
@@ -832,7 +832,7 @@ export default function SortableItinerary() {
       </AnimatePresence>
       <AnimatePresence>
         {editingAccTarget && (
-          <EditAccommodationModal target={editingAccTarget} destination={activeDestination} onClose={() => setEditingAccTarget(null)} onSave={(newLocation, newTime, cascade) => { updateAccommodation(editingAccTarget.dayNumber, editingAccTarget.entry.id, newLocation, newTime, cascade); setEditingAccTarget(null); }} />
+          <EditAccommodationModal target={editingAccTarget} destination={activeDestination} onClose={() => setEditingAccTarget(null)} onSave={(newLocation, newTime, cascade) => { updateAccommodation(editingAccTarget.dayNumber, editingAccTarget.entry.id, newLocation); setEditingAccTarget(null); }} />
         )}
       </AnimatePresence>
       <AnimatePresence>

@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Paperclip, UploadCloud, Link2, Loader2, FileText, FileImage, CheckCircle2 } from 'lucide-react';
+import { Paperclip, UploadCloud, Loader2, FileText, FileImage, CheckCircle2 } from 'lucide-react';
+import { useTripStore } from '@/store/tripStore';
 
-// Define Document structure
 export interface DocumentInfo {
   id: string;
   fileName: string;
@@ -13,13 +13,13 @@ export interface DocumentInfo {
 }
 
 interface PlaceDetailsModalProps {
-  placeId: string;       // Google Maps Place ID
-  poiId: string;         // Prisma POI ID (New: required for linking)
-  tripId: string;        // Prisma Trip ID (New: required for folder structure)
+  placeId: string;       
+  poiId: string;         
+  tripId: string;        
   aiNote?: string;
-  tripDocuments?: DocumentInfo[]; // (New: All documents uploaded to this trip)
+  tripDocuments?: DocumentInfo[]; 
   onClose: () => void;
-  onDocumentUpdate?: () => void;  // (New: Callback to refresh data after upload/link)
+  onDocumentUpdate?: () => void;  
 }
 
 export default function PlaceDetailsModal({ 
@@ -32,7 +32,6 @@ export default function PlaceDetailsModal({
   onDocumentUpdate
 }: PlaceDetailsModalProps) {
   
-  // Maps State
   const [place, setPlace] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,18 +41,18 @@ export default function PlaceDetailsModal({
   const [isUploading, setIsUploading] = useState(false);
   const [selectedDocToLink, setSelectedDocToLink] = useState('');
 
-  // Derived state for the UI
+  // ── NEW: V3 Booking Loop State ──
+  const itinerary = useTripStore(state => state.itinerary);
+  const setLockedAccommodation = useTripStore(state => state.setLockedAccommodation);
+  const [showBooking, setShowBooking] = useState(false);
+  const [checkInDay, setCheckInDay] = useState(1);
+  const [checkOutDay, setCheckOutDay] = useState(itinerary?.days.length ? itinerary.days.length + 1 : 2);
+
   const attachedDocs = tripDocuments.filter(doc => doc.poiId === poiId);
   const availableDocsToLink = tripDocuments.filter(doc => !doc.poiId);
 
-  // ─── MAPS FETCHING LOGIC ───────────────────────────────────────────────────
   useEffect(() => {
-    const isValidId = 
-      placeId && 
-      placeId !== "" && 
-      placeId !== "null" && 
-      placeId !== "undefined" && 
-      typeof placeId === 'string';
+    const isValidId = placeId && placeId !== "" && placeId !== "null" && typeof placeId === 'string';
 
     if (!isValidId) {
       setError("This item isn't linked to a specific Google Maps location.");
@@ -79,7 +78,7 @@ export default function PlaceDetailsModal({
             fields: [
               'name', 'rating', 'user_ratings_total', 'formatted_address', 
               'formatted_phone_number', 'opening_hours', 'website', 
-              'photos', 'reviews', 'editorial_summary', 'url'
+              'photos', 'reviews', 'editorial_summary', 'url', 'types'
             ]
           },
           (result: any, status: any) => {
@@ -101,14 +100,12 @@ export default function PlaceDetailsModal({
     fetchPlaceDetails();
   }, [placeId]);
 
-  // Handle Escape key
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose]);
 
-  // ─── DOCUMENT UPLOAD & LINKING LOGIC ───────────────────────────────────────
   const processUpload = async (file: File) => {
     const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
     if (!validTypes.includes(file.type)) {
@@ -120,7 +117,6 @@ export default function PlaceDetailsModal({
     try {
       const formData = new FormData();
       formData.append('file', file);
-      // Pass tripId and poiId to the API so it knows where to store it and how to link it
       formData.append('tripId', tripId); 
       formData.append('poiId', poiId);
 
@@ -130,8 +126,6 @@ export default function PlaceDetailsModal({
       });
 
       if (!res.ok) throw new Error('Upload failed');
-      
-      // Trigger a refresh of the parent component's data
       if (onDocumentUpdate) onDocumentUpdate();
       
     } catch (err) {
@@ -144,11 +138,7 @@ export default function PlaceDetailsModal({
 
   const handleLinkExistingDoc = async () => {
     if (!selectedDocToLink) return;
-    
     try {
-      // NOTE: We will build this Server Action next!
-      // await linkDocumentToPOI(selectedDocToLink, poiId);
-      
       setSelectedDocToLink('');
       if (onDocumentUpdate) onDocumentUpdate();
     } catch (err) {
@@ -157,13 +147,8 @@ export default function PlaceDetailsModal({
     }
   };
 
-  // Drag Handlers
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault(); e.stopPropagation(); setIsDragging(true);
-  }, []);
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault(); e.stopPropagation(); setIsDragging(false);
-  }, []);
+  const handleDragOver = useCallback((e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setIsDragging(true); }, []);
+  const handleDragLeave = useCallback((e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); setIsDragging(false); }, []);
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault(); e.stopPropagation(); setIsDragging(false);
     if (e.dataTransfer.files?.[0]) await processUpload(e.dataTransfer.files[0]);
@@ -175,7 +160,6 @@ export default function PlaceDetailsModal({
     return <Paperclip className="w-5 h-5 text-slate-500" />;
   };
 
-  // ─── RENDER ────────────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 sm:p-6" onClick={onClose}>
       <div 
@@ -198,7 +182,6 @@ export default function PlaceDetailsModal({
           </div>
         ) : (
           <div className="overflow-y-auto custom-scrollbar flex-1">
-            {/* Image Header */}
             {place?.photos && place.photos.length > 0 ? (
               <div className="relative h-48 sm:h-64 w-full bg-slate-200 dark:bg-slate-800 shrink-0">
                 <img src={place.photos[0].getUrl({ maxWidth: 800 })} className="w-full h-full object-cover" alt="" />
@@ -210,12 +193,9 @@ export default function PlaceDetailsModal({
             )}
 
             <div className="p-6 space-y-8">
-              {/* AI Note */}
               {aiNote && (
                 <div className="rounded-2xl bg-amber-50 dark:bg-amber-900/20 p-4 border border-amber-200 dark:border-amber-800/50">
-                  <p className="text-xs font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-1 flex items-center gap-2">
-                    <span>💡</span> AI Planning Note
-                  </p>
+                  <p className="text-xs font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-1 flex items-center gap-2"><span>💡</span> AI Planning Note</p>
                   <p className="text-sm text-slate-700 dark:text-slate-300 italic leading-relaxed">"{aiNote}"</p>
                 </div>
               )}
@@ -242,6 +222,67 @@ export default function PlaceDetailsModal({
 
               <hr className="border-slate-100 dark:border-slate-800" />
 
+              {/* ── NEW: ACCOMMODATION BOOKING LOOP ── */}
+              <div className="bg-brand-50 dark:bg-brand-900/20 rounded-2xl border border-brand-200 dark:border-brand-800/50 p-4">
+                <div className="flex justify-between items-center cursor-pointer" onClick={() => setShowBooking(!showBooking)}>
+                  <h3 className="text-sm font-bold text-brand-900 dark:text-brand-100 flex items-center gap-2">
+                    🛏️ Set as Trip Accommodation
+                  </h3>
+                  <span className="text-brand-600 font-bold">{showBooking ? '▲' : '▼'}</span>
+                </div>
+                
+                {showBooking && (
+                  <div className="mt-4 space-y-4 pt-4 border-t border-brand-200 dark:border-brand-800/50">
+                    <p className="text-xs text-brand-700 dark:text-brand-300 leading-relaxed">
+                      Lock in this location. The timeline will automatically cascade this as your starting and ending point for the selected days.
+                    </p>
+                    <div className="flex gap-4">
+                      <div className="flex-1">
+                        <label className="block text-xs font-bold text-brand-800 dark:text-brand-200 mb-1">Check-in Day</label>
+                        <select 
+                          value={checkInDay} 
+                          onChange={e => {
+                            const val = Number(e.target.value);
+                            setCheckInDay(val);
+                            if (checkOutDay < val) setCheckOutDay(val);
+                          }} 
+                          className="w-full bg-white dark:bg-slate-900 border border-brand-200 dark:border-brand-700 rounded-lg p-2 text-sm text-slate-900 dark:text-white"
+                        >
+                          {itinerary?.days.map(d => <option key={`in-${d.dayNumber}`} value={d.dayNumber}>Day {d.dayNumber}</option>)}
+                        </select>
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-xs font-bold text-brand-800 dark:text-brand-200 mb-1">Check-out Day</label>
+                        <select 
+                          value={checkOutDay} 
+                          onChange={e => setCheckOutDay(Number(e.target.value))} 
+                          className="w-full bg-white dark:bg-slate-900 border border-brand-200 dark:border-brand-700 rounded-lg p-2 text-sm text-slate-900 dark:text-white"
+                        >
+                           {Array.from({length: (itinerary?.days.length || 0) + 1}, (_, i) => i + 1).filter(d => d >= checkInDay).map(d => (
+                             <option key={`out-${d}`} value={d}>Day {d}</option>
+                           ))}
+                        </select>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setLockedAccommodation({
+                          placeId,
+                          locationName: place?.name || 'Unknown Location',
+                          checkInDay,
+                          checkOutDay
+                        });
+                        setShowBooking(false);
+                        if (onDocumentUpdate) onDocumentUpdate();
+                      }}
+                      className="w-full py-2.5 bg-brand-600 hover:bg-brand-500 text-white font-bold text-sm rounded-xl transition-colors shadow-sm"
+                    >
+                      Confirm Accommodation
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {/* ── TICKETS & DOCUMENTS SECTION ── */}
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-4">
@@ -249,7 +290,6 @@ export default function PlaceDetailsModal({
                   Tickets & Documents
                 </h3>
 
-                {/* List Attached Docs */}
                 {attachedDocs.length > 0 && (
                   <div className="space-y-2 mb-4">
                     {attachedDocs.map(doc => (
@@ -272,10 +312,7 @@ export default function PlaceDetailsModal({
                   </div>
                 )}
 
-                {/* Upload / Link Actions */}
                 <div className="bg-slate-50 dark:bg-slate-800/30 rounded-2xl border border-slate-200 dark:border-slate-800 p-4">
-                  
-                  {/* Option 1: Link Existing */}
                   {availableDocsToLink.length > 0 && (
                     <div className="mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
                       <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Attach an existing trip file:</label>
@@ -301,7 +338,6 @@ export default function PlaceDetailsModal({
                     </div>
                   )}
 
-                  {/* Option 2: Upload New (Dropzone) */}
                   <div 
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
@@ -331,10 +367,8 @@ export default function PlaceDetailsModal({
                     </p>
                     {!isUploading && <p className="text-xs text-slate-500 mt-1">PDF or Image (Max 10MB)</p>}
                   </div>
-
                 </div>
               </div>
-
             </div>
           </div>
         )}

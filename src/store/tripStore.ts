@@ -1,13 +1,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Zustand store — Pear Travel v2
+// Zustand store — Pear Travel v3
 // Single source of truth. This is the definitive version.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { create } from 'zustand';
 import { persist, devtools, createJSONStorage } from 'zustand/middleware';
 import { useEffect, useState } from 'react';
-import type { TripIntake, Itinerary, POI, ItineraryEntry, TripStore } from '@/types';
-import { recalculateDay } from '@/lib/itinerary/recalc';
+import type { TripIntake, Itinerary, POI, ItineraryEntry, TripStore, LockedAccommodation } from '@/types';
+import { recalculateItinerary } from '@/lib/itinerary/recalc';
 
 // ── SavedTrip type ────────────────────────────────────────────────────────────
 
@@ -31,8 +31,6 @@ export const defaultIntake: TripIntake = {
   bookingMode:        'planning',
   startDate:          undefined,
   endDate:            undefined,
-  arrivalTime:        undefined,
-  departureTime:      undefined,
   duration:           3,
   accommodation:      '',
   interests:          [],
@@ -59,8 +57,63 @@ export const useTripStore = create<TripStore>()(
         displayCurrency: 'GBP',
         exchangeRate:    1, // Baseline. Will be overwritten by API or Cache
 
-        // ── Weather State ───────────────────────────────────────────────────
+        // ── Weather & Hydration State ───────────────────────────────────────
         weatherForecast: [],
+        pendingPlaceResolutions: {},
+
+        // ── V3 Architecture: Optimistic Hydration ───────────────────────────
+        applyPendingHydration: () => set(state => {
+          if (!state.itinerary || Object.keys(state.pendingPlaceResolutions).length === 0) return state;
+          const nextDays = state.itinerary.days.map(day => ({
+            ...day,
+            entries: day.entries.map(e => {
+              const update = state.pendingPlaceResolutions[e.id];
+              // Protect user-edited entries from being silently overwritten
+              if (update && !e.userModified) return { ...e, ...update };
+              return e;
+            })
+          }));
+          return { 
+            itinerary: recalculateItinerary({ ...state.itinerary, days: nextDays }, state.intake), 
+            pendingPlaceResolutions: {} 
+          };
+        }, false, 'applyPendingHydration'),
+
+        // ── V3 Architecture: Dynamic Booking Loop ───────────────────────────
+        setLockedAccommodation: (acc) => set(state => {
+          if (!state.itinerary) return state;
+          const filtered = (state.itinerary.lockedAccommodations || []).filter(a => a.placeId !== acc.placeId);
+          const newLocked = [...filtered, acc];
+          return { itinerary: recalculateItinerary({ ...state.itinerary, lockedAccommodations: newLocked }, state.intake) };
+        }, false, 'setLockedAccommodation'),
+
+        removeLockedAccommodation: (placeId) => set(state => {
+          if (!state.itinerary) return state;
+          const newLocked = (state.itinerary.lockedAccommodations || []).filter(a => a.placeId !== placeId);
+          return { itinerary: recalculateItinerary({ ...state.itinerary, lockedAccommodations: newLocked }, state.intake) };
+        }, false, 'removeLockedAccommodation'),
+
+        autoHealConflict: (dayNumber, entryId) => set(state => {
+          if (!state.itinerary) return state;
+          const nextDays = state.itinerary.days.map(day => {
+            if (day.dayNumber !== dayNumber) return day;
+            const entryIndex = day.entries.findIndex(e => e.id === entryId);
+            if (entryIndex <= 0) return day;
+            
+            const target = day.entries[entryIndex];
+            const prev = day.entries[entryIndex - 1];
+            
+            if (target.conflict?.type === 'overlap') {
+              // Shrink preceding item's duration by the exact overlap amount (min 15 mins)
+              const newDuration = Math.max(15, (prev.durationMinutes || 120) - target.conflict.conflictMinutes);
+              const updatedEntries = [...day.entries];
+              updatedEntries[entryIndex - 1] = { ...prev, durationMinutes: newDuration };
+              return { ...day, entries: updatedEntries };
+            }
+            return day;
+          });
+          return { itinerary: recalculateItinerary({ ...state.itinerary, days: nextDays }, state.intake) };
+        }, false, 'autoHealConflict'),
 
         // ── Currency Actions ────────────────────────────────────────────────
         toggleCurrency: () =>
@@ -78,7 +131,6 @@ export const useTripStore = create<TripStore>()(
           set({ weatherForecast: forecast }, false, 'setWeatherForecast'),
 
         // ── Intake actions ──────────────────────────────────────────────────
-
         updateIntakeField: (field, value) =>
           set(
             (state) => ({ intake: { ...state.intake, [field]: value } }),
@@ -90,7 +142,6 @@ export const useTripStore = create<TripStore>()(
           set({ intake }, false, 'setIntake'),
 
         // ── POI actions ─────────────────────────────────────────────────────
-
         setAllPOIs: (allPOIs) =>
           set(
             (state) => ({
@@ -158,12 +209,11 @@ export const useTripStore = create<TripStore>()(
           ),
 
         // ── Itinerary actions ───────────────────────────────────────────────
-
         setItinerary: (itinerary) =>
           set({ itinerary }, false, 'setItinerary'),
 
-        // ── Phase 3: Smart Accommodation Updates ──
-        updateAccommodation: (dayNumber, entryId, newLocation, newTime, cascade) =>
+        // ── Legacy Compatibility: Preserved for SortableItinerary ───────────
+        updateAccommodation: (dayNumber: number, entryId: string, newLocation: string, newTime?: string, cascade?: boolean) =>
           set(
             (state) => {
               if (!state.itinerary) return state;
@@ -171,28 +221,27 @@ export const useTripStore = create<TripStore>()(
               const nextDays = state.itinerary.days.map((day) => {
                 if (day.dayNumber === dayNumber) {
                   const updatedEntries = day.entries.map((e) =>
-                    e.id === entryId ? { ...e, locationName: newLocation, time: newTime } : e
+                    e.id === entryId ? { ...e, locationName: newLocation, time: newTime || e.time, userModified: true } : e
                   );
-                  return recalculateDay({ ...day, entries: updatedEntries });
+                  return { ...day, entries: updatedEntries };
                 }
 
                 if (cascade && day.dayNumber > dayNumber) {
                   const updatedEntries = day.entries.map((e) => {
-                    const isBookend = e.isAccommodation || e.transitMethod === 'Start of Day' || /(accommodation|hotel|airbnb|start of day|return to)/i.test(e.activityDescription || '');
-                    const isFlight = /(airport|flight|departure)/i.test(e.activityDescription || '') || /(airport|flight|departure)/i.test(e.locationName || '');
-
-                    if (isBookend && !isFlight) {
-                      return { ...e, locationName: newLocation };
+                    // Uses the new V3 EntryType guard
+                    if (e.type === 'ACCOMMODATION') {
+                      return { ...e, locationName: newLocation, userModified: true };
                     }
                     return e;
                   });
-                  return recalculateDay({ ...day, entries: updatedEntries });
+                  return { ...day, entries: updatedEntries };
                 }
 
                 return day;
               });
 
-              return { itinerary: { ...state.itinerary, days: nextDays } };
+              // Push the manual override through the V3 recalculation pipeline
+              return { itinerary: recalculateItinerary({ ...state.itinerary, days: nextDays }, state.intake) };
             },
             false,
             `updateAccommodation/${dayNumber}/${entryId}`
@@ -203,23 +252,17 @@ export const useTripStore = create<TripStore>()(
             (state) => {
               if (!state.itinerary) return state;
 
-              const updatedItinerary = {
-                ...state.itinerary,
-                days: state.itinerary.days.map((day) => {
-                  if (day.dayNumber !== dayNumber) return day;
+              const updatedDays = state.itinerary.days.map((day) => {
+                if (day.dayNumber !== dayNumber) return day;
 
-                  const updatedDay = {
-                    ...day,
-                    entries: day.entries.map((entry) =>
-                      entry.id === entryId ? { ...entry, time: newTime, isFixed: true } : entry,
-                    ),
-                  };
+                const updatedEntries = day.entries.map((entry) =>
+                  entry.id === entryId ? { ...entry, time: newTime, isFixed: true, userModified: true } : entry,
+                );
 
-                  return recalculateDay(updatedDay);
-                }),
-              };
+                return { ...day, entries: updatedEntries };
+              });
 
-              return { itinerary: updatedItinerary };
+              return { itinerary: recalculateItinerary({ ...state.itinerary, days: updatedDays }, state.intake) };
             },
             false,
             `updateEntryTime/${dayNumber}/${entryId}`,
@@ -230,23 +273,17 @@ export const useTripStore = create<TripStore>()(
             (state) => {
               if (!state.itinerary) return state;
 
-              const updatedItinerary = {
-                ...state.itinerary,
-                days: state.itinerary.days.map((day) => {
-                  if (day.dayNumber !== dayNumber) return day;
+              const updatedDays = state.itinerary.days.map((day) => {
+                if (day.dayNumber !== dayNumber) return day;
 
-                  const updatedDay = {
-                    ...day,
-                    entries: day.entries.map((entry) =>
-                      entry.id === entryId ? { ...entry, isFixed: !entry.isFixed } : entry,
-                    ),
-                  };
+                const updatedEntries = day.entries.map((entry) =>
+                  entry.id === entryId ? { ...entry, isFixed: !entry.isFixed, userModified: true } : entry,
+                );
 
-                  return recalculateDay(updatedDay);
-                }),
-              };
+                return { ...day, entries: updatedEntries };
+              });
 
-              return { itinerary: updatedItinerary };
+              return { itinerary: recalculateItinerary({ ...state.itinerary, days: updatedDays }, state.intake) };
             },
             false,
             `toggleEntryFixed/${dayNumber}/${entryId}`,
@@ -259,6 +296,7 @@ export const useTripStore = create<TripStore>()(
               
               const newEntry: ItineraryEntry = {
                 id: `custom-${Date.now()}`,
+                type: partialEntry.type || 'ACTIVITY', // V3 Type Assignment
                 time: partialEntry.time || undefined,
                 locationName: partialEntry.locationName || 'New Activity',
                 activityDescription: partialEntry.activityDescription || 'Manually added activity.',
@@ -269,31 +307,25 @@ export const useTripStore = create<TripStore>()(
                 isDining: partialEntry.isDining || false,
                 googleMapsUrl: partialEntry.googleMapsUrl || '',
                 placeId: partialEntry.placeId || '',
-                isAccommodation: partialEntry.isAccommodation || false,
               };
 
-              const updatedItinerary = {
-                ...state.itinerary,
-                days: state.itinerary.days.map((day) => {
-                  if (day.dayNumber !== dayNumber) return day;
-                  
-                  const entries = [...day.entries];
-                  
-                  if (!newEntry.time) {
-                    let insertIdx = entries.findIndex(e => 
-                      !e.isAccommodation && e.transitMethod !== 'Start of Day' && !/(Accommodation|Hotel|Airbnb|Start of Day|Return to)/i.test(e.activityDescription || '')
-                    );
-                    if (insertIdx === -1) insertIdx = Math.min(1, entries.length);
-                    entries.splice(insertIdx, 0, newEntry);
-                  } else {
-                    entries.push(newEntry);
-                  }
-                  
-                  return recalculateDay({ ...day, entries });
-                }),
-              };
+              const updatedDays = state.itinerary.days.map((day) => {
+                if (day.dayNumber !== dayNumber) return day;
+                
+                const entries = [...day.entries];
+                
+                if (!newEntry.time) {
+                  // V3 Fix: Safely insert at the end of the array (before the final bookend)
+                  const insertIdx = Math.max(0, entries.length - 1);
+                  entries.splice(insertIdx, 0, newEntry);
+                } else {
+                  entries.push(newEntry);
+                }
+                
+                return { ...day, entries };
+              });
 
-              return { itinerary: updatedItinerary };
+              return { itinerary: recalculateItinerary({ ...state.itinerary, days: updatedDays }, state.intake) };
             },
             false,
             `addCustomEntry/${dayNumber}`,
@@ -303,7 +335,6 @@ export const useTripStore = create<TripStore>()(
         pushStagedToItinerary: () =>
           set(
             (state) => {
-              // Now acts as a clear-down state after the Re-optimize API call handles the data
               return {
                 allPOIs: state.allPOIs.map(p => ({ ...p, isFavourited: false })),
                 selectedPOIs: []
@@ -319,19 +350,21 @@ export const useTripStore = create<TripStore>()(
         resetStore: () =>
           set(
             {
-              intake:          defaultIntake,
-              allPOIs:         [],
-              selectedPOIs:    [],
-              itinerary:       null,
-              currentTripId:   null,
-              weatherForecast: [],
+              intake:                  defaultIntake,
+              allPOIs:                 [],
+              selectedPOIs:            [],
+              itinerary:               null,
+              currentTripId:           null,
+              weatherForecast:         [],
+              pendingPlaceResolutions: {}, // V3 Fix: Flush hydration buffer on reset
             },
             false,
             'resetStore',
           ),
       }),
       {
-        name: 'pear-travel-v2-storage',
+        // V3 Fix: Version bump flushes stale `arrivalTime`/`departureTime` from localStorage
+        name: 'pear-travel-v3-storage',
         storage: createJSONStorage(() => localStorage),
         partialize: (state) => ({
           intake:          state.intake,
@@ -339,6 +372,7 @@ export const useTripStore = create<TripStore>()(
           savedTrips:      state.savedTrips,
           displayCurrency: state.displayCurrency, 
           exchangeRate:    state.exchangeRate, 
+          // Note: pendingPlaceResolutions is correctly excluded here
         }),
       },
     ),
