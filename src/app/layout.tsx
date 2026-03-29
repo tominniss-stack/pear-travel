@@ -1,9 +1,7 @@
-// src/app/layout.tsx
-
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
-import { ThemeProvider } from '@/components/ThemeProvider';
+import { Providers } from '@/components/Providers'; // Import the bridge we just built
 import GlobalNav from '@/components/layout/GlobalNav';
 import Script from 'next/script';
 
@@ -28,13 +26,11 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.className} bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-50 transition-colors duration-300`}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          
-          {/* Our smart navigation component that hides itself on /login */}
+        {/* The Providers wrapper allows the whole app to see the Auth/Theme state */}
+        <Providers>
           <GlobalNav />
-          
           <main>{children}</main>
-        </ThemeProvider>
+        </Providers>
       </body>
     </html>
   );
