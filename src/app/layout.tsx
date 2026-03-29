@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '@/components/ThemeProvider';
-import ThemeToggle from '@/components/layout/ThemeToggle';
+import GlobalNav from '@/components/layout/GlobalNav';
 import Script from 'next/script';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -29,30 +29,9 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-50 transition-colors duration-300`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <nav className="print:hidden border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
-            <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl" aria-hidden="true">🍐</span>
-                <span className="font-bold text-xl tracking-tight text-brand-600 dark:text-brand-400">
-                  Pear Travel
-                </span>
-              </div>
-              <div className="flex items-center gap-4">
-                {/* CHANGE: Removed 'hidden sm:flex' and replaced with 'flex' 
-                   to ensure dashboard links are always visible on mobile.
-                */}
-                <div className="flex gap-4 sm:gap-6 text-xs sm:text-sm font-bold uppercase tracking-wider">
-                  <a href="/dashboard" className="text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-                    My Trips
-                  </a>
-                  <a href="/" className="text-slate-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-                    New Plan
-                  </a>
-                </div>
-                <ThemeToggle />
-              </div>
-            </div>
-          </nav>
+          
+          {/* Our smart navigation component that hides itself on /login */}
+          <GlobalNav />
           
           <main>{children}</main>
         </ThemeProvider>

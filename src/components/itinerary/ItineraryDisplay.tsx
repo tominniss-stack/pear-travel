@@ -489,7 +489,7 @@ function TimelineEntry({
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
-
+// eslint-disable-next-line @next/next/no-server-actions-in-client-components
 export default function ItineraryDisplay({ 
   itinerary, 
   trip, 

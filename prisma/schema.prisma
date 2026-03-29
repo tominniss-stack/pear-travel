@@ -1,3 +1,5 @@
+// prisma/schema.prisma
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,122 +9,49 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ── USERS & COLLABORATION ────────────────────────────────────────────────────
 model User {
-  id          String   @id @default(cuid())
-  name        String?
-  email       String?  @unique
-  ownedTrips  Trip[]   @relation("TripOwner")
-  sharedTrips Trip[]   @relation("TripCollaborators")
+  id            String    @id @default(cuid())
+  username      String    @unique
+  password      String    // Will be hashed via bcrypt
+  name          String?
+  role          String    @default("USER") // 'ADMIN' or 'USER'
+  
+  // The Sharing Relationships
+  ownedTrips    Trip[]    @relation("TripOwner")
+  sharedTrips   Trip[]    @relation("TripCollaborators")
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
-// ── THE TRIP (The Master Container) ──────────────────────────────────────────
 model Trip {
-  id           String    @id @default(cuid())
-  ownerId      String
-  owner        User      @relation("TripOwner", fields: [ownerId], references: [id])
-  collaborators User[]   @relation("TripCollaborators")
-
-  title        String
-  destination  String
-  startDate    DateTime?
-  endDate      DateTime?
-  isBooked     Boolean   @default(false)
-
-  // ── VITAL FOR UI & AI LOGIC ──
-  budgetGBP    Float     @default(0)
-  duration     Int       @default(1)
+  id                    String    @id @default(cuid())
   
-  // Stores Intake info (Interests, Pace, etc.)
-  intakeData   Json?
-  // Stores "Need to Know" (Essentials, Local currency info, Weather avg)
-  overviewData Json?
-
-  days         Day[]
-  pois         POI[]     
-  documents    Document[] // Relation to the new Filing Cabinet
-
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-}
-
-// ── THE DAY (The Schedule Bucket) ────────────────────────────────────────────
-model Day {
-  id         String    @id @default(cuid())
-  tripId     String
-  trip       Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  // Ownership & Sharing
+  ownerId               String
+  owner                 User      @relation("TripOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  collaborators         User[]    @relation("TripCollaborators")
   
-  date       DateTime? // Optional for "Planning" phase
-  orderIndex Int       // Sequence (0, 1, 2...)
-  
-  location   String?
-  theme      String?   
-  dayNotes   String?
+  // Basic Searchable Metadata
+  destination           String
+  destinationPlaceId    String?
+  startDate             DateTime?
+  endDate               DateTime?
+  duration              Int
+  budgetGBP             Int
+  bookingMode           String    @default("planning")
 
-  pois       POI[]     
-  documents  Document[] // Optional link for Day-specific docs
-}
+  // The Trip Origin Constant (for transit math fallback)
+  defaultOriginCoords   Json?     // Stores { lat: number, lng: number }
 
-// ── THE POI (The Activity / Booking) ─────────────────────────────────────────
-model POI {
-  id                  String    @id @default(cuid())
-  tripId              String
-  trip                Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  
-  dayId               String?
-  day                 Day?      @relation(fields: [dayId], references: [id])
+  // V3 Architecture JSON Blobs
+  intake                Json?     // Full TripIntake for server-side rehydration
+  itinerary             Json?     // Full Itinerary (Days, Entries, Essentials)
+  lockedAccommodations  Json?     // Array of LockedAccommodation objects
 
-  // THE DNA
-  name                String
-  category            String    @default("ACTIVITY") 
-  description         String?
-  googlePlaceId       String?   
-  latitude            Float?
-  longitude           Float?
+  // Timestamps
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
-  // THE LOGISTICS
-  startTime           String?   // Store as "HH:mm" for waterfall logic
-  endTime             String?
-  costGBP             Float     @default(0)
-  isFixed             Boolean   @default(false)
-  dwellTime           Int?      // Minutes
-  orderIndex          Int       // Position within the day
-  
-  // TRANSIT INFO
-  transitMethod       String?
-  transitNote         String?   
-
-  // DOCUMENTATION
-  reservationRef      String?
-  documentUrl         String?   // Keeping legacy field just in case, but prefer Document model
-  userNotes           String?
-
-  documents           Document[] // Relation to attached files (e.g., tickets)
-
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-}
-
-// ── THE FILING CABINET (Document Storage) ────────────────────────────────────
-model Document {
-  id           String    @id @default(cuid())
-  
-  // Every doc must belong to a Trip
-  tripId       String
-  trip         Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
-
-  // Optional: Link to a specific Day or POI
-  dayId        String?
-  day          Day?      @relation(fields: [dayId], references: [id], onDelete: SetNull)
-  
-  poiId        String?
-  poi          POI?      @relation(fields: [poiId], references: [id], onDelete: SetNull)
-
-  // File Metadata
-  fileName     String
-  fileUrl      String
-  mimeType     String    // e.g., 'application/pdf', 'image/jpeg'
-  sizeBytes    Int?
-
-  uploadedAt   DateTime  @default(now())
+  @@index([ownerId])
 }

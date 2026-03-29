@@ -1,54 +1,23 @@
-import { notFound } from 'next/navigation';
-import { prisma } from '@/lib/prisma';
-import ItineraryPageClient from '@/app/itinerary/[id]/ItineraryPageClient';
-import type { Itinerary, TripIntake, TransitMethod } from '@/types';
+import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { deserializeTrip } from "@/lib/itinerary/serialization";
+import ItineraryPageClient from "./ItineraryPageClient";
 
-export default async function ItineraryPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-
-  // 1. Fetch Trip + Days + POIs in one relational query
-  const trip = await prisma.trip.findUnique({
-    where: { id },
-    include: {
-      days: {
-        orderBy: { orderIndex: 'asc' },
-        include: {
-          pois: { orderBy: { orderIndex: 'asc' } }
-        }
-      }
-    }
+export default async function ItineraryPage({ params }: { params: { id: string } }) {
+  const dbTrip = await prisma.trip.findUnique({
+    where: { id: params.id },
   });
 
-  if (!trip) notFound();
+  if (!dbTrip) {
+    notFound();
+  }
 
-// 2. Map relational data back to the Itinerary type for the UI
-  const mappedItinerary: Itinerary = {
-    id: trip.id,                               // <-- ADDED THIS
-    generatedAt: trip.createdAt.toISOString(), // <-- ADDED THIS
-    totalEstimatedCostGBP: trip.budgetGBP,
-    essentials: trip.overviewData as any, 
-    days: trip.days.map((day) => ({
-      dayNumber: day.orderIndex + 1,
-      date: day.date?.toISOString(),
-      location: day.location || '',
-      theme: day.theme || '',
-      estimatedDailySpendGBP: day.pois.reduce((sum, p) => sum + p.costGBP, 0),
-      entries: day.pois.map((poi) => ({
-        id: poi.id,
-        time: poi.startTime || '',
-        locationName: poi.name,
-        activityDescription: poi.description || '',
-        estimatedCostGBP: poi.costGBP,
-        isFixed: poi.isFixed,
-        isDining: poi.category === 'DINING',
-        isAccommodation: poi.category === 'ACCOMMODATION',
-        transitMethod: (poi.transitMethod as TransitMethod) || 'Walking',
-        transitNote: poi.transitNote || '',
-        placeId: poi.googlePlaceId || '',
-        googleMapsUrl: `https://www.google.com/maps/search/?api=1&query=$${encodeURIComponent(poi.name)}`,
-      }))
-    }))
-  };
+  const trip = deserializeTrip(dbTrip);
+
+  // Guard: If either is missing, we can't render the V3 itinerary page.
+  if (!trip.itinerary || !trip.intake) {
+    notFound();
+  }
 
   const clientTrip = {
     id: trip.id,
@@ -57,8 +26,10 @@ export default async function ItineraryPage({ params }: { params: Promise<{ id: 
     budgetGBP: trip.budgetGBP,
     startDate: trip.startDate?.toISOString() || null,
     endDate: trip.endDate?.toISOString() || null,
-    intake: trip.intakeData as unknown as TripIntake,
+    intake: trip.intake, // TypeScript now correctly identifies this as non-null
   };
 
-  return <ItineraryPageClient dbTrip={clientTrip} dbItinerary={mappedItinerary} />;
+  return (
+    <ItineraryPageClient dbTrip={clientTrip} dbItinerary={trip.itinerary} />
+  );
 }
