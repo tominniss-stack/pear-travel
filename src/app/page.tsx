@@ -7,7 +7,8 @@ import { useTripStore } from '@/store/tripStore';
 export default function Home() {
   const resetStore = useTripStore((state) => state.resetStore);
 
-  // Reset the store when landing on the home page to prevent "ghost" trip submissions
+  // Safely reset the intake fields when landing on the home page 
+  // to prevent "ghost" trip submissions from previous sessions.
   useEffect(() => {
     resetStore();
   }, [resetStore]);

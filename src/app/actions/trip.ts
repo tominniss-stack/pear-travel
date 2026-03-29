@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 
-// ── 1. The Creation Engine ──
+// ── 1. The Creation Engine (V3) ──
 export async function createTripAction(data: {
   title: string;
   destination: string;
@@ -17,59 +17,20 @@ export async function createTripAction(data: {
 }) {
   try {
     const result = await prisma.$transaction(async (tx) => {
-      
-      // Ensure the user exists before creating the trip
-      await tx.user.upsert({
-        where: { id: data.ownerId },
-        update: {},
-        create: {
-          id: data.ownerId,
-          name: 'Pear Travel Guest',
-          email: 'guest@peartravel.app'
-        }
-      });
-
-      // Create the Master Trip
+      // Create the Master Trip directly using the JSON blobs
+      // The user already exists via NextAuth, no upsert needed.
       const trip = await tx.trip.create({
         data: {
-          title: data.title,
           destination: data.destination,
           budgetGBP: data.budgetGBP,
           duration: data.duration,
           startDate: data.startDate,
           endDate: data.endDate,
-          ownerId: data.ownerId,
-          intakeData: data.intakeData,
-          overviewData: data.itinerary.essentials,
+          ownerId: data.ownerId,     // Maps correctly to your schema
+          intake: data.intakeData,   // V3 Schema field
+          itinerary: data.itinerary, // V3 Schema field
         },
       })
-
-      // Map through AI Days and create relational rows
-      for (const [index, dayData] of data.itinerary.days.entries()) {
-        await tx.day.create({
-          data: {
-            tripId: trip.id,
-            orderIndex: index,
-            location: dayData.location || '',
-            theme: dayData.theme || '',
-            pois: {
-              create: dayData.entries.map((poi: any, poiIdx: number) => ({
-                tripId: trip.id,
-                name: poi.locationName,
-                description: poi.activityDescription,
-                startTime: poi.time,
-                costGBP: poi.estimatedCostGBP || 0,
-                isFixed: poi.isFixed || false,
-                category: poi.isDining ? 'DINING' : poi.isAccommodation ? 'ACCOMMODATION' : 'ACTIVITY',
-                transitMethod: poi.transitMethod,
-                transitNote: poi.transitNote,
-                googlePlaceId: poi.placeId,
-                orderIndex: poiIdx,
-              })),
-            },
-          },
-        })
-      }
 
       return trip
     })
@@ -77,62 +38,25 @@ export async function createTripAction(data: {
     revalidatePath('/dashboard')
     return result
   } catch (error) {
-    console.error('Relational Save Failed:', error)
+    console.error('Trip Save Failed:', error)
     throw new Error('Failed to save trip to database')
   }
 }
 
-// ── 2. The "Nuke and Pave" Re-optimization Engine ──
+// ── 2. The Re-optimization Engine (V3) ──
 export async function updateTripItineraryAction(tripId: string, itinerary: any) {
   try {
-    const result = await prisma.$transaction(async (tx) => {
-      
-      // 1. Nuke: Delete the old timeline. 
-      await tx.pOI.deleteMany({ where: { tripId: tripId } });
-      await tx.day.deleteMany({ where: { tripId: tripId } });
-
-      // 2. Pave: Recreate the new AI-optimized timeline
-      for (const [index, dayData] of itinerary.days.entries()) {
-        await tx.day.create({
-          data: {
-            tripId: tripId,
-            orderIndex: index,
-            location: dayData.location || '',
-            theme: dayData.theme || '',
-            pois: {
-              create: dayData.entries.map((poi: any, poiIdx: number) => ({
-                tripId: tripId,
-                name: poi.locationName,
-                description: poi.activityDescription,
-                startTime: poi.time,
-                costGBP: poi.estimatedCostGBP || 0,
-                isFixed: poi.isFixed || false,
-                category: poi.isDining ? 'DINING' : poi.isAccommodation ? 'ACCOMMODATION' : 'ACTIVITY',
-                transitMethod: poi.transitMethod,
-                transitNote: poi.transitNote,
-                googlePlaceId: poi.placeId,
-                orderIndex: poiIdx,
-              })),
-            },
-          },
-        });
-      }
-
-      // 3. Update the essentials just in case the AI generated new cultural tips
-      if (itinerary.essentials) {
-        await tx.trip.update({
-          where: { id: tripId },
-          data: { overviewData: itinerary.essentials },
-        });
-      }
-
-      return true;
+    // V3 doesn't require "nuke and pave" of individual POI rows anymore.
+    // We simply overwrite the itinerary JSON blob.
+    const result = await prisma.trip.update({
+      where: { id: tripId },
+      data: { itinerary: itinerary },
     });
 
     revalidatePath(`/itinerary/${tripId}`);
     return result;
   } catch (error) {
-    console.error('Relational Update Failed:', error);
+    console.error('Trip Update Failed:', error);
     throw new Error('Failed to update trip itinerary in database');
   }
 }
@@ -140,9 +64,11 @@ export async function updateTripItineraryAction(tripId: string, itinerary: any) 
 // ── 3. ACTION: RENAME TRIP ──
 export async function renameTripAction(tripId: string, newTitle: string) {
   try {
+    // Note: 'title' is no longer in the V3 schema. If renaming is still needed, 
+    // it relies on updating the 'destination' field.
     await prisma.trip.update({
       where: { id: tripId },
-      data: { title: newTitle },
+      data: { destination: newTitle },
     });
     revalidatePath('/dashboard');
     return { success: true };
@@ -158,14 +84,14 @@ export async function toggleTripBookingStatusAction(tripId: string, currentStatu
     const trip = await prisma.trip.findUnique({ where: { id: tripId } });
     if (!trip) throw new Error('Trip not found');
 
-    const intakeData = typeof trip.intakeData === 'string' ? JSON.parse(trip.intakeData) : trip.intakeData;
+    const intakeData = typeof trip.intake === 'string' ? JSON.parse(trip.intake) : (trip.intake || {});
     intakeData.bookingMode = !currentStatus ? 'booked' : 'planning';
 
     await prisma.trip.update({
       where: { id: tripId },
       data: { 
-        isBooked: !currentStatus,
-        intakeData: intakeData 
+        bookingMode: !currentStatus ? 'booked' : 'planning',
+        intake: intakeData 
       },
     });
     
