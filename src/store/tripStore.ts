@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import { persist, devtools, createJSONStorage } from 'zustand/middleware';
 import { useEffect, useState } from 'react';
-import type { TripIntake, Itinerary, POI, ItineraryEntry, TripStore, LockedAccommodation } from '@/types';
+import type { TripIntake, Itinerary, POI, ItineraryEntry, TripStore, LockedAccommodation, MiscExpense } from '@/types';
 import { recalculateItinerary } from '@/lib/itinerary/recalc';
 
 // ── SavedTrip type ────────────────────────────────────────────────────────────
@@ -356,6 +356,66 @@ export const useTripStore = create<TripStore>()(
             false,
             `addCustomEntry/${dayNumber}`,
           ),
+
+        // ── Phase 8: Financial Ledger Actions ──
+        
+        setActualCost: (dayNumber, entryId, cost, documentId) =>
+          set(
+            (state) => {
+              if (!state.itinerary) return state;
+
+              const updatedDays = state.itinerary.days.map((day) => {
+                if (day.dayNumber !== dayNumber) return day;
+
+                const updatedEntries = day.entries.map((entry) =>
+                  entry.id === entryId 
+                    ? { 
+                        ...entry, 
+                        actualCostGBP: cost, 
+                        linkedDocumentId: documentId !== undefined ? documentId : entry.linkedDocumentId 
+                      } 
+                    : entry
+                );
+
+                return { ...day, entries: updatedEntries };
+              });
+
+              return { itinerary: { ...state.itinerary, days: updatedDays } };
+            },
+            false,
+            `setActualCost/${dayNumber}/${entryId}`
+          ),
+
+        addMiscExpense: (expense) =>
+          set(
+            (state) => {
+              if (!state.itinerary) return state;
+              
+              const newExpense: MiscExpense = { 
+                ...expense, 
+                id: `misc-${Date.now()}`
+              };
+              
+              const miscExpenses = [...(state.itinerary.miscExpenses || []), newExpense];
+              return { itinerary: { ...state.itinerary, miscExpenses } };
+            },
+            false,
+            'addMiscExpense'
+          ),
+
+        removeMiscExpense: (id) =>
+          set(
+            (state) => {
+              if (!state.itinerary) return state;
+              
+              const miscExpenses = (state.itinerary.miscExpenses || []).filter(e => e.id !== id);
+              return { itinerary: { ...state.itinerary, miscExpenses } };
+            },
+            false,
+            'removeMiscExpense'
+          ),
+          
+        // ── End Financial Ledger Actions ──
 
         // ── Phase 4: Mass Add Pipeline (Re-optimization Logic) ──
         pushStagedToItinerary: () =>

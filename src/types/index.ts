@@ -64,6 +64,20 @@ export interface POI {
 
 export type TransitMethod = 'Walking' | 'Tube' | 'Bus' | 'Metro' | 'Tram' | 'Taxi / Rideshare' | 'Train' | 'Ferry' | 'Cycling' | 'Start of Day';
 
+// ── NEW: Financial Ledger Types ──
+export type ExpenseCategory = 'Transit' | 'Dining' | 'Activities' | 'Accommodation' | 'Shopping' | 'Other';
+
+export interface MiscExpense {
+  id: string;
+  title: string;
+  amountGBP: number;
+  category: ExpenseCategory;
+  date?: string;
+  linkedDocumentId?: string; // Standardized to match ItineraryEntry
+  isSunkCost?: boolean;      // True = Flights/Hotels, False = Daily Spending
+}
+// ─────────────────────────────────
+
 export interface ItineraryEntry {
   id: string;
   type: EntryType; 
@@ -73,6 +87,7 @@ export interface ItineraryEntry {
   transitMethod: TransitMethod;
   transitNote?: string;
   estimatedCostGBP: number;
+  actualCostGBP?: number; // ── NEW FIELD ──
   googleMapsUrl: string;
   placeId?: string;
   isDining: boolean;
@@ -115,6 +130,7 @@ export interface Itinerary {
   days: DayItinerary[];
   unscheduledOptions?: ItineraryEntry[];  
   essentials?: CityEssentials;
+  miscExpenses?: MiscExpense[]; // ── NEW FIELD ──
   totalEstimatedCostGBP: number;
   generatedAt: string;
   lockedAccommodations?: LockedAccommodation[];
@@ -157,4 +173,9 @@ export interface TripStore {
   addCustomEntry: (dayNumber: number, entry: Partial<ItineraryEntry>) => void;
   pushStagedToItinerary: () => void;
   resetStore: () => void;
+  
+  // ── NEW LEDGER ACTIONS ──
+  setActualCost: (dayNumber: number, entryId: string, cost: number | undefined, documentId?: string) => void;
+  addMiscExpense: (expense: Omit<MiscExpense, 'id'>) => void;
+  removeMiscExpense: (id: string) => void;
 }

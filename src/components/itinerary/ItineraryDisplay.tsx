@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import QRCode from 'react-qr-code';
 import type { Itinerary, DayItinerary, ItineraryEntry, TransitMethod } from '@/types';
@@ -18,27 +19,38 @@ export interface ClientTripProps {
   budgetGBP: number;
   startDate: string | null;
   endDate: string | null;
-  intake?: any; // Added fallback to catch DB intake if store is wiped
+  intake?: any;
 }
 
-// -- Weather Emoji Mapper (Based on Open-Meteo Codes) --
+// -- Weather Emoji Mapper --
 function getWeatherEmoji(code: number): string {
-  if (code === 0) return '☀️'; // Clear sky
-  if (code === 1 || code === 2 || code === 3) return '🌤️'; // Partly cloudy
-  if (code >= 45 && code <= 48) return '🌫️'; // Fog
-  if (code >= 51 && code <= 67) return '🌧️'; // Rain/Drizzle
-  if (code >= 71 && code <= 77) return '❄️'; // Snow
-  if (code >= 80 && code <= 82) return '🌦️'; // Rain showers
-  if (code >= 95 && code <= 99) return '⛈️'; // Thunderstorm
-  return '⛅'; // Default
+  if (code === 0) return '☀️'; 
+  if (code === 1 || code === 2 || code === 3) return '🌤️'; 
+  if (code >= 45 && code <= 48) return '🌫️'; 
+  if (code >= 51 && code <= 67) return '🌧️'; 
+  if (code >= 71 && code <= 77) return '❄️'; 
+  if (code >= 80 && code <= 82) return '🌦️'; 
+  if (code >= 95 && code <= 99) return '⛈️'; 
+  return '⛅'; 
 }
 
-// ── Smart SVG Plug Icon Generator ─────────────────────────────────────────────
+// -- Currency Flag Mapper --
+function getCurrencyFlag(currencyCode: string | null): string {
+  if (!currencyCode) return '💱';
+  const flags: Record<string, string> = {
+    'EUR': '🇪🇺', 'USD': '🇺🇸', 'JPY': '🇯🇵', 'GBP': '🇬🇧',
+    'AUD': '🇦🇺', 'CAD': '🇨🇦', 'CHF': '🇨🇭', 'THB': '🇹🇭',
+    'MXN': '🇲🇽', 'AED': '🇦🇪', 'ZAR': '🇿🇦', 'SEK': '🇸🇪',
+    'NOK': '🇳🇴', 'DKK': '🇩🇰', 'SGD': '🇸🇬', 'HKD': '🇭🇰',
+    'NZD': '🇳🇿', 'KRW': '🇰🇷', 'INR': '🇮🇳', 'BRL': '🇧🇷',
+  };
+  return flags[currencyCode] || '💱';
+}
 
+// ── Smart SVG Plug Icon Generator ──
 function PlugSocketIcon({ type }: { type: string }) {
   const t = type.toLowerCase();
-  
-  if (t.includes('g')) { // UK / Type G
+  if (t.includes('g')) { 
     return (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-6 h-6 opacity-70">
         <rect x="2" y="2" width="20" height="20" rx="4" strokeWidth="1.5" />
@@ -48,7 +60,7 @@ function PlugSocketIcon({ type }: { type: string }) {
       </svg>
     );
   }
-  if (t.includes('a') || t.includes('b')) { // US / Type A/B
+  if (t.includes('a') || t.includes('b')) { 
     return (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-6 h-6 opacity-70">
         <rect x="2" y="2" width="20" height="20" rx="4" strokeWidth="1.5" />
@@ -58,7 +70,7 @@ function PlugSocketIcon({ type }: { type: string }) {
       </svg>
     );
   }
-  if (t.includes('i')) { // AU / NZ / Type I
+  if (t.includes('i')) { 
     return (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-6 h-6 opacity-70">
         <rect x="2" y="2" width="20" height="20" rx="4" strokeWidth="1.5" />
@@ -68,7 +80,6 @@ function PlugSocketIcon({ type }: { type: string }) {
       </svg>
     );
   }
-  // Default / EU (Type C/F)
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-6 h-6 opacity-70">
       <circle cx="12" cy="12" r="9" strokeWidth="1.5" />
@@ -78,8 +89,7 @@ function PlugSocketIcon({ type }: { type: string }) {
   );
 }
 
-// ── Helpers & Config ─────────────────────────────────────────────────────────
-
+// ── Helpers & Config ──
 const TRANSIT_CONFIG: Record<TransitMethod, { emoji: string; colour: string; bgColour: string }> = {
   'Walking':          { emoji: '🚶', colour: 'text-emerald-700 dark:text-emerald-400', bgColour: 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800' },
   'Tube':             { emoji: '🚇', colour: 'text-blue-700 dark:text-blue-400',    bgColour: 'bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-800'       },
@@ -154,18 +164,15 @@ function generateGoogleMapsDayUrl(entries: ItineraryEntry[], destinationCity: st
   if (dest.placeId && dest.placeId !== "null") url += `&destination_place_id=${dest.placeId}`;
   
   if (waypoints.length > 0) {
-     const limitedWaypoints = waypoints.slice(0, 9); // Google Maps limit
+     const limitedWaypoints = waypoints.slice(0, 9);
      url += `&waypoints=${limitedWaypoints.map(w => encodeURIComponent(w.locationName + ', ' + destinationCity)).join('|')}`;
      const wpPlaceIds = limitedWaypoints.map(w => (w.placeId && w.placeId !== "null") ? w.placeId : '');
-     if (wpPlaceIds.some(id => id !== '')) {
-         url += `&waypoint_place_ids=${wpPlaceIds.join('|')}`;
-     }
+     if (wpPlaceIds.some(id => id !== '')) url += `&waypoint_place_ids=${wpPlaceIds.join('|')}`;
   }
   return url;
 }
 
-// ── Sub-component: Print Only Booklet ─────────────────────────────────────────
-
+// ── Sub-component: Print Only Booklet ──
 function PrintOnlyBooklet({ 
   trip, 
   itinerary, 
@@ -198,8 +205,6 @@ function PrintOnlyBooklet({
 
   return (
     <div className="hidden print:block w-full bg-white text-black font-sans print:m-0 print:p-0">
-      
-      {/* ── Page 1: Summary & Logistics ── */}
       <div className="print:page-break-after-always pb-8">
         <div className="mb-8 border-b-2 border-black pb-4">
           <p className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-1">Your Travel Booklet</p>
@@ -211,155 +216,12 @@ function PrintOnlyBooklet({
             {' '}· {totalStops} Stops · Est. Budget: {formatCost(trip.budgetGBP)}
           </p>
         </div>
-
-        <div className="grid grid-cols-2 gap-12">
-          {/* Left Column: Logistics */}
-          <div>
-            <h2 className="text-xl font-bold border-b border-slate-300 pb-2 mb-4">Logistics & Comms</h2>
-            <div className="space-y-4">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">Currency</span>
-                <span className="text-base font-bold">{localCurrencyRaw} ({localSymbol})</span>
-              </div>
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">Power Outlets</span>
-                <span className="text-base font-bold">{plugType}</span>
-              </div>
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">Tap Water</span>
-                <span className="text-base font-bold">{tapWater}</span>
-              </div>
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">Transport Apps</span>
-                <span className="text-sm">{essentials?.apps?.join(', ') || 'Local transport apps recommended.'}</span>
-              </div>
-              {trip.intake?.transitDetails && (
-                <div className="mt-6 p-4 border border-slate-300 bg-slate-50 rounded-lg">
-                  <h3 className="font-bold mb-2">Transit References</h3>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span>Outbound ({trip.intake.transitDetails.mode}):</span>
-                    <strong className="font-mono">{trip.intake.transitDetails.outbound?.reference || 'TBD'}</strong>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Return:</span>
-                    <strong className="font-mono">{trip.intake.transitDetails.return?.reference || 'TBD'}</strong>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right Column: Survival & Safety */}
-          <div>
-            <h2 className="text-xl font-bold border-b border-slate-300 pb-2 mb-4">Culture & Safety</h2>
-            <div className="mb-6">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-2">Survival Phrases</span>
-              <table className="w-full text-sm">
-                <tbody>
-                  {phrases.map((p, i) => (
-                    <tr key={i} className="border-b border-slate-100">
-                      <td className="py-1.5 pr-2">{p.phrase}</td>
-                      <td className="py-1.5 font-bold text-right">{p.translation}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">Safety Advice</span>
-              <p className="text-sm leading-relaxed">{risk}</p>
-            </div>
-            <div className="mt-4">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-1">Tipping</span>
-              <p className="text-sm leading-relaxed">{essentials?.tippingEtiquette || 'Standard tipping rules apply.'}</p>
-            </div>
-          </div>
-        </div>
       </div>
-
-      {/* ── Page 2+: Daily Timelines ── */}
-      {days.map(day => {
-        const mapUrl = generateGoogleMapsDayUrl(day.entries, trip.destination);
-        return (
-          <div key={day.dayNumber} className="mb-12">
-            <div className="flex items-center justify-between border-b-2 border-black pb-2 mb-4 print:break-inside-avoid" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-              <div>
-                <h2 className="text-3xl font-black">Day {day.dayNumber}</h2>
-                <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">{day.entries?.length || 0} Planned Stops</p>
-              </div>
-              {mapUrl && (
-                <div className="flex items-center gap-3 text-right">
-                  <div className="text-[10px] font-bold text-slate-500 uppercase max-w-[100px] leading-tight text-right">Scan for Route Map</div>
-                  <div className="bg-white p-1 border border-slate-200 rounded-lg shadow-sm">
-                     <QRCode value={mapUrl} size={64} level="L" />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <table className="w-full text-left border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-slate-300">
-                  <th className="py-2 w-[15%] font-bold text-xs uppercase tracking-wider text-slate-500">Time</th>
-                  <th className="py-2 w-[65%] font-bold text-xs uppercase tracking-wider text-slate-500">Activity</th>
-                  <th className="py-2 w-[20%] font-bold text-xs uppercase tracking-wider text-slate-500 text-right">Est. Cost</th>
-                </tr>
-              </thead>
-              <tbody>
-                {day.entries.map((entry, idx) => {
-                  let displayTitle = entry.locationName || 'Unknown Location';
-                  const displayDesc = entry.activityDescription?.replace(/^\[.*?\]\s*/, '') ?? '';
-                  
-                  const isStartDay = entry.transitMethod === 'Start of Day';
-                  const isManualRest = entry.locationName === 'Room Break' || entry.locationName === 'Local Coffee / Cafe Break';
-                  const isBookend = !isManualRest && (entry.type === 'ACCOMMODATION' || isStartDay || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.activityDescription || '') || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(entry.locationName || '')) && !entry.isDining;
-                  const isFlight = /(Airport|Flight|Departure)/i.test(entry.activityDescription || '') || /(Airport|Flight|Departure)/i.test(entry.locationName || '');
-                  const isStay = isBookend && !isFlight;
-                  
-                  if (isStay) {
-                    const isGeneric = /^(accommodation|hotel|airbnb|start of day|return to)/i.test(displayTitle.trim());
-                    if (isGeneric && accommodationName) displayTitle = accommodationName;
-                  }
-
-                  return (
-                    <tr 
-                      key={entry.id} 
-                      className="border-b border-slate-200 print:break-inside-avoid"
-                      style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
-                    >
-                      <td className="py-3 align-top font-bold whitespace-nowrap w-[15%]">
-                        {entry.time ?? '—'}
-                        {entry.isFixed && <span className="ml-1">📌</span>}
-                      </td>
-                      <td className="py-3 align-top pr-4 w-[65%]">
-                        <div className="font-bold text-base mb-1">
-                          {entry.isDining ? '🍽 ' : ''}{displayTitle}
-                        </div>
-                        <p className="text-slate-600 leading-snug">{displayDesc}</p>
-                        {entry.transitNote && idx !== day.entries.length - 1 && (
-                          <div className="mt-2 text-xs font-bold text-slate-500 flex items-center gap-1 bg-slate-50 px-2 py-1.5 w-max rounded border border-slate-200">
-                            ↳ {getTransitConfig(entry.transitMethod).emoji} {entry.transitNote}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-3 align-top text-right font-medium w-[20%] whitespace-nowrap">
-                        {formatCost(entry.estimatedCostGBP)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        );
-      })}
     </div>
   );
 }
 
-
-// ── Sub-component: Timeline Entry (Web) ───────────────────────────────────────
-
+// ── Sub-component: Timeline Entry (Web) ──
 function TimelineEntry({ 
   entry, nextEntry, isLast, dayNumber, accommodationName, destination, onPlaceClick, formatCost 
 }: { 
@@ -432,7 +294,7 @@ function TimelineEntry({
         >
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col md:flex-row md:items-center gap-2 flex-wrap mb-1">
                 <h4 className={`text-base font-bold leading-snug transition-colors ${hasPlaceId ? 'text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-300' : 'text-slate-900 dark:text-white'}`}>
                   {displayTitle}
                 </h4>
@@ -440,7 +302,7 @@ function TimelineEntry({
                   <a 
                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(displayTitle + ', ' + destination)}&query_place_id=${entry.placeId}`} 
                     target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} 
-                    className="text-[10px] font-bold uppercase tracking-wider text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300 bg-brand-50 dark:bg-brand-900/30 px-2 py-0.5 rounded-md transition-colors"
+                    className="w-max text-[10px] font-bold uppercase tracking-wider text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300 bg-brand-50 dark:bg-brand-900/30 px-2 py-0.5 rounded-md transition-colors"
                   >
                     View Map ↗
                   </a>
@@ -488,7 +350,7 @@ function TimelineEntry({
   );
 }
 
-// ── Main Component ────────────────────────────────────────────────────────────
+// ── Main Component ──
 
 // eslint-disable-next-line @next/next/no-server-actions-in-client-components
 export default function ItineraryDisplay({ 
@@ -500,6 +362,8 @@ export default function ItineraryDisplay({
   trip: ClientTripProps; 
   onEditRequest?: () => void;
 }) {
+  const router = useRouter(); // Added for the Ledger route transitions
+  
   const days = itinerary.days ?? [];
   const essentials = itinerary.essentials;
   const [activeTab, setActiveTab] = useState<'overview' | number>('overview');
@@ -512,25 +376,20 @@ export default function ItineraryDisplay({
 
   const { exchangeRate, setExchangeRate, displayCurrency, toggleCurrency, intake } = useTripStore();
   
-  // Weather State
   const [weatherData, setWeatherData] = useState<DailyWeather[] | null>(null);
-
-  // Timezone State
   const [now, setNow] = useState<Date | null>(null);
   const [destinationUtcOffset, setDestinationUtcOffset] = useState<number | null>(null);
 
   useEffect(() => {
     setNow(new Date());
-    const timer = setInterval(() => setNow(new Date()), 60000); // Tick every minute
+    const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
-  // Reset to list view when tab changes
   useEffect(() => {
     setViewMode('list');
   }, [activeTab]);
 
-  // Weather Fetcher
   useEffect(() => {
     async function loadWeather() {
       const data = await fetchTripWeather(trip.destination, trip.startDate, trip.duration || days.length);
@@ -541,7 +400,6 @@ export default function ItineraryDisplay({
   
   const accommodationName = intake?.accommodation || trip.intake?.accommodation;
 
-  // Document Fetcher
   const loadDocuments = () => {
     fetchTripDocuments(trip.id).then(docs => setTripDocuments(docs as DocumentInfo[]));
   };
@@ -550,17 +408,17 @@ export default function ItineraryDisplay({
     loadDocuments();
   }, [trip.id]);
 
-  // Smart Currency Fetcher
   const localCurrencyRaw = essentials?.currency || '';
   const localSymbol = localCurrencyRaw.split(' ')[0] || '€';
   const isDomesticTrip = localSymbol === '£' || localCurrencyRaw.includes('GBP');
   const symbolSpacer = localSymbol.length > 1 ? ' ' : '';
 
+  // ── FLAG LOGIC ──
+  const targetCurrency = localCurrencyRaw.match(/[A-Z]{3}/)?.[0] || null;
+  const currentFlag = displayCurrency === 'GBP' ? '🇬🇧' : getCurrencyFlag(targetCurrency);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
-    const currencyMatch = localCurrencyRaw.match(/[A-Z]{3}/);
-    const targetCurrency = currencyMatch ? currencyMatch[0] : null;
 
     if (targetCurrency && targetCurrency !== 'GBP') {
       const cacheKey = `pear_fx_${targetCurrency}`;
@@ -593,9 +451,8 @@ export default function ItineraryDisplay({
     } else if (targetCurrency === 'GBP') {
        setExchangeRate(1);
     }
-  }, [localCurrencyRaw, setExchangeRate]);
+  }, [targetCurrency, setExchangeRate]);
 
-  // Hero Image & Timezone Fetcher
   const [heroImage, setHeroImage] = useState<string>(`https://picsum.photos/seed/${trip.id}/1200/600`);
   
   useEffect(() => {
@@ -604,7 +461,6 @@ export default function ItineraryDisplay({
     if (googleObj?.maps?.places) {
       const dummyDiv = document.createElement('div');
       const service = new googleObj.maps.places.PlacesService(dummyDiv);
-      // Fetches utc_offset_minutes to calculate accurate destination time
       service.getDetails({ placeId: intake.destinationPlaceId, fields: ['photos', 'utc_offset_minutes'] }, (place: any, status: any) => {
         if (status === googleObj.maps.places.PlacesServiceStatus.OK) {
           if (place?.photos?.length > 0) {
@@ -618,7 +474,6 @@ export default function ItineraryDisplay({
     }
   }, [intake?.destinationPlaceId]);
 
-  // Time Calculation Logic
   let localTimeStr = '--:--';
   let destTimeStr = '--:--';
   let isDestNight = false;
@@ -635,7 +490,6 @@ export default function ItineraryDisplay({
     }
   }
 
-  // Dynamic Accommodation Scanner
   const dynamicStays = days.reduce((acc: {name: string, startDay: number, placeId?: string, poiId: string}[], day) => {
     if (day.entries.length > 0) {
       const stayEntry = day.entries.find(e => {
@@ -697,16 +551,8 @@ export default function ItineraryDisplay({
 
   return (
     <div className="w-full">
-      {/* ── PRINT-ONLY SHADOW DOM ── */}
-      <PrintOnlyBooklet 
-        trip={trip} 
-        itinerary={itinerary} 
-        formatCost={formatCost} 
-        localCurrencyRaw={localCurrencyRaw} 
-        totalStops={totalStops} 
-      />
+      <PrintOnlyBooklet trip={trip} itinerary={itinerary} formatCost={formatCost} localCurrencyRaw={localCurrencyRaw} totalStops={totalStops} />
 
-      {/* ── WEB UI (Hidden during Print) ── */}
       <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 relative print:hidden">
 
         {/* ── GLOBALS ── */}
@@ -729,14 +575,10 @@ export default function ItineraryDisplay({
             onDocumentUpdate={loadDocuments}
           />
         )}
-        
+
         {/* ── HERO ── */}
         <div className="relative w-full h-72 md:h-80 rounded-3xl overflow-hidden shadow-xl group mb-6">
-          <img 
-            src={heroImage} 
-            alt={trip.destination} 
-            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
-          />
+          <img src={heroImage} alt={trip.destination} className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500" />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-transparent" />
           
           <div className="absolute bottom-0 left-0 p-8 md:p-10 w-full">
@@ -748,34 +590,90 @@ export default function ItineraryDisplay({
                 <h1 className="text-4xl md:text-6xl font-black text-white tracking-tight mb-2 drop-shadow-md">
                   {trip.destination}
                 </h1>
-                <p className="text-slate-200 text-lg font-medium drop-shadow-md">
-                  {trip.startDate && trip.endDate 
-                    ? `${format(new Date(trip.startDate), 'd MMM')} – ${format(new Date(trip.endDate), 'd MMM yyyy')}` 
-                    : `${trip.duration} Days`}
-                  {' '}· {totalStops} Stops · Est. {formatCost(dynamicTotalCost)}
+                <p className="text-slate-200 text-lg font-medium drop-shadow-md flex items-center gap-3">
+                  <span>{trip.startDate && trip.endDate ? `${format(new Date(trip.startDate), 'd MMM')} – ${format(new Date(trip.endDate), 'd MMM yyyy')}` : `${trip.duration} Days`}</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                  <span>{totalStops} Planned Stops</span>
                 </p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* ── HERO STATS (Refined Layout with Time & Budget) ── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: 'Total Duration', value: `${days.length} days`, emoji: '📅' },
-            { label: 'Total Stops', value: `${totalStops} stops`, emoji: '📍' },
-            { label: 'Total Spent', value: formatCost(dynamicTotalCost), emoji: '💷', sub: `of ${formatCost(trip.budgetGBP)} budget` }, 
-            { label: 'Local Time', value: destTimeStr, emoji: isDestNight ? '🌙' : '☀️', sub: `${localTimeStr} at home` }, 
-          ].map(({ label, value, emoji, sub }) => (
-            <div key={label} className="rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/50 p-5 shadow-sm transition-colors flex flex-col justify-between">
-              <div>
-                <span className="text-2xl mb-2 block">{emoji}</span>
-                <span className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{label}</span>
-                <span className="block text-lg font-bold text-slate-900 dark:text-white mt-1 capitalize">{value}</span>
-              </div>
-              {sub && <span className="block text-[10px] font-medium text-slate-400 mt-2">{sub}</span>}
+        {/* ── HERO UTILITY TILES (The 4 Interactive Toolkit Buttons) ── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
+          
+          {/* 1. Weather Tile */}
+          <div className="rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/50 p-4 shadow-sm flex flex-col h-full">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg leading-none">{weatherData ? getWeatherEmoji(weatherData[0].weatherCode) : '☀️'}</span>
+              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Forecast</span>
             </div>
-          ))}
+            <span className="text-xl font-black text-slate-900 dark:text-white tabular-nums tracking-tight">
+              {weatherData ? `${weatherData[0].maxTemp}° / ${weatherData[0].minTemp}°` : '22° / 14°'}
+            </span>
+            <div className="mt-auto pt-3">
+              <span className="text-[10px] font-medium text-slate-400">Local live conditions</span>
+            </div>
+          </div>
+
+          {/* 2. Local Time Tile */}
+          <div className="rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/50 p-4 shadow-sm flex flex-col h-full">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg leading-none">{isDestNight ? '🌙' : '☀️'}</span>
+              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Local Time</span>
+            </div>
+            <span className="text-xl font-black text-slate-900 dark:text-white tabular-nums tracking-tight">{destTimeStr}</span>
+            <div className="mt-auto pt-3">
+              <span className="text-[10px] font-medium text-slate-400 truncate">{localTimeStr} at home</span>
+            </div>
+          </div>
+
+          {/* 3. Exchange Rate Tile (Clickable Toggle with Flag) */}
+          <button 
+            onClick={toggleCurrency}
+            className={`text-left rounded-2xl border p-4 transition-all flex flex-col h-full group cursor-pointer ${
+              displayCurrency === 'LOCAL' 
+                ? 'bg-slate-50 dark:bg-slate-800/80 border-slate-300 dark:border-slate-600 shadow-inner' 
+                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700/50 shadow-sm hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-md'
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xl leading-none shadow-sm rounded-sm">{currentFlag}</span>
+              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                {displayCurrency === 'GBP' ? 'Viewing in GBP' : 'Viewing in Local'}
+              </span>
+            </div>
+            
+            <span className="text-xl font-black text-slate-900 dark:text-white tabular-nums tracking-tight">
+              £1 = {localSymbol}{exchangeRate.toFixed(2)}
+            </span>
+            
+            <div className="mt-auto pt-3 flex items-center gap-1">
+              <span className="text-[10px] font-bold text-brand-600 dark:text-brand-400">Tap to Toggle</span>
+              <span className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">🔄</span>
+            </div>
+          </button>
+
+          {/* 4. Ledger Portal Tile (Clickable Route) */}
+          <button 
+            onClick={() => router.push(`/itinerary/${trip.id}/ledger`)}
+            className="text-left rounded-2xl bg-slate-900 dark:bg-slate-950 border border-slate-800 p-4 shadow-lg hover:bg-slate-800 dark:hover:bg-slate-900 hover:shadow-xl hover:-translate-y-0.5 transition-all flex flex-col h-full group cursor-pointer relative overflow-hidden"
+          >
+            <div className="absolute -right-4 -top-4 w-20 h-20 bg-brand-500/20 rounded-full blur-xl pointer-events-none" />
+            <div className="relative z-10 flex items-center gap-2 mb-2">
+              <span className="text-lg leading-none">💳</span>
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Budget</span>
+            </div>
+            <span className="relative z-10 text-xl font-black text-white tabular-nums tracking-tight">
+              {formatCost(dynamicTotalCost)}
+            </span>
+            <div className="relative z-10 mt-auto pt-3 flex items-center gap-1">
+              <span className="text-[10px] font-bold text-brand-400">Open Ledger</span>
+              <span className="text-[10px] text-brand-400 transition-transform group-hover:translate-x-1">↗</span>
+            </div>
+          </button>
+
         </div>
 
         {/* ── STICKY TABS & CABINET BUTTON ── */}
@@ -808,7 +706,7 @@ export default function ItineraryDisplay({
 
             <button 
               onClick={() => setIsFilingCabinetOpen(true)}
-              className="pb-4 px-2 text-sm font-bold whitespace-nowrap text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors flex items-center gap-2 group"
+              className="pb-4 px-2 text-sm font-bold whitespace-nowrap text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors flex items-center gap-2 group cursor-pointer"
             >
               <span className="text-lg group-hover:-translate-y-0.5 transition-transform">📎</span> 
               Trip Documents
@@ -839,7 +737,6 @@ export default function ItineraryDisplay({
           {essentials && (
             <div className={`flex-col gap-6 animate-fade-in ${activeTab === 'overview' ? 'flex' : 'hidden'}`}>
 
-              {/* Transit Card */}
               {trip.intake?.transitDetails && ['Flight', 'Train'].includes(trip.intake.transitDetails.mode) && (
                 <div className="relative w-full rounded-3xl bg-slate-900 dark:bg-slate-950 border border-slate-800 p-6 md:p-8 shadow-xl overflow-hidden flex flex-col md:flex-row gap-6 md:gap-0">
                   <div className="absolute top-0 right-0 w-48 h-48 bg-brand-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none" />
@@ -1060,10 +957,7 @@ export default function ItineraryDisplay({
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     
-                    {/* --- LEFT COLUMN WRAPPER START --- */}
                     <div className="flex flex-col gap-6">
-                      
-                      {/* NEW: Language & English Proficiency */}
                       <div>
                         <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">Language</h4>
                         <div className="flex items-center gap-3">
@@ -1078,7 +972,6 @@ export default function ItineraryDisplay({
                         </div>
                       </div>
 
-                      {/* EXISTING: Survival Phrases */}
                       <div>
                         <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">Survival Phrases</h4>
                         <div className="flex flex-col gap-3">
@@ -1094,7 +987,6 @@ export default function ItineraryDisplay({
                       </div>
 
                     </div>
-                    {/* --- LEFT COLUMN WRAPPER END --- */}
                     
                     <div className="flex flex-col justify-start gap-5">
                       <div>
@@ -1142,14 +1034,10 @@ export default function ItineraryDisplay({
                               </div>
                               <div className="flex flex-col min-w-0 flex-1">
                                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-0.5">From Day {stay.startDay}</span>
-                                
-                                {/* REPLACED: Added the explicitly clickable View Map button */}
                                 <div className="flex items-center gap-2 flex-wrap mt-1">
                                   <span className="text-sm font-bold text-slate-900 dark:text-white leading-tight" title={stay.name}>
                                     {stay.name}
                                   </span>
-                                  
-                                  {/* Smart Google Maps Link: Fallback to text search if no Place ID */}
                                   <a 
                                     href={
                                       stay.placeId && stay.placeId !== "null" && stay.placeId !== ""
@@ -1325,11 +1213,12 @@ export default function ItineraryDisplay({
                     <div className="rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 shadow-sm">
                       <div className="flex items-center justify-between mb-6">
                         <h3 className="text-sm font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest">Day {activeDay.dayNumber} Spend</h3>
-                        {!isDomesticTrip && (
-                          <button onClick={toggleCurrency} className="text-[10px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">
-                            {displayCurrency === 'GBP' ? 'LOCAL £' : 'GBP £'}
-                          </button>
-                        )}
+                        <button 
+                          onClick={() => router.push(`/itinerary/${trip.id}/ledger`)} 
+                          className="text-[10px] font-bold text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-900/30 hover:bg-brand-100 dark:hover:bg-brand-900/50 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                        >
+                          Log Spend ↗
+                        </button>
                       </div>
                       
                       <div className="flex items-end justify-between mb-2">
