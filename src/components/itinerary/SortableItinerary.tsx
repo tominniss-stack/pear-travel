@@ -413,7 +413,8 @@ function SortableTimelineEntry({
           <div 
             ref={setActivatorNodeRef}
             {...attributes} {...listeners}
-            className={`flex-1 min-w-0 p-4 bg-inherit ${!isBookend && !entry.isFixed ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            // ── FIX: Added conditional rounded corners for Parking Lot ──
+            className={`flex-1 min-w-0 p-4 bg-inherit ${isParkingLot ? 'rounded-l-2xl' : ''} ${!isBookend && !entry.isFixed ? 'cursor-grab active:cursor-grabbing' : ''}`}
           >
             {isParkingLot && annotation && (
               <div className="mb-1.5 flex items-center">
@@ -445,7 +446,7 @@ function SortableTimelineEntry({
             ) : (
                <button 
                  onClick={(e) => { e.stopPropagation(); setShowActions(true); }} 
-                 className="flex-1 flex items-center justify-center text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-r-2xl transition-colors active:bg-slate-100"
+                 className="flex-1 flex items-center justify-center text-slate-400 hover:text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-r-2xl transition-colors active:bg-slate-100"
                >
                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
                </button>
@@ -625,9 +626,9 @@ export default function SortableItinerary() {
   const [selectedPOI, setSelectedPOI] = useState<{placeId: string, poiId: string} | null>(null);
   const [activeAiNote, setActiveAiNote] = useState<string | undefined>(undefined);
 
-  // Added exact delay to perfectly trigger haptic when pick-up resolves
+  // ── FIX: Added distance constraint to MouseSensor to allow clicking ──
   const sensors = useSensors(
-    useSensor(MouseSensor), 
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }), 
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 15 } }),
     useSensor(KeyboardSensor)
   );
@@ -837,7 +838,6 @@ export default function SortableItinerary() {
             destination={activeDestination} 
             onClose={() => setEditingAccTarget(null)} 
             onSave={(newLocation, newTime, cascade) => { 
-              // FIX: Now we actually pass newTime and cascade down to the store!
               updateAccommodation(editingAccTarget.dayNumber, editingAccTarget.entry.id, newLocation, newTime, cascade); 
               setEditingAccTarget(null); 
             }} 
