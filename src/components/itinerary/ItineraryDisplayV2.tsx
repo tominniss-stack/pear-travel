@@ -54,15 +54,6 @@ function parseTimeToMinutes(time: string | undefined): number | null {
   return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
 }
 
-function formatSuggestedDuration(minutes: number | null): string {
-  if (minutes === null || minutes <= 0) return '';
-  const hrs = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  if (hrs === 0) return `${mins} min${mins === 1 ? '' : 's'}`;
-  if (mins === 0) return `${hrs} hour${hrs === 1 ? '' : 's'}`;
-  return `${hrs} hour${hrs === 1 ? '' : 's'} ${mins} min${mins === 1 ? '' : 's'}`;
-}
-
 function parseTransitMinutes(note: string | undefined): number {
   if (!note) return 0;
   const match = note.match(/(\d+)\s*min/);
@@ -109,12 +100,129 @@ function generateGoogleMapsDayUrl(entries: ItineraryEntry[], destinationCity: st
 
 // ── Print Booklet ─────────────────────────────────────────
 function PrintOnlyBooklet({ trip, itinerary, formatCost, localCurrencyRaw, totalStops }: { trip: ClientTripProps; itinerary: Itinerary; formatCost: (c?: number) => string; localCurrencyRaw: string; totalStops: number; }) {
-  return <div className="hidden">Print logic omitted for V2 rewrite brevity (keep your V1 logic here if needed in production)</div>;
+  const days = itinerary.days ?? [];
+  const essentials = itinerary.essentials;
+  const phrases = essentials?.usefulPhrases && essentials.usefulPhrases.length > 0 ? essentials.usefulPhrases : [];
+  const plugType = essentials?.plugType || 'Type C / F (230V)';
+  const tapWater = essentials?.tapWater || 'Safe to drink 🚰';
+  const risk = essentials?.contextualRisk || 'Stay alert around major tourist hubs.';
+  const localSymbol = localCurrencyRaw.split(' ')[0] || '€';
+
+  const [baseUrl, setBaseUrl] = useState('https://peartravel.app');
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setBaseUrl(window.location.origin);
+    }
+  }, []);
+
+  const masterQrUrl = `${baseUrl}/itinerary/${trip.id}`;
+
+  return (
+    <div className="hidden print:block w-full bg-white text-black font-sans print:m-0 print:p-0">
+      <div className="print:page-break-after-always pb-8">
+        <div className="mb-8 border-b-2 border-black pb-6 flex justify-between items-start">
+          <div className="flex-1 pr-6">
+            <p className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-1">Your Travel Booklet</p>
+            <h1 className="text-6xl font-serif mb-3 tracking-tight">{trip.destination}</h1>
+            <p className="text-xl font-medium text-slate-700 flex items-center gap-2 font-mono uppercase tracking-widest text-xs">
+              {trip.startDate && trip.endDate ? `${format(new Date(trip.startDate), 'd MMM')} – ${format(new Date(trip.endDate), 'd MMM yyyy')}` : `${trip.duration} Days`}
+              <span>·</span> {totalStops} Stops <span>·</span> Est. Budget: {formatCost(trip.budgetGBP)}
+            </p>
+          </div>
+          <div className="flex flex-col items-center justify-center p-3 border-2 border-slate-200 rounded-xl shrink-0 w-32 bg-white">
+            <div style={{ width: '90px', height: '90px', backgroundColor: 'white' }}>
+              <QRCode value={masterQrUrl} size={256} style={{ height: "auto", maxWidth: "100%", width: "100%" }} viewBox={`0 0 256 256`} level="M" />
+            </div>
+            <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 mt-2 text-center leading-tight">
+              Scan for<br/>Digital Trip
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-12 mb-8">
+          <div>
+            <h3 className="text-xl font-serif border-b border-slate-300 pb-2 mb-4">Logistics</h3>
+            <ul className="text-base space-y-3 font-sans">
+              <li><strong className="text-slate-500 uppercase font-mono tracking-wider text-[10px] block mb-0.5">Currency</strong> {localCurrencyRaw} ({localSymbol})</li>
+              <li><strong className="text-slate-500 uppercase font-mono tracking-wider text-[10px] block mb-0.5">Power Outlets</strong> {plugType}</li>
+              <li><strong className="text-slate-500 uppercase font-mono tracking-wider text-[10px] block mb-0.5">Tap Water</strong> {tapWater}</li>
+              <li><strong className="text-slate-500 uppercase font-mono tracking-wider text-[10px] block mb-0.5">Safety & Risk</strong> {risk}</li>
+              {essentials?.airportTransit && (
+                <li><strong className="text-slate-500 uppercase font-mono tracking-wider text-[10px] block mb-0.5">Airport Transit</strong> {essentials.airportTransit}</li>
+              )}
+            </ul>
+          </div>
+          <div>
+            {phrases.length > 0 && (
+              <>
+                <h3 className="text-xl font-serif border-b border-slate-300 pb-2 mb-4">Survival Phrases</h3>
+                <ul className="text-base space-y-3 font-sans">
+                  {phrases.map((p, i) => (
+                    <li key={i} className="flex justify-between items-end border-b border-slate-100 pb-1">
+                      <span className="text-slate-600">{p.phrase}</span>
+                      <span className="font-bold text-black">{p.translation}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {(essentials?.englishProficiency || phrases.length === 0) && (
+              <div className={phrases.length > 0 ? "mt-4 pt-4 border-t border-slate-100" : ""}>
+                 <h3 className={phrases.length === 0 ? "text-xl font-serif border-b border-slate-300 pb-2 mb-4" : "hidden"}>Communication</h3>
+                 <strong className="text-slate-500 uppercase font-mono tracking-wider text-[10px] block mb-0.5">English Proficiency</strong>
+                 <p className="font-sans">{essentials?.englishProficiency || 'Moderate'}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {days.map(day => {
+        const dayMapUrl = generateGoogleMapsDayUrl(day.entries, trip.destination);
+        return (
+          <div key={day.dayNumber} className="mb-10" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+            <div className="flex justify-between items-end border-b-2 border-black pb-2 mb-4">
+              <h2 className="text-3xl font-serif text-black">Day {day.dayNumber}</h2>
+              {dayMapUrl && (
+                <div className="flex items-center gap-3">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 text-right leading-tight">
+                    Scan for<br/>Day Route
+                  </span>
+                  <div className="border border-slate-200 p-1.5 rounded-lg bg-white" style={{ width: '60px', height: '60px' }}>
+                    <QRCode value={dayMapUrl} size={128} style={{ height: "auto", maxWidth: "100%", width: "100%" }} viewBox={`0 0 256 256`} level="L" />
+                  </div>
+                </div>
+              )}
+            </div>
+            <table className="w-full text-base font-sans">
+              <tbody>
+                {day.entries.map((entry, idx) => (
+                  <tr key={idx} className="border-b border-slate-200" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                    <td className="w-[15%] py-5 align-top font-bold text-xl tabular-nums font-mono">{entry.time || '—'}</td>
+                    <td className="w-[65%] py-5 pr-6 align-top">
+                      <div className="font-serif text-xl text-black mb-1">{entry.locationName}</div>
+                      <div className="text-slate-700 leading-relaxed text-sm">{entry.activityDescription?.replace(/^\[.*?\]\s*/, '')}</div>
+                      {entry.transitNote && (
+                        <div className="mt-3 text-[10px] font-bold text-slate-500 uppercase font-mono tracking-widest flex items-center gap-1">
+                          <span>↳ Transit:</span> <span className="text-black">{entry.transitMethod} ({entry.transitNote})</span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="w-[20%] py-5 align-top text-right font-bold whitespace-nowrap text-lg font-mono">{formatCost(entry.estimatedCostGBP)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 // ── Timeline Entry ───────────────────────────────────────
 function TimelineEntry({ 
-  entry, nextEntry, isLast, dayNumber, accommodationName, destination, onPlaceClick, formatCost 
+  entry, nextEntry, isLast, accommodationName, destination, onPlaceClick, formatCost 
 }: { 
   entry: ItineraryEntry; nextEntry?: ItineraryEntry; isLast: boolean; dayNumber: number; accommodationName?: string; destination: string; onPlaceClick: (placeId: string, poiId: string) => void; formatCost: (cost?: number) => string;
 }) {
@@ -132,10 +240,6 @@ function TimelineEntry({
     if (isGeneric && accommodationName) displayTitle = accommodationName;
   }
   
-  const currentMinutes = parseTimeToMinutes(entry.time);
-  const nextMinutes = parseTimeToMinutes(nextEntry?.time);
-  const transitMinutes = parseTransitMinutes(nextEntry?.transitNote);
-  const durationMinutes = currentMinutes !== null && nextMinutes !== null ? Math.max(0, nextMinutes - currentMinutes - transitMinutes) : null;
   const nextTransitConfig = getTransitConfig(nextEntry?.transitMethod);
 
   return (
@@ -188,9 +292,7 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
   const [tripDocuments, setTripDocuments] = useState<DocumentInfo[]>([]);
 
   const { exchangeRate, setExchangeRate, displayCurrency, toggleCurrency, intake } = useTripStore();
-  const [weatherData, setWeatherData] = useState<DailyWeather[] | null>(null);
   const [now, setNow] = useState<Date | null>(null);
-  const [destinationUtcOffset, setDestinationUtcOffset] = useState<number | null>(null);
 
   useEffect(() => {
     setNow(new Date());
@@ -200,14 +302,6 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
 
   useEffect(() => { setViewMode('list'); }, [activeTab]);
 
-  useEffect(() => {
-    async function loadWeather() {
-      const data = await fetchTripWeather(trip.destination, trip.startDate, trip.duration || days.length);
-      if (data) setWeatherData(data);
-    }
-    loadWeather();
-  }, [trip.destination, trip.startDate, trip.duration, days.length]);
-  
   const accommodationName = intake?.accommodation || trip.intake?.accommodation;
 
   const loadDocuments = () => { fetchTripDocuments(trip.id).then(docs => setTripDocuments(docs as DocumentInfo[])); };
@@ -233,7 +327,9 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
     }
   }, [localCurrencyRaw, setExchangeRate]);
 
+  // FIX: Using proper backticks for the template literal string interpolation
   const [heroImage, setHeroImage] = useState<string>(`https://picsum.photos/seed/${trip.id}/1200/600`);
+  
   useEffect(() => {
     if (!intake?.destinationPlaceId || typeof window === 'undefined') return;
     const googleObj = (window as any).google;
@@ -242,21 +338,10 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
       service.getDetails({ placeId: intake.destinationPlaceId, fields: ['photos', 'utc_offset_minutes'] }, (place: any, status: any) => {
         if (status === googleObj.maps.places.PlacesServiceStatus.OK) {
           if (place?.photos?.length > 0) setHeroImage(place.photos[0].getUrl({ maxWidth: 1200, maxHeight: 600 }));
-          if (place?.utc_offset_minutes !== undefined) setDestinationUtcOffset(place.utc_offset_minutes);
         }
       });
     }
   }, [intake?.destinationPlaceId]);
-
-  let localTimeStr = '--:--';
-  let destTimeStr = '--:--';
-  if (now) {
-    localTimeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    if (destinationUtcOffset !== null) {
-      const destDate = new Date(now.getTime() + (destinationUtcOffset * 60000));
-      destTimeStr = destDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
-    }
-  }
 
   const dynamicStays = days.reduce((acc: {name: string, startDay: number, placeId?: string, poiId: string}[], day) => {
     if (day.entries.length > 0) {
@@ -286,279 +371,290 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
   const risk = essentials?.contextualRisk || 'Stay alert in crowds.';
 
   return (
-    <div className="w-full font-sans print:hidden bg-white dark:bg-slate-950 min-h-screen">
+    <div className="w-full font-sans print:m-0 print:p-0 bg-white dark:bg-slate-950 min-h-screen">
       
-      {/* Modals */}
-      <FilingCabinet isOpen={isFilingCabinetOpen} onClose={() => setIsFilingCabinetOpen(false)} tripId={trip.id} availablePOIs={days.flatMap(d => d.entries.map(e => ({ id: e.id, name: e.locationName, dayName: `Day ${d.dayNumber}` })))} documents={tripDocuments} onUploadSuccess={loadDocuments} />
-      {selectedPOI && <PlaceDetailsModal placeId={selectedPOI.placeId} poiId={selectedPOI.poiId} tripId={trip.id} tripDocuments={tripDocuments} onClose={() => setSelectedPOI(null)} onDocumentUpdate={loadDocuments} />}
+      {/* ── PRINT BOOKLET ── */}
+      <PrintOnlyBooklet trip={trip} itinerary={itinerary} formatCost={formatCost} localCurrencyRaw={localCurrencyRaw} totalStops={totalStops} />
 
-      {/* ── THE MAGAZINE HERO ── */}
-      <div className="relative w-full h-[50vh] min-h-[450px] overflow-hidden bg-slate-900">
-        <img src={heroImage} alt={trip.destination} className="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-overlay" />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent" />
-        
-        <div className="absolute bottom-16 left-0 w-full px-6 max-w-5xl mx-auto flex flex-col items-start">
-          <p className="text-brand-300 font-serif italic text-xl md:text-2xl mb-2 tracking-wide">A curated journey to</p>
-          <h1 className="text-6xl md:text-8xl lg:text-9xl font-serif text-white tracking-tight leading-none mb-6">
-            {trip.destination}
-          </h1>
-          <div className="flex flex-wrap items-center gap-6 border-t border-white/20 pt-6 mt-2 text-white/80 font-mono text-xs uppercase tracking-widest">
-            <span>{trip.startDate && trip.endDate ? `${format(new Date(trip.startDate), 'MMM d')} – ${format(new Date(trip.endDate), 'MMM d, yyyy')}` : `${trip.duration} Days`}</span>
-            <span className="w-1 h-1 bg-brand-500 rounded-full" />
-            <span>{days.length} Days</span>
-            <span className="w-1 h-1 bg-brand-500 rounded-full" />
-            <span>{totalStops} Stops</span>
-          </div>
-        </div>
-      </div>
+      <div className="print:hidden">
+        {/* Modals */}
+        <FilingCabinet isOpen={isFilingCabinetOpen} onClose={() => setIsFilingCabinetOpen(false)} tripId={trip.id} availablePOIs={days.flatMap(d => d.entries.map(e => ({ id: e.id, name: e.locationName, dayName: `Day ${d.dayNumber}` })))} documents={tripDocuments} onUploadSuccess={loadDocuments} />
+        {selectedPOI && <PlaceDetailsModal placeId={selectedPOI.placeId} poiId={selectedPOI.poiId} tripId={trip.id} tripDocuments={tripDocuments} onClose={() => setSelectedPOI(null)} onDocumentUpdate={loadDocuments} />}
 
-      <div className="max-w-5xl mx-auto w-full px-6 relative mt-16">
-        
-        {/* ── EDITORIAL TABS ── */}
-        <div className="sticky top-16 md:top-16 z-30 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl pt-6 pb-4 mb-16 border-b border-slate-200 dark:border-slate-800">
-          <div className="flex gap-10 overflow-x-auto hide-scrollbar px-2">
-            <button onClick={() => setActiveTab('overview')} className={`pb-4 text-xs font-mono tracking-[0.2em] uppercase transition-colors relative whitespace-nowrap ${activeTab === 'overview' ? 'text-slate-900 dark:text-white' : 'text-slate-400 hover:text-slate-600'}`}>
-              The Guide
-              {activeTab === 'overview' && <span className="absolute bottom-0 left-0 w-full h-px bg-slate-900 dark:bg-white" />}
-            </button>
-            {days.map((day) => (
-              <button key={day.dayNumber} onClick={() => setActiveTab(day.dayNumber)} className={`pb-4 text-xs font-mono tracking-[0.2em] uppercase transition-colors relative whitespace-nowrap ${activeTab === day.dayNumber ? 'text-slate-900 dark:text-white' : 'text-slate-400 hover:text-slate-600'}`}>
-                Day {day.dayNumber}
-                {activeTab === day.dayNumber && <span className="absolute bottom-0 left-0 w-full h-px bg-slate-900 dark:bg-white" />}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {typeof activeTab === 'number' && (
-          <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-[100] md:hidden">
-             <button onClick={() => setViewMode(prev => prev === 'list' ? 'map' : 'list')} className="bg-slate-900 text-white rounded-none px-8 py-4 flex items-center gap-3 font-mono text-xs uppercase tracking-widest shadow-2xl border border-slate-700">
-               {viewMode === 'list' ? <>View Map</> : <>View Timeline</>}
-             </button>
-          </div>
-        )}
-
-        <div className="pb-32">
+        {/* ── THE MAGAZINE HERO ── */}
+        <div className="relative w-full h-[50vh] min-h-[450px] overflow-hidden bg-slate-900">
+          <img src={heroImage} alt={trip.destination} className="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-overlay" />
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent" />
           
-          {/* ── THE CURATED GUIDE (V2 LUXURY OVERVIEW) ── */}
-          {essentials && (
-            <div className={`animate-fade-in ${activeTab === 'overview' ? 'block' : 'hidden'}`}>
-              
-              <div className="flex flex-col gap-24 max-w-3xl mx-auto">
-                
-                {/* 1. THE EDITORIAL BRIEFING */}
-                <div className="relative">
-                  <p className="font-serif text-3xl md:text-4xl lg:text-5xl leading-[1.4] text-slate-800 dark:text-slate-200">
-                    In {trip.destination}, you'll navigate primarily by <span className="italic text-brand-600 dark:text-brand-400">{essentials.airportTransit.toLowerCase().includes('uber') || essentials.airportTransit.toLowerCase().includes('taxi') ? 'taxi and rideshare' : 'local transit'}</span>. 
-                    The locals speak <span className="italic text-brand-600 dark:text-brand-400">{essentials.language || 'the local language'}</span> 
-                    <span className="text-xl md:text-2xl text-slate-400 font-serif"> (English is {essentials.englishProficiency?.toLowerCase() || 'moderate'})</span>. 
-                    When dining out, <span className="italic text-brand-600 dark:text-brand-400">{essentials.tippingEtiquette?.toLowerCase() || 'tip around 10%'}</span>. 
-                    And take note: the tap water is <span className="italic text-brand-600 dark:text-brand-400">{tapWater.toLowerCase().includes('safe') ? 'safe to drink' : 'not recommended'}</span>.
-                  </p>
+          <div className="absolute bottom-16 left-0 w-full px-6 max-w-5xl mx-auto flex flex-col items-start">
+            <p className="text-brand-300 font-serif italic text-xl md:text-2xl mb-2 tracking-wide">A curated journey to</p>
+            <h1 className="text-6xl md:text-8xl lg:text-9xl font-serif text-white tracking-tight leading-none mb-6">
+              {trip.destination}
+            </h1>
+            <div className="flex flex-wrap items-center gap-6 border-t border-white/20 pt-6 mt-2 text-white/80 font-mono text-xs uppercase tracking-widest">
+              <span>{trip.startDate && trip.endDate ? `${format(new Date(trip.startDate), 'MMM d')} – ${format(new Date(trip.endDate), 'MMM d, yyyy')}` : `${trip.duration} Days`}</span>
+              <span className="w-1 h-1 bg-brand-500 rounded-full" />
+              <span>{days.length} Days</span>
+              <span className="w-1 h-1 bg-brand-500 rounded-full" />
+              <span>{totalStops} Stops</span>
+            </div>
+          </div>
+        </div>
 
-                  <div className="mt-12 flex flex-wrap gap-4 border-t border-slate-200 dark:border-slate-800 pt-8">
-                    <span className="px-4 py-1.5 text-slate-500 font-mono text-[10px] uppercase tracking-widest border border-slate-300 dark:border-slate-700">🔌 {plugType}</span>
-                    <span className="px-4 py-1.5 text-slate-500 font-mono text-[10px] uppercase tracking-widest border border-slate-300 dark:border-slate-700">🚨 {risk}</span>
-                    {apps.map((app, i) => (
-                      <span key={i} className="px-4 py-1.5 text-slate-500 font-mono text-[10px] uppercase tracking-widest border border-slate-300 dark:border-slate-700">📱 {app}</span>
-                    ))}
-                  </div>
-                </div>
+        <div className="max-w-5xl mx-auto w-full px-6 relative mt-16">
+          
+          {/* ── EDITORIAL TABS ── */}
+          <div className="sticky top-16 md:top-16 z-30 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl pt-6 pb-4 mb-16 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+            <div className="flex gap-10 overflow-x-auto hide-scrollbar px-2 flex-1">
+              <button onClick={() => setActiveTab('overview')} className={`pb-4 text-xs font-mono tracking-[0.2em] uppercase transition-colors relative whitespace-nowrap ${activeTab === 'overview' ? 'text-slate-900 dark:text-white' : 'text-slate-400 hover:text-slate-600'}`}>
+                The Guide
+                {activeTab === 'overview' && <span className="absolute bottom-0 left-0 w-full h-px bg-slate-900 dark:bg-white" />}
+              </button>
+              {days.map((day) => (
+                <button key={day.dayNumber} onClick={() => setActiveTab(day.dayNumber)} className={`pb-4 text-xs font-mono tracking-[0.2em] uppercase transition-colors relative whitespace-nowrap ${activeTab === day.dayNumber ? 'text-slate-900 dark:text-white' : 'text-slate-400 hover:text-slate-600'}`}>
+                  Day {day.dayNumber}
+                  {activeTab === day.dayNumber && <span className="absolute bottom-0 left-0 w-full h-px bg-slate-900 dark:bg-white" />}
+                </button>
+              ))}
+            </div>
 
-                {/* 2. THE AIRMAIL TRANSIT TICKET */}
-                {trip.intake?.transitDetails && ['Flight', 'Train'].includes(trip.intake.transitDetails.mode) && (
-                  <div>
-                    <h2 className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-6 flex justify-between items-end border-b border-slate-200 dark:border-slate-800 pb-2">
-                      <span>Transit Documents</span>
-                      <span className="text-brand-500">{trip.intake.transitDetails.mode}</span>
-                    </h2>
-                    
-                    <div className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/20 p-8 flex flex-col md:flex-row justify-between gap-12 relative">
-                      {/* Decorative Airmail Edge (Optional visual flair) */}
-                      <div className="absolute top-0 left-0 w-full h-1 bg-[repeating-linear-gradient(45deg,#ef4444,#ef4444_10px,transparent_10px,transparent_20px,#3b82f6_20px,#3b82f6_30px,transparent_30px,transparent_40px)] opacity-50" />
-                      
-                      <div className="flex-1">
-                        <p className="text-[10px] font-mono uppercase tracking-widest text-slate-500 mb-4">Outbound</p>
-                        <div className="text-5xl font-serif text-slate-900 dark:text-white mb-2">{trip.intake.transitDetails.outbound?.time || 'TBD'}</div>
-                        <div className="text-sm font-sans text-slate-500 mb-6">Arrive {trip.destination}</div>
-                        <div className="font-mono text-xs uppercase tracking-widest text-slate-900 dark:text-white border-t border-slate-200 dark:border-slate-700 pt-4">
-                          Ref // {trip.intake.transitDetails.outbound?.reference || 'PENDING'}
-                        </div>
-                      </div>
+            {/* Print Booklet Button - Restored for V2 */}
+            <button onClick={() => window.print()} className="hidden md:flex pb-4 text-xs font-mono tracking-[0.2em] uppercase text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors items-center gap-2 group">
+              <span>Print Guide</span>
+              <span className="opacity-50 group-hover:opacity-100 transition-opacity">🖨️</span>
+            </button>
+          </div>
 
-                      <div className="hidden md:block w-px bg-slate-300 dark:bg-slate-700" />
-                      <div className="md:hidden h-px w-full bg-slate-300 dark:bg-slate-700" />
-
-                      <div className="flex-1">
-                        <p className="text-[10px] font-mono uppercase tracking-widest text-slate-500 mb-4">Return</p>
-                        <div className="text-5xl font-serif text-slate-900 dark:text-white mb-2">{trip.intake.transitDetails.return?.time || 'TBD'}</div>
-                        <div className="text-sm font-sans text-slate-500 mb-6">Depart {trip.destination}</div>
-                        <div className="font-mono text-xs uppercase tracking-widest text-slate-900 dark:text-white border-t border-slate-200 dark:border-slate-700 pt-4">
-                          Ref // {trip.intake.transitDetails.return?.reference || 'PENDING'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* 3. THE RESIDENCE (Accommodation) */}
-                <div>
-                  <div className="flex items-end justify-between border-b border-slate-200 dark:border-slate-800 pb-2 mb-6">
-                    <h2 className="text-[10px] font-mono uppercase tracking-widest text-slate-400">The Residence</h2>
-                    <button onClick={() => { if (onEditRequest) onEditRequest(); else setActiveTab(1); }} className="text-[9px] font-mono uppercase tracking-widest text-brand-600 hover:text-brand-500">
-                      Manage ↗
-                    </button>
-                  </div>
-                  
-                  {dynamicStays.length > 0 ? (
-                    <div className="flex flex-col gap-6">
-                      {dynamicStays.map((stay, idx) => {
-                        const hasPlaceId = !!(stay.placeId && stay.placeId !== "null" && stay.placeId !== "");
-                        const mapsUrl = hasPlaceId ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stay.name + ', ' + trip.destination)}&query_place_id=${stay.placeId}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stay.name + ', ' + trip.destination)}`;
-
-                        return (
-                          <div key={idx} className="group flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer" onClick={() => hasPlaceId && setSelectedPOI({ placeId: stay.placeId!, poiId: stay.poiId })}>
-                            <div>
-                              <p className="text-[9px] font-mono uppercase tracking-widest text-slate-400 mb-2">Check-in Day {stay.startDay}</p>
-                              <h3 className="text-3xl font-serif text-slate-900 dark:text-white group-hover:text-brand-600 transition-colors">{stay.name}</h3>
-                            </div>
-                            <a href={mapsUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="w-max text-[9px] font-mono uppercase tracking-widest text-slate-500 border border-slate-300 dark:border-slate-700 px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
-                              Map ↗
-                            </a>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-lg font-serif italic text-slate-500">No accommodation scheduled yet. Let the Matchmaker suggest an area, or pin one to your timeline.</p>
-                  )}
-                </div>
-
-                {/* 4. THE PHRASEBOOK */}
-                {essentials?.usefulPhrases && essentials.usefulPhrases.length > 0 && (
-                  <div>
-                    <h2 className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-6 border-b border-slate-200 dark:border-slate-800 pb-2">The Phrasebook</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-6">
-                      {essentials.usefulPhrases.slice(0,8).map((p, i) => (
-                        <div key={i} className="flex justify-between items-baseline">
-                          <span className="text-sm font-sans text-slate-500">{p.phrase}</span>
-                          <span className="text-lg font-serif text-slate-900 dark:text-white">{p.translation}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 5. THE TREASURY (Ledger) */}
-                <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 p-8 md:p-12">
-                  <h2 className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-8 border-b border-slate-300 dark:border-slate-700 pb-2 flex justify-between">
-                    <span>The Treasury</span>
-                    <button onClick={toggleCurrency} className="text-brand-600 hover:text-brand-500">{displayCurrency === 'GBP' ? 'View Local' : 'View GBP'}</button>
-                  </h2>
-                  
-                  <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-12">
-                    <div>
-                      <p className="text-xs font-sans text-slate-500 mb-2">Estimated Itinerary Spend</p>
-                      <div className="text-6xl font-serif text-slate-900 dark:text-white leading-none mb-4">
-                        {formatCost(dynamicTotalCost)}
-                      </div>
-                      <p className="text-sm font-sans text-slate-500 border-l-2 border-slate-300 pl-3">
-                        of your {formatCost(trip.budgetGBP)} initial budget
-                      </p>
-                    </div>
-
-                    <div className="w-full md:w-auto text-left md:text-right border-t border-slate-200 dark:border-slate-800 md:border-0 pt-6 md:pt-0">
-                      <p className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-2">Current Exchange</p>
-                      <div className="text-2xl font-serif text-slate-900 dark:text-white mb-1">£1 = {localSymbol}{exchangeRate.toFixed(2)}</div>
-                      <p className="text-xs font-sans text-slate-500">{localCurrencyRaw}</p>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
+          {typeof activeTab === 'number' && (
+            <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-[100] md:hidden">
+              <button onClick={() => setViewMode(prev => prev === 'list' ? 'map' : 'list')} className="bg-slate-900 text-white rounded-none px-8 py-4 flex items-center gap-3 font-mono text-xs uppercase tracking-widest shadow-2xl border border-slate-700">
+                {viewMode === 'list' ? <>View Map</> : <>View Timeline</>}
+              </button>
             </div>
           )}
 
-          {/* ── DAY VIEWS (The Itinerary) ── */}
-          {days.map(activeDay => {
-            const isActiveTab = activeTab === activeDay.dayNumber;
-            const mapUrl = generateGoogleMapsDayUrl(activeDay.entries, trip.destination);
+          <div className="pb-32">
             
-            return (
-              <div key={activeDay.dayNumber} className={`${isActiveTab ? 'flex' : 'hidden'} flex-col lg:flex-row gap-12 lg:gap-20 animate-fade-in max-w-5xl mx-auto`}>
+            {/* ── THE CURATED GUIDE (V2 LUXURY OVERVIEW) ── */}
+            {essentials && (
+              <div className={`animate-fade-in ${activeTab === 'overview' ? 'block' : 'hidden'}`}>
                 
-                <div className="flex-1">
-                  {viewMode === 'list' || typeof window === 'undefined' ? (
-                    <>
-                      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-16 border-b border-slate-200 dark:border-slate-800 pb-6">
-                        <div>
-                          <p className="text-[10px] font-mono uppercase tracking-widest text-brand-500 mb-2">Schedule</p>
-                          <h2 className="text-5xl font-serif text-slate-900 dark:text-white">Day {activeDay.dayNumber}</h2>
-                        </div>
-                        {mapUrl && (
-                          <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="inline-flex w-max items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
-                            Open Maps ↗
-                          </a>
-                        )}
-                      </div>
+                <div className="flex flex-col gap-24 max-w-3xl mx-auto">
+                  
+                  {/* 1. THE EDITORIAL BRIEFING */}
+                  <div className="relative">
+                    {/* FIX: Removed the fake 'language' prop reference */}
+                    <p className="font-serif text-3xl md:text-4xl lg:text-5xl leading-[1.4] text-slate-800 dark:text-slate-200">
+                      In {trip.destination}, you'll navigate primarily by <span className="italic text-brand-600 dark:text-brand-400">{essentials.airportTransit.toLowerCase().includes('uber') || essentials.airportTransit.toLowerCase().includes('taxi') ? 'taxi and rideshare' : 'local transit'}</span>. 
+                      English proficiency here is generally <span className="italic text-brand-600 dark:text-brand-400">{essentials.englishProficiency?.toLowerCase() || 'moderate'}</span>. 
+                      When dining out, <span className="italic text-brand-600 dark:text-brand-400">{essentials.tippingEtiquette?.toLowerCase() || 'tip around 10%'}</span>. 
+                      And take note: the tap water is <span className="italic text-brand-600 dark:text-brand-400">{tapWater.toLowerCase().includes('safe') ? 'safe to drink' : 'not recommended'}</span>.
+                    </p>
+
+                    <div className="mt-12 flex flex-wrap gap-4 border-t border-slate-200 dark:border-slate-800 pt-8">
+                      <span className="px-4 py-1.5 text-slate-500 font-mono text-[10px] uppercase tracking-widest border border-slate-300 dark:border-slate-700">🔌 {plugType}</span>
+                      <span className="px-4 py-1.5 text-slate-500 font-mono text-[10px] uppercase tracking-widest border border-slate-300 dark:border-slate-700">🚨 {risk}</span>
+                      {apps.map((app, i) => (
+                        <span key={i} className="px-4 py-1.5 text-slate-500 font-mono text-[10px] uppercase tracking-widest border border-slate-300 dark:border-slate-700">📱 {app}</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 2. THE AIRMAIL TRANSIT TICKET */}
+                  {trip.intake?.transitDetails && ['Flight', 'Train'].includes(trip.intake.transitDetails.mode) && (
+                    <div>
+                      <h2 className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-6 flex justify-between items-end border-b border-slate-200 dark:border-slate-800 pb-2">
+                        <span>Transit Documents</span>
+                        <span className="text-brand-500">{trip.intake.transitDetails.mode}</span>
+                      </h2>
                       
-                      <div className="flex flex-col">
-                        {(activeDay.entries || []).map((entry, index, arr) => (
-                          <TimelineEntry key={`${entry.id}-${entry.time}`} entry={entry} nextEntry={arr[index + 1]} isLast={index === arr.length - 1} dayNumber={activeDay.dayNumber} accommodationName={accommodationName} onPlaceClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })} formatCost={formatCost} destination={trip.destination} />
-                        ))}
+                      <div className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/20 p-8 flex flex-col md:flex-row justify-between gap-12 relative">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-[repeating-linear-gradient(45deg,#ef4444,#ef4444_10px,transparent_10px,transparent_20px,#3b82f6_20px,#3b82f6_30px,transparent_30px,transparent_40px)] opacity-50" />
+                        
+                        <div className="flex-1">
+                          <p className="text-[10px] font-mono uppercase tracking-widest text-slate-500 mb-4">Outbound</p>
+                          <div className="text-5xl font-serif text-slate-900 dark:text-white mb-2">{trip.intake.transitDetails.outbound?.time || 'TBD'}</div>
+                          <div className="text-sm font-sans text-slate-500 mb-6">Arrive {trip.destination}</div>
+                          <div className="font-mono text-xs uppercase tracking-widest text-slate-900 dark:text-white border-t border-slate-200 dark:border-slate-700 pt-4">
+                            Ref // {trip.intake.transitDetails.outbound?.reference || 'PENDING'}
+                          </div>
+                        </div>
+
+                        <div className="hidden md:block w-px bg-slate-300 dark:bg-slate-700" />
+                        <div className="md:hidden h-px w-full bg-slate-300 dark:bg-slate-700" />
+
+                        <div className="flex-1">
+                          <p className="text-[10px] font-mono uppercase tracking-widest text-slate-500 mb-4">Return</p>
+                          <div className="text-5xl font-serif text-slate-900 dark:text-white mb-2">{trip.intake.transitDetails.return?.time || 'TBD'}</div>
+                          <div className="text-sm font-sans text-slate-500 mb-6">Depart {trip.destination}</div>
+                          <div className="font-mono text-xs uppercase tracking-widest text-slate-900 dark:text-white border-t border-slate-200 dark:border-slate-700 pt-4">
+                            Ref // {trip.intake.transitDetails.return?.reference || 'PENDING'}
+                          </div>
+                        </div>
                       </div>
-                    </>
-                  ) : (
-                    <div className="h-[65vh] min-h-[600px] w-full border border-slate-200 dark:border-slate-800 relative">
-                       <DayMap entries={activeDay.entries || []} destination={trip.destination} onMarkerClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })} />
                     </div>
                   )}
-                </div>
 
-                <div className="w-full lg:w-64 flex-shrink-0">
-                  <div className="sticky top-40 flex flex-col gap-12">
-                    
-                    <div className="flex flex-col gap-2">
-                      <button onClick={() => setViewMode('list')} className={`text-left py-2 text-[10px] font-mono uppercase tracking-widest border-b transition-all ${viewMode === 'list' ? 'border-slate-900 dark:border-white text-slate-900 dark:text-white' : 'border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600'}`}>
-                        Read Timeline
-                      </button>
-                      <button onClick={() => setViewMode('map')} className={`text-left py-2 text-[10px] font-mono uppercase tracking-widest border-b transition-all ${viewMode === 'map' ? 'border-slate-900 dark:border-white text-slate-900 dark:text-white' : 'border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600'}`}>
-                        View Live Map
+                  {/* 3. THE RESIDENCE */}
+                  <div>
+                    <div className="flex items-end justify-between border-b border-slate-200 dark:border-slate-800 pb-2 mb-6">
+                      <h2 className="text-[10px] font-mono uppercase tracking-widest text-slate-400">The Residence</h2>
+                      <button onClick={() => { if (onEditRequest) onEditRequest(); else setActiveTab(1); }} className="text-[9px] font-mono uppercase tracking-widest text-brand-600 hover:text-brand-500">
+                        Manage ↗
                       </button>
                     </div>
                     
-                    <div>
-                      <h3 className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-4 pb-2 border-b border-slate-200 dark:border-slate-800 flex justify-between">
-                        <span>Day {activeDay.dayNumber} Spend</span>
-                        {!isDomesticTrip && <button onClick={toggleCurrency} className="text-brand-600 hover:text-brand-500">{displayCurrency === 'GBP' ? 'LOCAL' : 'GBP'}</button>}
-                      </h3>
-                      
-                      <div className={`text-4xl font-serif leading-none mb-2 ${(activeDay.estimatedDailySpendGBP || 0) > (trip.budgetGBP / trip.duration) ? 'text-red-600' : 'text-slate-900 dark:text-white'}`}>
-                        {formatCost(activeDay.estimatedDailySpendGBP || 0)}
-                      </div>
-                      <div className="text-sm font-sans text-slate-400 mb-6">
-                        / {formatCost(trip.budgetGBP / trip.duration)} limit
-                      </div>
+                    {dynamicStays.length > 0 ? (
+                      <div className="flex flex-col gap-6">
+                        {dynamicStays.map((stay, idx) => {
+                          const hasPlaceId = !!(stay.placeId && stay.placeId !== "null" && stay.placeId !== "");
+                          // FIX: Proper template strings
+                          const mapsUrl = hasPlaceId ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stay.name + ', ' + trip.destination)}&query_place_id=${stay.placeId}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stay.name + ', ' + trip.destination)}`;
 
-                      {/* Cumulative Spend Tracker */}
-                      {(() => {
-                        const currentDayNum = activeDay.dayNumber;
-                        const spendToDate = days.filter(d => d.dayNumber <= currentDayNum).reduce((sum, d) => sum + (d.estimatedDailySpendGBP || 0), 0);
-                        return (
-                          <div className="bg-slate-50 dark:bg-slate-900 p-4 border border-slate-200 dark:border-slate-800">
-                            <p className="text-[9px] font-mono uppercase tracking-widest text-slate-500 mb-1">Spend to Date</p>
-                            <p className="text-lg font-serif text-slate-900 dark:text-white">{formatCost(spendToDate)}</p>
-                          </div>
-                        );
-                      })()}
-                    </div>
-
+                          return (
+                            <div key={idx} className="group flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer" onClick={() => hasPlaceId && setSelectedPOI({ placeId: stay.placeId!, poiId: stay.poiId })}>
+                              <div>
+                                <p className="text-[9px] font-mono uppercase tracking-widest text-slate-400 mb-2">Check-in Day {stay.startDay}</p>
+                                <h3 className="text-3xl font-serif text-slate-900 dark:text-white group-hover:text-brand-600 transition-colors">{stay.name}</h3>
+                              </div>
+                              <a href={mapsUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="w-max text-[9px] font-mono uppercase tracking-widest text-slate-500 border border-slate-300 dark:border-slate-700 px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                                Map ↗
+                              </a>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-lg font-serif italic text-slate-500">No accommodation scheduled yet. Let the Matchmaker suggest an area, or pin one to your timeline.</p>
+                    )}
                   </div>
+
+                  {/* 4. THE PHRASEBOOK */}
+                  {essentials?.usefulPhrases && essentials.usefulPhrases.length > 0 && (
+                    <div>
+                      <h2 className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-6 border-b border-slate-200 dark:border-slate-800 pb-2">The Phrasebook</h2>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-6">
+                        {essentials.usefulPhrases.slice(0,8).map((p, i) => (
+                          <div key={i} className="flex justify-between items-baseline">
+                            <span className="text-sm font-sans text-slate-500">{p.phrase}</span>
+                            <span className="text-lg font-serif text-slate-900 dark:text-white">{p.translation}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 5. THE TREASURY (Ledger) */}
+                  <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 p-8 md:p-12">
+                    <h2 className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-8 border-b border-slate-300 dark:border-slate-700 pb-2 flex justify-between">
+                      <span>The Treasury</span>
+                      <button onClick={toggleCurrency} className="text-brand-600 hover:text-brand-500">{displayCurrency === 'GBP' ? 'View Local' : 'View GBP'}</button>
+                    </h2>
+                    
+                    <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-12">
+                      <div>
+                        <p className="text-xs font-sans text-slate-500 mb-2">Estimated Itinerary Spend</p>
+                        <div className="text-6xl font-serif text-slate-900 dark:text-white leading-none mb-4">
+                          {formatCost(dynamicTotalCost)}
+                        </div>
+                        <p className="text-sm font-sans text-slate-500 border-l-2 border-slate-300 pl-3">
+                          of your {formatCost(trip.budgetGBP)} initial budget
+                        </p>
+                      </div>
+
+                      <div className="w-full md:w-auto text-left md:text-right border-t border-slate-200 dark:border-slate-800 md:border-0 pt-6 md:pt-0">
+                        <p className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-2">Current Exchange</p>
+                        <div className="text-2xl font-serif text-slate-900 dark:text-white mb-1">£1 = {localSymbol}{exchangeRate.toFixed(2)}</div>
+                        <p className="text-xs font-sans text-slate-500">{localCurrencyRaw}</p>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
               </div>
-            );
-          })}
+            )}
 
+            {/* ── DAY VIEWS (The Itinerary) ── */}
+            {days.map(activeDay => {
+              const isActiveTab = activeTab === activeDay.dayNumber;
+              const mapUrl = generateGoogleMapsDayUrl(activeDay.entries, trip.destination);
+              
+              return (
+                <div key={activeDay.dayNumber} className={`${isActiveTab ? 'flex' : 'hidden'} flex-col lg:flex-row gap-12 lg:gap-20 animate-fade-in max-w-5xl mx-auto`}>
+                  
+                  <div className="flex-1">
+                    {viewMode === 'list' || typeof window === 'undefined' ? (
+                      <>
+                        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-16 border-b border-slate-200 dark:border-slate-800 pb-6">
+                          <div>
+                            <p className="text-[10px] font-mono uppercase tracking-widest text-brand-500 mb-2">Schedule</p>
+                            <h2 className="text-5xl font-serif text-slate-900 dark:text-white">Day {activeDay.dayNumber}</h2>
+                          </div>
+                          {mapUrl && (
+                            <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="inline-flex w-max items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
+                              Open Maps ↗
+                            </a>
+                          )}
+                        </div>
+                        
+                        <div className="flex flex-col">
+                          {(activeDay.entries || []).map((entry, index, arr) => (
+                            <TimelineEntry key={`${entry.id}-${entry.time}`} entry={entry} nextEntry={arr[index + 1]} isLast={index === arr.length - 1} dayNumber={activeDay.dayNumber} accommodationName={accommodationName} onPlaceClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })} formatCost={formatCost} destination={trip.destination} />
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="h-[65vh] min-h-[600px] w-full border border-slate-200 dark:border-slate-800 relative">
+                         <DayMap entries={activeDay.entries || []} destination={trip.destination} onMarkerClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })} />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="w-full lg:w-64 flex-shrink-0">
+                    <div className="sticky top-40 flex flex-col gap-12">
+                      
+                      <div className="flex flex-col gap-2">
+                        <button onClick={() => setViewMode('list')} className={`text-left py-2 text-[10px] font-mono uppercase tracking-widest border-b transition-all ${viewMode === 'list' ? 'border-slate-900 dark:border-white text-slate-900 dark:text-white' : 'border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600'}`}>
+                          Read Timeline
+                        </button>
+                        <button onClick={() => setViewMode('map')} className={`text-left py-2 text-[10px] font-mono uppercase tracking-widest border-b transition-all ${viewMode === 'map' ? 'border-slate-900 dark:border-white text-slate-900 dark:text-white' : 'border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600'}`}>
+                          View Live Map
+                        </button>
+                      </div>
+                      
+                      <div>
+                        <h3 className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-4 pb-2 border-b border-slate-200 dark:border-slate-800 flex justify-between">
+                          <span>Day {activeDay.dayNumber} Spend</span>
+                          {!isDomesticTrip && <button onClick={toggleCurrency} className="text-brand-600 hover:text-brand-500">{displayCurrency === 'GBP' ? 'LOCAL' : 'GBP'}</button>}
+                        </h3>
+                        
+                        <div className={`text-4xl font-serif leading-none mb-2 ${(activeDay.estimatedDailySpendGBP || 0) > (trip.budgetGBP / trip.duration) ? 'text-red-600' : 'text-slate-900 dark:text-white'}`}>
+                          {formatCost(activeDay.estimatedDailySpendGBP || 0)}
+                        </div>
+                        <div className="text-sm font-sans text-slate-400 mb-6">
+                          / {formatCost(trip.budgetGBP / trip.duration)} limit
+                        </div>
+
+                        {/* Cumulative Spend Tracker */}
+                        {(() => {
+                          const currentDayNum = activeDay.dayNumber;
+                          const spendToDate = days.filter(d => d.dayNumber <= currentDayNum).reduce((sum, d) => sum + (d.estimatedDailySpendGBP || 0), 0);
+                          return (
+                            <div className="bg-slate-50 dark:bg-slate-900 p-4 border border-slate-200 dark:border-slate-800">
+                              <p className="text-[9px] font-mono uppercase tracking-widest text-slate-500 mb-1">Spend to Date</p>
+                              <p className="text-lg font-serif text-slate-900 dark:text-white">{formatCost(spendToDate)}</p>
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+          </div>
         </div>
       </div>
     </div>

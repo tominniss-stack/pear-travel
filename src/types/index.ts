@@ -4,6 +4,7 @@ export type BookingMode = 'booked' | 'planning';
 export type PrimaryTransitMode = 'Flight' | 'Train' | 'Car / Other' | 'Not Sure';
 
 export type EntryType = 'ACTIVITY' | 'TRAVEL' | 'ACCOMMODATION' | 'REST_STOP';
+export type AestheticPreference = 'CLASSIC' | 'EDITORIAL' | 'NOTEBOOK' | 'TERMINAL' | 'CONCIERGE';
 
 export interface LatLng {
   lat: number;
@@ -150,14 +151,18 @@ export interface TripStore {
   weatherForecast: any[];
   pendingPlaceResolutions: Record<string, Partial<ItineraryEntry>>; 
 
+  // ── PHASE 8: THEME ENGINE TYPES ──
+  aestheticPreference: AestheticPreference;
+  useDynamicColors: boolean;
+  setAestheticPreference: (pref: AestheticPreference) => void;
+  toggleDynamicColors: () => void;
+  // ─────────────────────────────────
+
   applyPendingHydration: () => void;
   setLockedAccommodation: (acc: LockedAccommodation) => void;
   removeLockedAccommodation: (placeId: string) => void;
   autoHealConflict: (dayNumber: number, entryId: string) => void;
-  
-  // FIX: Added newTime and cascade to the signature
   updateAccommodation: (dayNumber: number, entryId: string, newLocation: string, newTime?: string, cascade?: boolean) => void;
-  
   updateIntakeField: <K extends keyof TripIntake>(field: K, value: TripIntake[K]) => void;
   setIntake: (intake: TripIntake) => void;
   setAllPOIs: (pois: POI[]) => void;
@@ -174,7 +179,6 @@ export interface TripStore {
   pushStagedToItinerary: () => void;
   resetStore: () => void;
   
-  // ── NEW LEDGER ACTIONS ──
   setActualCost: (dayNumber: number, entryId: string, cost: number | undefined, documentId?: string) => void;
   addMiscExpense: (expense: Omit<MiscExpense, 'id'>) => void;
   removeMiscExpense: (id: string) => void;

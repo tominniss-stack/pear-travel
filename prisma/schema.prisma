@@ -7,30 +7,37 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id            String    @id @default(cuid())
-  username      String    @unique
-  password      String    // Will be hashed via bcrypt
-  name          String?
-  role          String    @default("USER") // 'ADMIN' or 'USER'
-  
-  // The Sharing Relationships
-  ownedTrips    Trip[]    @relation("TripOwner")
-  sharedTrips   Trip[]    @relation("TripCollaborators")
+// ── THE STRUCTURAL THEME ENUM ──
+enum AestheticPreference {
+  CLASSIC
+  EDITORIAL
+  NOTEBOOK
+  TERMINAL
+  CONCIERGE
+}
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+model User {
+  id                  String              @id @default(cuid())
+  username            String              @unique
+  password            String              
+  name                String?
+  role                String              @default("USER") 
+  
+  // THE THEME PREFERENCE
+  aestheticPreference AestheticPreference @default(CLASSIC)
+  
+  ownedTrips          Trip[]              @relation("TripOwner")
+  sharedTrips         Trip[]              @relation("TripCollaborators")
+
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
 }
 
 model Trip {
   id                    String    @id @default(cuid())
-  
-  // Ownership & Sharing
   ownerId               String
   owner                 User      @relation("TripOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   collaborators         User[]    @relation("TripCollaborators")
-  
-  // Basic Searchable Metadata
   destination           String
   destinationPlaceId    String?
   startDate             DateTime?
@@ -38,26 +45,17 @@ model Trip {
   duration              Int
   budgetGBP             Int
   bookingMode           String    @default("planning")
-
-  // The Trip Origin Constant (for transit math fallback)
   defaultOriginCoords   Json?
-
-  // V3 Architecture JSON Blobs
   intake                Json?
   itinerary             Json?
   lockedAccommodations  Json?
-
-  // Documents Relational Link
   documents             Document[]
-
-  // Timestamps
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
   @@index([ownerId])
 }
 
-// ── NEW: Document Database Model ──
 model Document {
   id               String   @id @default(cuid())
   tripId           String

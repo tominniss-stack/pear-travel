@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import { persist, devtools, createJSONStorage } from 'zustand/middleware';
 import { useEffect, useState } from 'react';
-import type { TripIntake, Itinerary, POI, ItineraryEntry, TripStore, LockedAccommodation, MiscExpense } from '@/types';
+import type { TripIntake, Itinerary, POI, ItineraryEntry, TripStore, LockedAccommodation, MiscExpense, AestheticPreference } from '@/types';
 import { recalculateItinerary } from '@/lib/itinerary/recalc';
 
 // ── SavedTrip type ────────────────────────────────────────────────────────────
@@ -61,6 +61,10 @@ export const useTripStore = create<TripStore>()(
         weatherForecast: [],
         pendingPlaceResolutions: {},
 
+        // ── Phase 8 Theme State ─────────────────────────────────────────────
+        aestheticPreference: 'CLASSIC' as AestheticPreference,
+        useDynamicColors: true,
+
         // ── V3 Architecture: Optimistic Hydration ───────────────────────────
         applyPendingHydration: () => set(state => {
           if (!state.itinerary || Object.keys(state.pendingPlaceResolutions).length === 0) return state;
@@ -104,7 +108,7 @@ export const useTripStore = create<TripStore>()(
             const prev = day.entries[entryIndex - 1];
             
             if (target.conflict?.type === 'overlap') {
-              // Shrink preceding item's duration by the exact overlap amount (min 15 mins)
+              // FIX: Corrected overlapMinutes to conflictMinutes matching the types
               const newDuration = Math.max(15, (prev.durationMinutes || 120) - target.conflict.conflictMinutes);
               const updatedEntries = [...day.entries];
               updatedEntries[entryIndex - 1] = { ...prev, durationMinutes: newDuration };
@@ -125,6 +129,13 @@ export const useTripStore = create<TripStore>()(
 
         setExchangeRate: (rate: number) =>
           set({ exchangeRate: rate }, false, 'setExchangeRate'),
+
+        // ── Theme Actions ───────────────────────────────────────────────────
+        setAestheticPreference: (pref: AestheticPreference) =>
+          set({ aestheticPreference: pref }, false, 'setAestheticPreference'),
+
+        toggleDynamicColors: () =>
+          set((state) => ({ useDynamicColors: !state.useDynamicColors }), false, 'toggleDynamicColors'),
 
         // ── Weather Actions ─────────────────────────────────────────────────
         setWeatherForecast: (forecast: any[]) =>
@@ -219,14 +230,11 @@ export const useTripStore = create<TripStore>()(
               if (!state.itinerary) return state;
 
               const nextDays = state.itinerary.days.map((day) => {
-                // BUG 1 FIX: When on the exact day we edited...
                 if (day.dayNumber === dayNumber) {
                   const updatedEntries = day.entries.map((e) => {
-                    // Update the specific entry we clicked on
                     if (e.id === entryId) {
                       return { ...e, locationName: newLocation, time: newTime || e.time, userModified: true };
                     }
-                    // Cascade to other bookends on the SAME day (e.g. End of Day 1)
                     if (cascade) {
                       const isBookend = !e.isDining && (
                         e.type === 'ACCOMMODATION' ||
@@ -242,7 +250,6 @@ export const useTripStore = create<TripStore>()(
                   return { ...day, entries: updatedEntries };
                 }
 
-                // Cascade to FUTURE days
                 if (cascade && day.dayNumber > dayNumber) {
                   const updatedEntries = day.entries.map((e) => {
                     const isBookend = !e.isDining && (
@@ -262,10 +269,8 @@ export const useTripStore = create<TripStore>()(
                 return day;
               });
 
-              // Push the manual override through the V3 recalculation pipeline
               return { 
                 itinerary: recalculateItinerary({ ...state.itinerary, days: nextDays }, state.intake),
-                // BUG 2 FIX: Update the intake.accommodation so the UI Overview card updates!
                 ...(cascade ? { intake: { ...state.intake, accommodation: newLocation } } : {})
               };
             },
@@ -322,7 +327,7 @@ export const useTripStore = create<TripStore>()(
               
               const newEntry: ItineraryEntry = {
                 id: `custom-${Date.now()}`,
-                type: partialEntry.type || 'ACTIVITY', // V3 Type Assignment
+                type: partialEntry.type || 'ACTIVITY', 
                 time: partialEntry.time || undefined,
                 locationName: partialEntry.locationName || 'New Activity',
                 activityDescription: partialEntry.activityDescription || 'Manually added activity.',
@@ -341,7 +346,6 @@ export const useTripStore = create<TripStore>()(
                 const entries = [...day.entries];
                 
                 if (!newEntry.time) {
-                  // V3 Fix: Safely insert at the end of the array (before the final bookend)
                   const insertIdx = Math.max(0, entries.length - 1);
                   entries.splice(insertIdx, 0, newEntry);
                 } else {
@@ -442,23 +446,23 @@ export const useTripStore = create<TripStore>()(
               itinerary:               null,
               currentTripId:           null,
               weatherForecast:         [],
-              pendingPlaceResolutions: {}, // V3 Fix: Flush hydration buffer on reset
+              pendingPlaceResolutions: {}, 
             },
             false,
             'resetStore',
           ),
       }),
       {
-        // V3 Fix: Version bump flushes stale `arrivalTime`/`departureTime` from localStorage
         name: 'pear-travel-v3-storage',
         storage: createJSONStorage(() => localStorage),
         partialize: (state) => ({
-          intake:          state.intake,
-          currentTripId:   state.currentTripId,
-          savedTrips:      state.savedTrips,
-          displayCurrency: state.displayCurrency, 
-          exchangeRate:    state.exchangeRate, 
-          // Note: pendingPlaceResolutions is correctly excluded here
+          intake:              state.intake,
+          currentTripId:       state.currentTripId,
+          savedTrips:          state.savedTrips,
+          displayCurrency:     state.displayCurrency, 
+          exchangeRate:        state.exchangeRate, 
+          aestheticPreference: state.aestheticPreference, 
+          useDynamicColors:    state.useDynamicColors,    
         }),
       },
     ),

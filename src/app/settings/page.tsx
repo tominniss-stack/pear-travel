@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react';
 import { signOut, useSession } from 'next-auth/react';
 import { format } from 'date-fns';
 import { fetchAllUserDocuments, deleteDocument } from '@/app/actions/documents';
+import { useTripStore } from '@/store/tripStore';
+import type { AestheticPreference } from '@/types';
 
-type Tab = 'account' | 'files';
+type Tab = 'account' | 'appearance' | 'files';
 
 export default function SettingsPage() {
   const { data: session } = useSession();
@@ -15,6 +17,17 @@ export default function SettingsPage() {
   const [documents, setDocuments] = useState<any[]>([]);
   const [isLoadingDocs, setIsLoadingDocs] = useState(false);
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+
+  // Appearance State
+  const { aestheticPreference, setAestheticPreference, useDynamicColors, toggleDynamicColors } = useTripStore();
+
+  const themes: { id: AestheticPreference; name: string; desc: string; icon: string; status: 'active' | 'coming_soon' }[] = [
+    { id: 'CLASSIC', name: 'The Classic', desc: 'Data-dense, highly functional card-based layout.', icon: '📋', status: 'active' },
+    { id: 'EDITORIAL', name: 'The Editorial', desc: 'A curated, magazine-style luxury reading experience.', icon: '📖', status: 'active' },
+    { id: 'NOTEBOOK', name: 'Field Notes', desc: 'Tactile, analogue journal aesthetics.', icon: '📓', status: 'coming_soon' },
+    { id: 'TERMINAL', name: 'Terminal', desc: 'CLI-inspired green-on-black departure board.', icon: '📟', status: 'coming_soon' },
+    { id: 'CONCIERGE', name: 'Concierge', desc: 'Ultra-minimalist architectural luxury.', icon: '🛎️', status: 'coming_soon' },
+  ];
 
   // Load documents safely when switching to the tab
   useEffect(() => {
@@ -67,6 +80,12 @@ export default function SettingsPage() {
             Account Profile
           </button>
           <button 
+            onClick={() => setActiveTab('appearance')}
+            className={`flex-shrink-0 text-left px-5 py-3 rounded-xl font-bold transition-all text-sm ${activeTab === 'appearance' ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent'}`}
+          >
+            Appearance
+          </button>
+          <button 
             onClick={() => setActiveTab('files')}
             className={`flex-shrink-0 text-left px-5 py-3 rounded-xl font-bold transition-all text-sm ${activeTab === 'files' ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-md' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent'}`}
           >
@@ -77,7 +96,7 @@ export default function SettingsPage() {
         {/* ── Main Content Area ── */}
         <div className="flex-1 w-full">
           
-          {/* Account Tab */}
+          {/* 1. Account Tab (Preserved) */}
           {activeTab === 'account' && (
             <div className="space-y-8 animate-fade-in">
               <section className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -113,7 +132,76 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* Files & Storage Tab */}
+          {/* 2. Appearance Tab (New) */}
+          {activeTab === 'appearance' && (
+            <div className="space-y-8 animate-fade-in">
+              <section className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <h2 className="text-xl font-bold mb-2 text-slate-900 dark:text-slate-100">Structural Layout</h2>
+                <p className="text-sm text-slate-500 mb-8 max-w-xl">Customize how your travel itineraries look and feel.</p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
+                  {themes.map((theme) => (
+                    <button
+                      key={theme.id}
+                      disabled={theme.status === 'coming_soon'}
+                      onClick={() => setAestheticPreference(theme.id)}
+                      className={`text-left p-6 rounded-2xl border-2 transition-all flex flex-col gap-3 relative overflow-hidden ${
+                        aestheticPreference === theme.id
+                          ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 shadow-md scale-[1.02]'
+                          : theme.status === 'coming_soon'
+                          ? 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 opacity-60 cursor-not-allowed'
+                          : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-sm'
+                      }`}
+                    >
+                      {theme.status === 'coming_soon' && (
+                        <span className="absolute top-4 right-4 text-[10px] font-black uppercase tracking-widest text-slate-400 bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                          Soon
+                        </span>
+                      )}
+                      {aestheticPreference === theme.id && (
+                        <span className="absolute top-4 right-4 text-brand-500 text-xl">
+                          ✓
+                        </span>
+                      )}
+                      <span className="text-3xl">{theme.icon}</span>
+                      <div>
+                        <h3 className={`font-bold ${aestheticPreference === theme.id ? 'text-brand-700 dark:text-brand-300' : 'text-slate-900 dark:text-white'}`}>
+                          {theme.name}
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-1 leading-relaxed">{theme.desc}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Dynamic Colors Toggle */}
+                <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                  <div>
+                    <h2 className="text-md font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      🎨 Destination-Adaptive Colors
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-1 max-w-lg leading-relaxed">
+                      Automatically shift the app's accent colors to match the vibe of your destination city. If disabled, Pear Travel will use the default Emerald branding.
+                    </p>
+                  </div>
+                  <button
+                    onClick={toggleDynamicColors}
+                    className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none shrink-0 ${
+                      useDynamicColors ? 'bg-brand-500' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
+                        useDynamicColors ? 'translate-x-7' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </section>
+            </div>
+          )}
+
+          {/* 3. Files & Storage Tab (Preserved) */}
           {activeTab === 'files' && (
             <div className="space-y-8 animate-fade-in">
               <section className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">

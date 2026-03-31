@@ -5,6 +5,7 @@ import Link from 'next/link';
 
 import SortableItinerary from '@/components/itinerary/SortableItinerary';
 import ItineraryDisplay from '@/components/itinerary/ItineraryDisplay';
+import ItineraryDisplayV2 from '@/components/itinerary/ItineraryDisplayV2';
 import type { Itinerary, TripIntake } from '@/types'; 
 import { useTripStore } from '@/store/tripStore';
 
@@ -28,6 +29,9 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
   const setIntake = useTripStore((state) => state.setIntake); 
   const setCurrentTripId = useTripStore((state) => state.setCurrentTripId);
   const itinerary = useTripStore((state) => state.itinerary);
+  
+  // ── PHASE 8: THEME ROUTER STATE ──
+  const aestheticPreference = useTripStore((state) => state.aestheticPreference);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -96,11 +100,21 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
       {isEditing ? (
         <SortableItinerary />
       ) : (
-        <ItineraryDisplay 
-          itinerary={currentItinerary} 
-          trip={dbTrip} 
-          onEditRequest={() => setIsEditing(true)} 
-        />
+        /* ── PHASE 8: DYNAMIC COMPONENT SWAPPING ── */
+        aestheticPreference === 'EDITORIAL' ? (
+          <ItineraryDisplayV2 
+            itinerary={currentItinerary} 
+            trip={dbTrip} 
+            onEditRequest={() => setIsEditing(true)} 
+          />
+        ) : (
+          /* Default Fallback is Classic V1 */
+          <ItineraryDisplay 
+            itinerary={currentItinerary} 
+            trip={dbTrip} 
+            onEditRequest={() => setIsEditing(true)} 
+          />
+        )
       )}
     </div>
   );
