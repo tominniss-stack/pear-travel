@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
-import ExportPdfButton from '@/components/ExportPdfButton';
 import SortableItinerary from '@/components/itinerary/SortableItinerary';
 import ItineraryDisplay from '@/components/itinerary/ItineraryDisplay';
 import type { Itinerary, TripIntake } from '@/types'; 
@@ -91,7 +90,6 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
           >
             {isSaving ? 'Saving...' : isEditing ? 'Save Changes' : 'Edit Trip Planner'}
           </button>
-          {!isEditing && <ExportPdfButton />}
         </div>
       </div>
 

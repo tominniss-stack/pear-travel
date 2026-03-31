@@ -8,11 +8,11 @@ import type { Itinerary, DayItinerary, ItineraryEntry, TransitMethod } from '@/t
 import PlaceDetailsModal, { DocumentInfo } from './PlaceDetailsModal';
 import FilingCabinet from './FilingCabinet';
 import CollaboratorsModal from './CollaboratorsModal';
+import CalendarExportModal from './CalendarExportModal';
 import DayMap from './DayMap';
 import { useTripStore } from '@/store/tripStore';
 import { fetchTripDocuments } from '@/app/actions/documents';
 import { fetchTripWeather, DailyWeather } from '@/app/actions/weather';
-import CalendarExportModal from './CalendarExportModal';
 
 export interface ClientTripProps {
   id: string;
@@ -151,7 +151,7 @@ function generateGoogleMapsDayUrl(entries: ItineraryEntry[], destinationCity: st
   if (validEntries.length === 0) return null;
   if (validEntries.length === 1) {
      const placeIdParam = validEntries[0].placeId && validEntries[0].placeId !== "null" ? `&query_place_id=${validEntries[0].placeId}` : '';
-     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(validEntries[0].locationName + ', ' + destinationCity)}${placeIdParam}`;
+     return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(validEntries[0].locationName + ', ' + destinationCity)}${placeIdParam}`;
   }
   
   const origin = validEntries[0];
@@ -190,35 +190,169 @@ function PrintOnlyBooklet({
 }) {
   const days = itinerary.days ?? [];
   const essentials = itinerary.essentials;
-  const accommodationName = trip.intake?.accommodation;
   
+  // Safely grab phrases, no hardcoded language fallbacks
   const phrases = essentials?.usefulPhrases && essentials.usefulPhrases.length > 0 
     ? essentials.usefulPhrases 
-    : [
-        { phrase: 'Hello', translation: 'Hola' },
-        { phrase: 'Thank you', translation: 'Gracias' },
-        { phrase: 'The bill, please', translation: 'La cuenta, por favor' },
-      ];
+    : [];
 
   const plugType = essentials?.plugType || 'Type C / F (230V)';
   const tapWater = essentials?.tapWater || 'Safe to drink 🚰';
   const risk = essentials?.contextualRisk || 'Stay alert around major tourist hubs.';
   const localSymbol = localCurrencyRaw.split(' ')[0] || '€';
 
+  // ── HYDRATION FIX ──
+  // Initialize with a static URL so the Server and initial Client render match perfectly.
+  const [baseUrl, setBaseUrl] = useState('https://peartravel.app');
+
+  useEffect(() => {
+    // Once safely mounted on the client, swap to the actual domain (e.g., localhost:3000)
+    if (typeof window !== 'undefined') {
+      setBaseUrl(window.location.origin);
+    }
+  }, []);
+
+  const masterQrUrl = `${baseUrl}/itinerary/${trip.id}`;
+
   return (
     <div className="hidden print:block w-full bg-white text-black font-sans print:m-0 print:p-0">
+      
+      {/* ── Cover Page & Essentials ── */}
       <div className="print:page-break-after-always pb-8">
-        <div className="mb-8 border-b-2 border-black pb-4">
-          <p className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-1">Your Travel Booklet</p>
-          <h1 className="text-5xl font-black mb-2">{trip.destination}</h1>
-          <p className="text-lg font-medium text-slate-700">
-            {trip.startDate && trip.endDate 
-              ? `${format(new Date(trip.startDate), 'd MMM')} – ${format(new Date(trip.endDate), 'd MMM yyyy')}` 
-              : `${trip.duration} Days`}
-            {' '}· {totalStops} Stops · Est. Budget: {formatCost(trip.budgetGBP)}
-          </p>
+        
+        {/* Header */}
+        <div className="mb-8 border-b-2 border-black pb-6 flex justify-between items-start">
+          <div className="flex-1 pr-6">
+            <p className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-1">Your Travel Booklet</p>
+            <h1 className="text-6xl font-black mb-3 tracking-tight">{trip.destination}</h1>
+            <p className="text-xl font-medium text-slate-700 flex items-center gap-2">
+              {trip.startDate && trip.endDate 
+                ? `${format(new Date(trip.startDate), 'd MMM')} – ${format(new Date(trip.endDate), 'd MMM yyyy')}` 
+                : `${trip.duration} Days`}
+              <span>·</span> {totalStops} Stops <span>·</span> Est. Budget: {formatCost(trip.budgetGBP)}
+            </p>
+          </div>
+          
+          {/* Master Digital Trip QR Code */}
+          <div className="flex flex-col items-center justify-center p-3 border-2 border-slate-200 rounded-xl shrink-0 w-32 bg-white">
+            <div style={{ width: '90px', height: '90px', backgroundColor: 'white' }}>
+              <QRCode 
+                value={masterQrUrl} 
+                size={256} 
+                style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                viewBox={`0 0 256 256`}
+                level="M" 
+              />
+            </div>
+            <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 mt-2 text-center leading-tight">
+              Scan for<br/>Digital Trip
+            </span>
+          </div>
         </div>
+
+        {/* Logistics & Cultural Briefing */}
+        <div className="grid grid-cols-2 gap-12 mb-8">
+          <div>
+            <h3 className="text-xl font-black border-b border-slate-300 pb-2 mb-4 uppercase tracking-widest">Logistics</h3>
+            <ul className="text-base space-y-3">
+              <li><strong className="text-slate-500 uppercase tracking-wider text-xs block mb-0.5">Currency</strong> {localCurrencyRaw} ({localSymbol})</li>
+              <li><strong className="text-slate-500 uppercase tracking-wider text-xs block mb-0.5">Power Outlets</strong> {plugType}</li>
+              <li><strong className="text-slate-500 uppercase tracking-wider text-xs block mb-0.5">Tap Water</strong> {tapWater}</li>
+              <li><strong className="text-slate-500 uppercase tracking-wider text-xs block mb-0.5">Safety & Risk</strong> {risk}</li>
+              {essentials?.airportTransit && (
+                <li><strong className="text-slate-500 uppercase tracking-wider text-xs block mb-0.5">Airport Transit</strong> {essentials.airportTransit}</li>
+              )}
+            </ul>
+          </div>
+          
+          <div>
+            {phrases.length > 0 && (
+              <>
+                <h3 className="text-xl font-black border-b border-slate-300 pb-2 mb-4 uppercase tracking-widest">Survival Phrases</h3>
+                <ul className="text-base space-y-3">
+                  {phrases.map((p, i) => (
+                    <li key={i} className="flex justify-between items-end border-b border-slate-100 pb-1">
+                      <span className="text-slate-600">{p.phrase}</span>
+                      <span className="font-bold text-black">{p.translation}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            
+            {(essentials?.englishProficiency || phrases.length === 0) && (
+              <div className={phrases.length > 0 ? "mt-4 pt-4 border-t border-slate-100" : ""}>
+                 <h3 className={phrases.length === 0 ? "text-xl font-black border-b border-slate-300 pb-2 mb-4 uppercase tracking-widest" : "hidden"}>
+                   Communication
+                 </h3>
+                 <strong className="text-slate-500 uppercase tracking-wider text-xs block mb-0.5">English Proficiency</strong>
+                 <p>{essentials?.englishProficiency || 'Moderate'}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
       </div>
+
+      {/* ── Daily Timelines (Strict Tables for Pagination) ── */}
+      {days.map(day => {
+        // Generate the Google Maps Route URL for this specific day
+        const dayMapUrl = generateGoogleMapsDayUrl(day.entries, trip.destination);
+
+        return (
+          <div key={day.dayNumber} className="mb-10" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+            
+            {/* Day Header + Route QR Code */}
+            <div className="flex justify-between items-end border-b-2 border-black pb-2 mb-4">
+              <h2 className="text-3xl font-black">Day {day.dayNumber}</h2>
+              
+              {dayMapUrl && (
+                <div className="flex items-center gap-3">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 text-right leading-tight">
+                    Scan for<br/>Day Route
+                  </span>
+                  <div className="border border-slate-200 p-1.5 rounded-lg bg-white" style={{ width: '60px', height: '60px' }}>
+                    <QRCode 
+                      value={dayMapUrl} 
+                      size={128} 
+                      style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                      viewBox={`0 0 256 256`}
+                      level="L" 
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <table className="w-full text-base">
+              <tbody>
+                {day.entries.map((entry, idx) => (
+                  <tr key={idx} className="border-b border-slate-200" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                    <td className="w-[15%] py-5 align-top font-bold text-xl tabular-nums">
+                      {entry.time || '—'}
+                    </td>
+                    <td className="w-[65%] py-5 pr-6 align-top">
+                      <div className="font-black text-lg text-black mb-1">{entry.locationName}</div>
+                      <div className="text-slate-700 leading-relaxed">
+                        {entry.activityDescription?.replace(/^\[.*?\]\s*/, '')}
+                      </div>
+                      {entry.transitNote && (
+                        <div className="mt-3 text-sm font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                          <span>↳ Transit:</span> 
+                          <span className="text-black">{entry.transitMethod} ({entry.transitNote})</span>
+                        </div>
+                      )}
+                    </td>
+                    <td className="w-[20%] py-5 align-top text-right font-bold whitespace-nowrap text-lg">
+                      {formatCost(entry.estimatedCostGBP)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -457,10 +591,11 @@ export default function ItineraryDisplay({
     }
   }, [targetCurrency, setExchangeRate]);
 
-// Instantly load the DB image for new trips, fallback to Picsum temporarily for legacy trips
+  // Instantly load the DB image for new trips, fallback to Picsum temporarily for legacy trips
   const [heroImage, setHeroImage] = useState<string>(
     trip.intake?.heroImage || `https://picsum.photos/seed/${trip.id}/1600/900`
-  );  
+  );
+
   useEffect(() => {
     if (!intake?.destinationPlaceId || typeof window === 'undefined') return;
     const googleObj = (window as any).google;
@@ -934,26 +1069,6 @@ export default function ItineraryDisplay({
                     </div>
                   </button>
 
-                  {/* Spacer to push the currency toggle to the bottom */}
-                  <div className="flex-1 min-h-[1rem]" />
-
-                  {/* RESTORED: Master Currency Toggle */}
-                  <div className="pt-4 border-t border-slate-200 dark:border-slate-700/50 w-full mt-auto">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Exchange Rate</span>
-                      <span className="text-xs font-black text-slate-900 dark:text-white">£1 = {localSymbol}{symbolSpacer}{exchangeRate.toFixed(2)}</span>
-                    </div>
-                    
-                    {!isDomesticTrip && (
-                      <button 
-                        onClick={toggleCurrency} 
-                        className="w-full py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 transition-all rounded-xl text-xs font-black tracking-wide cursor-pointer shadow-sm flex items-center justify-center gap-2"
-                      >
-                        <span>VIEW PRICES IN {displayCurrency === 'GBP' ? 'LOCAL' : 'GBP'}</span>
-                        <span className="text-[14px] leading-none">{displayCurrency === 'GBP' ? currentFlag : '🇬🇧'}</span>
-                      </button>
-                    )}
-                  </div>
                 </div>
               </div>
 
@@ -1021,31 +1136,38 @@ export default function ItineraryDisplay({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     
                     <div className="flex flex-col gap-6">
+                      
+                      {/* Language Section - Handled gracefully without hardcoded Spanish */}
                       <div>
-                        <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">Language</h4>
-                        <div className="flex items-center gap-3">
-                          <span className="text-base font-bold text-slate-900 dark:text-white">
-                            {essentials?.language || 'Local Language'}
+                        {essentials?.usefulPhrases && essentials.usefulPhrases.length > 0 ? (
+                          <>
+                            <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">Survival Phrases</h4>
+                            <div className="flex flex-col gap-3">
+                              {essentials.usefulPhrases.map((p, i) => (
+                                <div key={i} className="flex justify-between items-center border-b border-slate-100 dark:border-slate-700/50 pb-2">
+                                  <span className="text-sm text-slate-600 dark:text-slate-400">{p.phrase}</span>
+                                  <span className="text-sm font-bold text-slate-900 dark:text-white text-right">{p.translation}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">Communication</h4>
+                            <div className="text-sm text-slate-600 dark:text-slate-400">Your AI guide did not load local phrases for this destination.</div>
+                          </>
+                        )}
+                        
+                        {/* English Proficiency - Falls back elegantly */}
+                        <div className="mt-4 flex items-center gap-3">
+                          <span className="text-sm font-bold text-slate-900 dark:text-white">
+                            English Spoken
                           </span>
                           <div className="flex items-center gap-1.5 px-2.5 py-1 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 rounded-lg border border-brand-200 dark:border-brand-800">
                              <span className="text-[10px] font-black uppercase tracking-wider">
-                               English: {essentials?.englishProficiency || 'Moderate'}
+                               {essentials?.englishProficiency || 'Moderate'}
                              </span>
                           </div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">Survival Phrases</h4>
-                        <div className="flex flex-col gap-3">
-                          {essentials?.usefulPhrases?.map((p, i) => (
-                            <div key={i} className="flex justify-between items-center border-b border-slate-100 dark:border-slate-700/50 pb-2">
-                              <span className="text-sm text-slate-600 dark:text-slate-400">{p.phrase}</span>
-                              <span className="text-sm font-bold text-slate-900 dark:text-white text-right">{p.translation}</span>
-                            </div>
-                          )) || (
-                            <div className="text-sm text-slate-500">No phrases loaded.</div>
-                          )}
                         </div>
                       </div>
 
@@ -1058,14 +1180,14 @@ export default function ItineraryDisplay({
                           {essentials?.localCustoms?.map((custom, i) => (
                             <li key={i}>{custom}</li>
                           )) || (
-                            <li>Always greet shopkeepers when entering.</li>
+                            <li>Always be respectful of local norms and culture.</li>
                           )}
                         </ul>
                       </div>
                       <div>
                         <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Tipping & Custom</h4>
                         <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
-                          {essentials?.tippingEtiquette || 'Tipping is generally appreciated but not strictly mandatory. 10% is standard for good service.'}
+                          {essentials?.tippingEtiquette || 'Check local customs; tipping may not be strictly mandatory but is often appreciated.'}
                         </p>
                       </div>
                       <div className="flex items-start gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/50 mt-1">
@@ -1278,7 +1400,7 @@ export default function ItineraryDisplay({
                         <h3 className="text-sm font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest">Day {activeDay.dayNumber} Spend</h3>
                         <button 
                           onClick={() => router.push(`/itinerary/${trip.id}/ledger`)} 
-                          className="text-[10px] font-bold text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-900/30 hover:bg-brand-100 dark:hover:bg-brand-900/50 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                          className="text-[10px] font-bold text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-900/30 hover:bg-brand-100 dark:bg-brand-900/50 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
                         >
                           Log Spend ↗
                         </button>
