@@ -51,3 +51,12 @@ export async function registerUser(prevState: any, formData: FormData) {
     return { error: 'Something went wrong while creating your account.' };
   }
 }
+
+export async function registerAction(username: string, password: string) {
+  const formData = new FormData();
+  formData.append('name', username);
+  formData.append('username', username);
+  formData.append('password', password);
+  formData.append('confirmPassword', password);
+  return registerUser(null, formData);
+}
