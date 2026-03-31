@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'standalone', // CRITICAL: Tells Next.js to build a minimal Docker-ready output
+  output: 'standalone', 
   images: {
     remotePatterns: [
       {
