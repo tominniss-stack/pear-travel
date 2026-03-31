@@ -3,15 +3,6 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: 'standalone', 
   
-  // ── TEMPORARY ESCAPE HATCH FOR PORTAINER DEPLOYMENT ──
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  // ───────────────────────────────────────────────────────
-
   images: {
     remotePatterns: [
       {
