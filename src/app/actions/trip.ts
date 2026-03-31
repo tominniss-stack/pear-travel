@@ -2,6 +2,8 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 // ── 1. The Creation Engine (V3) ──
 export async function createTripAction(data: {
@@ -101,5 +103,36 @@ export async function toggleTripBookingStatusAction(tripId: string, currentStatu
   } catch (error) {
     console.error('Failed to toggle booking status:', error);
     throw new Error('Failed to toggle status');
+  }
+}
+
+export async function lockTripDates(tripId: string, startDateIso: string, endDateIso: string) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) return { error: 'Unauthorized' };
+
+  try {
+    const trip = await prisma.trip.findUnique({ 
+      where: { id: tripId }, 
+      select: { ownerId: true }
+    });
+    
+    if (!trip || trip.ownerId !== session.user.id) {
+      return { error: 'Only the trip owner can lock dates.' };
+    }
+
+    await prisma.trip.update({
+      where: { id: tripId },
+      data: {
+        startDate: new Date(startDateIso),
+        endDate: new Date(endDateIso),
+        bookingMode: 'booked'
+      }
+    });
+
+    revalidatePath(`/itinerary/${tripId}`);
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to lock dates", error);
+    return { error: 'Server error while locking dates.' };
   }
 }

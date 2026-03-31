@@ -12,6 +12,7 @@ import DayMap from './DayMap';
 import { useTripStore } from '@/store/tripStore';
 import { fetchTripDocuments } from '@/app/actions/documents';
 import { fetchTripWeather, DailyWeather } from '@/app/actions/weather';
+import CalendarExportModal from './CalendarExportModal';
 
 export interface ClientTripProps {
   id: string;
@@ -456,26 +457,41 @@ export default function ItineraryDisplay({
     }
   }, [targetCurrency, setExchangeRate]);
 
-  const [heroImage, setHeroImage] = useState<string>(`https://picsum.photos/seed/${trip.id}/1200/600`);
-  
+// Instantly load the DB image for new trips, fallback to Picsum temporarily for legacy trips
+  const [heroImage, setHeroImage] = useState<string>(
+    trip.intake?.heroImage || `https://picsum.photos/seed/${trip.id}/1600/900`
+  );  
   useEffect(() => {
     if (!intake?.destinationPlaceId || typeof window === 'undefined') return;
     const googleObj = (window as any).google;
+    
     if (googleObj?.maps?.places) {
       const dummyDiv = document.createElement('div');
       const service = new googleObj.maps.places.PlacesService(dummyDiv);
-      service.getDetails({ placeId: intake.destinationPlaceId, fields: ['photos', 'utc_offset_minutes'] }, (place: any, status: any) => {
+      
+      // SMART FETCH: Always get the timezone offset. 
+      // ONLY fetch photos if this is a legacy trip missing a DB image.
+      const fieldsToFetch = ['utc_offset_minutes'];
+      if (!trip.intake?.heroImage) {
+        fieldsToFetch.push('photos');
+      }
+
+      service.getDetails({ placeId: intake.destinationPlaceId, fields: fieldsToFetch }, (place: any, status: any) => {
         if (status === googleObj.maps.places.PlacesServiceStatus.OK) {
-          if (place?.photos?.length > 0) {
-            setHeroImage(place.photos[0].getUrl({ maxWidth: 1200, maxHeight: 600 }));
-          }
+          
+          // 1. Always set the timezone for the clock widget
           if (place?.utc_offset_minutes !== undefined) {
              setDestinationUtcOffset(place.utc_offset_minutes);
+          }
+          
+          // 2. Only swap the image if it's a legacy trip missing the DB image
+          if (!trip.intake?.heroImage && place?.photos?.length > 0) {
+            setHeroImage(place.photos[0].getUrl({ maxWidth: 1600, maxHeight: 900 }));
           }
         }
       });
     }
-  }, [intake?.destinationPlaceId]);
+  }, [intake?.destinationPlaceId, trip.intake?.heroImage]);
 
   let localTimeStr = '--:--';
   let destTimeStr = '--:--';
@@ -574,17 +590,12 @@ export default function ItineraryDisplay({
           onClose={() => setIsCollaboratorModalOpen(false)} 
         />
 
-        {isCalendarModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsCalendarModalOpen(false)} />
-            <div className="relative bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl max-w-sm text-center">
-              <span className="text-4xl mb-4 block">📅</span>
-              <h3 className="text-lg font-bold mb-2 text-slate-900 dark:text-white">Calendar Export</h3>
-              <p className="text-sm text-slate-500 mb-6">The "Lock Dates & Export" flow is coming in the next update!</p>
-              <button onClick={() => setIsCalendarModalOpen(false)} className="px-6 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold w-full hover:scale-105 transition-transform">Got it</button>
-            </div>
-          </div>
-        )}
+        <CalendarExportModal
+          trip={trip}
+          itinerary={itinerary}
+          isOpen={isCalendarModalOpen}
+          onClose={() => setIsCalendarModalOpen(false)}
+        />
 
         {selectedPOI && (
           <PlaceDetailsModal 

@@ -16,6 +16,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { createTripAction, updateTripItineraryAction } from '@/app/actions/trip';
 import type { TripIntake, POI, Itinerary } from '@/types';
+import { fetchHeroImage } from '@/lib/fetchHeroImage';
 
 export const maxDuration = 60; 
 
@@ -454,6 +455,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Itinerary failed validation.' }, { status: 502 });
     }
 
+    // Fetch the high-res image securely on the server
+    const heroImage = await fetchHeroImage(intake.destination, intake.destinationPlaceId);
+
     const dbTrip = await createTripAction({
       title: `Trip to ${intake.destination}`,
       destination: intake.destination,
@@ -462,7 +466,10 @@ export async function POST(request: NextRequest) {
       startDate: intake.startDate ? new Date(intake.startDate) : undefined,
       endDate: intake.endDate ? new Date(intake.endDate) : undefined,
       ownerId: userId,
-      intakeData: intake,
+      intakeData: {
+        ...intake,
+        heroImage: heroImage // Inject the permanent URL here
+      },
       itinerary: itinerary,
     });
 
