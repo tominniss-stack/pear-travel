@@ -1,5 +1,3 @@
-// prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -42,16 +40,34 @@ model Trip {
   bookingMode           String    @default("planning")
 
   // The Trip Origin Constant (for transit math fallback)
-  defaultOriginCoords   Json?     // Stores { lat: number, lng: number }
+  defaultOriginCoords   Json?
 
   // V3 Architecture JSON Blobs
-  intake                Json?     // Full TripIntake for server-side rehydration
-  itinerary             Json?     // Full Itinerary (Days, Entries, Essentials)
-  lockedAccommodations  Json?     // Array of LockedAccommodation objects
+  intake                Json?
+  itinerary             Json?
+  lockedAccommodations  Json?
+
+  // Documents Relational Link
+  documents             Document[]
 
   // Timestamps
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
   @@index([ownerId])
+}
+
+// ── NEW: Document Database Model ──
+model Document {
+  id               String   @id @default(cuid())
+  tripId           String
+  trip             Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  poiId            String?  
+  fileName         String
+  fileUrl          String
+  mimeType         String?
+  sizeBytes        Int?
+  uploadedAt       DateTime @default(now())
+
+  @@index([tripId])
 }

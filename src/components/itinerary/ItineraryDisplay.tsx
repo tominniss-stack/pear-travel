@@ -7,6 +7,7 @@ import QRCode from 'react-qr-code';
 import type { Itinerary, DayItinerary, ItineraryEntry, TransitMethod } from '@/types';
 import PlaceDetailsModal, { DocumentInfo } from './PlaceDetailsModal';
 import FilingCabinet from './FilingCabinet';
+import CollaboratorsModal from './CollaboratorsModal';
 import DayMap from './DayMap';
 import { useTripStore } from '@/store/tripStore';
 import { fetchTripDocuments } from '@/app/actions/documents';
@@ -362,7 +363,7 @@ export default function ItineraryDisplay({
   trip: ClientTripProps; 
   onEditRequest?: () => void;
 }) {
-  const router = useRouter(); // Added for the Ledger route transitions
+  const router = useRouter(); 
   
   const days = itinerary.days ?? [];
   const essentials = itinerary.essentials;
@@ -372,6 +373,8 @@ export default function ItineraryDisplay({
   // ── Document & Modal State ──
   const [selectedPOI, setSelectedPOI] = useState<{placeId: string, poiId: string} | null>(null);
   const [isFilingCabinetOpen, setIsFilingCabinetOpen] = useState(false);
+  const [isCollaboratorModalOpen, setIsCollaboratorModalOpen] = useState(false);
+  const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
   const [tripDocuments, setTripDocuments] = useState<DocumentInfo[]>([]);
 
   const { exchangeRate, setExchangeRate, displayCurrency, toggleCurrency, intake } = useTripStore();
@@ -565,6 +568,24 @@ export default function ItineraryDisplay({
           onUploadSuccess={loadDocuments}
         />
 
+        <CollaboratorsModal 
+          tripId={trip.id} 
+          isOpen={isCollaboratorModalOpen} 
+          onClose={() => setIsCollaboratorModalOpen(false)} 
+        />
+
+        {isCalendarModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsCalendarModalOpen(false)} />
+            <div className="relative bg-white dark:bg-slate-900 p-8 rounded-3xl shadow-2xl max-w-sm text-center">
+              <span className="text-4xl mb-4 block">📅</span>
+              <h3 className="text-lg font-bold mb-2 text-slate-900 dark:text-white">Calendar Export</h3>
+              <p className="text-sm text-slate-500 mb-6">The "Lock Dates & Export" flow is coming in the next update!</p>
+              <button onClick={() => setIsCalendarModalOpen(false)} className="px-6 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold w-full hover:scale-105 transition-transform">Got it</button>
+            </div>
+          </div>
+        )}
+
         {selectedPOI && (
           <PlaceDetailsModal 
             placeId={selectedPOI.placeId} 
@@ -600,10 +621,9 @@ export default function ItineraryDisplay({
           </div>
         </div>
 
-        {/* ── HERO UTILITY TILES (The 4 Interactive Toolkit Buttons) ── */}
+        {/* ── HERO UTILITY TILES ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
           
-          {/* 1. Weather Tile */}
           <div className="rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/50 p-4 shadow-sm flex flex-col h-full">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-lg leading-none">{weatherData ? getWeatherEmoji(weatherData[0].weatherCode) : '☀️'}</span>
@@ -617,7 +637,6 @@ export default function ItineraryDisplay({
             </div>
           </div>
 
-          {/* 2. Local Time Tile */}
           <div className="rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/50 p-4 shadow-sm flex flex-col h-full">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-lg leading-none">{isDestNight ? '🌙' : '☀️'}</span>
@@ -629,7 +648,6 @@ export default function ItineraryDisplay({
             </div>
           </div>
 
-          {/* 3. Exchange Rate Tile (Clickable Toggle with Flag) */}
           <button 
             onClick={toggleCurrency}
             className={`text-left rounded-2xl border p-4 transition-all flex flex-col h-full group cursor-pointer ${
@@ -655,7 +673,6 @@ export default function ItineraryDisplay({
             </div>
           </button>
 
-          {/* 4. Ledger Portal Tile (Clickable Route) */}
           <button 
             onClick={() => router.push(`/itinerary/${trip.id}/ledger`)}
             className="text-left rounded-2xl bg-slate-900 dark:bg-slate-950 border border-slate-800 p-4 shadow-lg hover:bg-slate-800 dark:hover:bg-slate-900 hover:shadow-xl hover:-translate-y-0.5 transition-all flex flex-col h-full group cursor-pointer relative overflow-hidden"
@@ -869,25 +886,60 @@ export default function ItineraryDisplay({
                   )}
                 </div>
 
-                <div className={`${rightCardStyle} h-full justify-between overflow-hidden`}>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4">Local Currency</h3>
-                    <div className="text-3xl font-black text-slate-900 dark:text-white mb-1">{localSymbol}</div>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm">{localCurrencyRaw}</p>
-                  </div>
-                  
-                  <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-700/50">
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Exchange Rate</span>
-                      <span className="text-sm font-bold text-slate-900 dark:text-white">£1 = {localSymbol}{symbolSpacer}{exchangeRate.toFixed(2)}</span>
+                {/* ── NEW QUICK ACTIONS PANEL ── */}
+                <div className={`${rightCardStyle} h-full justify-start overflow-hidden gap-4 flex flex-col`}>
+                  <h3 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1">Trip Actions</h3>
+
+                  {/* 1. Print Button */}
+                  <button onClick={() => window.print()} className="w-full py-3 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-500 rounded-xl flex items-center gap-4 transition-all text-left shadow-sm group cursor-pointer">
+                    <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-900 flex items-center justify-center text-lg group-hover:scale-110 transition-transform shadow-inner">
+                      🖨️
+                    </div>
+                    <div>
+                       <span className="block text-sm font-bold text-slate-900 dark:text-white">Print Booklet</span>
+                       <span className="block text-[10px] text-slate-500 uppercase tracking-wide mt-0.5">Save as PDF</span>
+                    </div>
+                  </button>
+
+                  {/* 2. Calendar Button */}
+                  <button onClick={() => setIsCalendarModalOpen(true)} className="w-full py-3 px-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-500 rounded-xl flex items-center gap-4 transition-all text-left shadow-sm group cursor-pointer">
+                    <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-900 flex items-center justify-center text-lg group-hover:scale-110 transition-transform shadow-inner">
+                      📅
+                    </div>
+                    <div>
+                       <span className="block text-sm font-bold text-slate-900 dark:text-white">Export Calendar</span>
+                       <span className="block text-[10px] text-slate-500 uppercase tracking-wide mt-0.5">Apple, Google, Outlook</span>
+                    </div>
+                  </button>
+
+                  {/* 3. Manage Collaborators Button */}
+                  <button onClick={() => setIsCollaboratorModalOpen(true)} className="w-full py-3 px-4 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800/50 hover:bg-brand-100 dark:hover:bg-brand-900/40 rounded-xl flex items-center gap-4 transition-all text-left shadow-sm group cursor-pointer">
+                    <div className="w-10 h-10 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-lg group-hover:scale-110 transition-transform shadow-sm">
+                      🤝
+                    </div>
+                    <div>
+                       <span className="block text-sm font-bold text-brand-900 dark:text-brand-100">Collaborators</span>
+                       <span className="block text-[10px] text-brand-700 dark:text-brand-400 uppercase tracking-wide mt-0.5">Invite friends to edit</span>
+                    </div>
+                  </button>
+
+                  {/* Spacer to push the currency toggle to the bottom */}
+                  <div className="flex-1 min-h-[1rem]" />
+
+                  {/* RESTORED: Master Currency Toggle */}
+                  <div className="pt-4 border-t border-slate-200 dark:border-slate-700/50 w-full mt-auto">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Exchange Rate</span>
+                      <span className="text-xs font-black text-slate-900 dark:text-white">£1 = {localSymbol}{symbolSpacer}{exchangeRate.toFixed(2)}</span>
                     </div>
                     
                     {!isDomesticTrip && (
                       <button 
                         onClick={toggleCurrency} 
-                        className="w-full py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 transition-all rounded-xl text-xs font-black tracking-wide cursor-pointer shadow-sm"
+                        className="w-full py-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 transition-all rounded-xl text-xs font-black tracking-wide cursor-pointer shadow-sm flex items-center justify-center gap-2"
                       >
-                        VIEW PRICES IN {displayCurrency === 'GBP' ? 'LOCAL' : 'GBP'}
+                        <span>VIEW PRICES IN {displayCurrency === 'GBP' ? 'LOCAL' : 'GBP'}</span>
+                        <span className="text-[14px] leading-none">{displayCurrency === 'GBP' ? currentFlag : '🇬🇧'}</span>
                       </button>
                     )}
                   </div>
