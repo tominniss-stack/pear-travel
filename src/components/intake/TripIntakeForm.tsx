@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // TripIntakeForm — Pear Travel v2
-// Fixed Hydration Mismatch & Destination Cache Clearing
+// Fixed Hydration Mismatch & Destination Cache Clearing & Debounce
 // ─────────────────────────────────────────────────────────────────────────────
 
 'use client';
@@ -244,6 +244,10 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
   const [bookingMode, setBookingMode] = useState<BookingMode>(initialIntake.bookingMode ?? 'planning');
   const [destination, setDestination] = useState(initialIntake.destination);
   const [destPlaceId, setDestPlaceId] = useState(initialIntake.destinationPlaceId ?? '');
+  
+  // ── FIX 4: DEBOUNCED DESTINATION STATE ──
+  const [debouncedDestination, setDebouncedDestination] = useState(initialIntake.destination);
+  
   const [dateRange, setDateRange] = useState<DateRange | undefined>(
     initialIntake.startDate && initialIntake.endDate
       ? { from: new Date(initialIntake.startDate), to: new Date(initialIntake.endDate) }
@@ -271,9 +275,18 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
 
   const derivedDuration = dateRange?.from && dateRange?.to ? Math.max(1, differenceInCalendarDays(dateRange.to, dateRange.from)) : duration;
 
+  // ── FIX 4: APPLY 500ms DEBOUNCE EFFECT ──
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedDestination(destination);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [destination]);
+
+  // Update Zustand using the debounced value instead of firing instantly on every keystroke
   useEffect(() => {
     setIntake({
-      destination: destination.trim(),
+      destination: debouncedDestination.trim(),
       destinationPlaceId: destPlaceId || undefined,
       bookingMode,
       startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
@@ -291,7 +304,7 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
       anchorPoints: anchorPoints.trim(),
     });
   }, [
-    bookingMode, destination, destPlaceId, dateRange, transitMode, outboundTime, outboundRef, returnTime, returnRef,
+    bookingMode, debouncedDestination, destPlaceId, dateRange, transitMode, outboundTime, outboundRef, returnTime, returnRef,
     derivedDuration, accommodation, hasAccommodation, interests, budgetGBP, diningProfile, anchorPoints, setIntake
   ]);
 
@@ -315,7 +328,7 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
 
   const validateStep = useCallback((currentStep: number) => {
     const toValidate: Partial<TripIntake> = {
-      destination,
+      destination: debouncedDestination,
       duration: derivedDuration,
       startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
       endDate: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined,
@@ -343,7 +356,7 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
 
     setErrors(stepErrors);
     return Object.values(stepErrors).some(Boolean) === false;
-  }, [ bookingMode, destination, dateRange, transitMode, derivedDuration, interests, budgetGBP, hasAccommodation, accommodation ]);
+  }, [ bookingMode, debouncedDestination, dateRange, transitMode, derivedDuration, interests, budgetGBP, hasAccommodation, accommodation ]);
 
   const handleNext = useCallback(() => {
     if (step === maxStep) return;
@@ -404,7 +417,7 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
                 id="destination"
                 value={destination}
                 onPlaceSelected={(address, placeId) => { 
-                  // ── THE FIX: WIPE MEMORY IF THEY CHANGE CITY ──
+                  // WIPE MEMORY IF THEY CHANGE CITY
                   if (placeId && placeId !== destPlaceId) {
                     setAllPOIs([]);
                     setItinerary(null);

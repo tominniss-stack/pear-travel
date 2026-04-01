@@ -429,8 +429,8 @@ export async function POST(request: NextRequest) {
     const model = genAI.getGenerativeModel({
       model: 'gemini-3.1-flash-lite-preview',
       generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 12000, 
+        maxOutputTokens: 6000, 
+        temperature: 0.4,
         responseMimeType: 'application/json',
       },
     });
@@ -460,22 +460,30 @@ export async function POST(request: NextRequest) {
     // Fetch the high-res image securely on the server
     const heroImage = await fetchHeroImage(intake.destination, intake.destinationPlaceId);
 
-    const dbTrip = await createTripAction({
-      title: `Trip to ${intake.destination}`,
-      destination: intake.destination,
-      budgetGBP: intake.budgetGBP,
-      duration: intake.duration,
-      startDate: intake.startDate ? new Date(intake.startDate) : undefined,
-      endDate: intake.endDate ? new Date(intake.endDate) : undefined,
-      ownerId: userId,
-      intakeData: {
-        ...intake,
-        heroImage: heroImage // Inject the permanent URL here
-      },
-      itinerary: itinerary,
-    });
+    try {
+      const dbTrip = await createTripAction({
+        title: `Trip to ${intake.destination}`,
+        destination: intake.destination,
+        budgetGBP: intake.budgetGBP,
+        duration: intake.duration,
+        startDate: intake.startDate ? new Date(intake.startDate) : undefined,
+        endDate: intake.endDate ? new Date(intake.endDate) : undefined,
+        ownerId: userId,
+        intakeData: {
+          ...intake,
+          heroImage: heroImage // Inject the permanent URL here
+        },
+        itinerary: itinerary,
+      });
 
-    return NextResponse.json({ tripId: dbTrip.id }, { status: 200 });
+      return NextResponse.json({ tripId: dbTrip.id }, { status: 200 });
+      
+    } catch (error: any) {
+      if (error?.message?.includes('foreign key') || error?.code === 'P2003') {
+        return NextResponse.json({ error: 'SESSION_EXPIRED' }, { status: 401 });
+      }
+      throw error;
+    }
     
   } catch (error) {
     console.error('Unhandled Route Error:', error);
@@ -516,8 +524,8 @@ export async function PATCH(request: NextRequest) {
     const model = genAI.getGenerativeModel({
       model: 'gemini-3.1-flash-lite-preview',
       generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 12000,
+        maxOutputTokens: 6000,
+        temperature: 0.4,
         responseMimeType: 'application/json',
       },
     });

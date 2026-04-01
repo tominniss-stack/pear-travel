@@ -39,6 +39,10 @@ RUN npx prisma generate
 ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# ── ADDED: Expose the Google Places key to the build step ──
+ARG NEXT_PUBLIC_GOOGLE_PLACES_API_KEY
+ENV NEXT_PUBLIC_GOOGLE_PLACES_API_KEY=$NEXT_PUBLIC_GOOGLE_PLACES_API_KEY
+
 RUN npm run build
 
 
