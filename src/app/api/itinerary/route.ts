@@ -301,6 +301,7 @@ CULTURAL BRIEFING & ESSENTIALS RULES
 2. PHRASES: Provide exactly 6 phrases in 'usefulPhrases', including: "Hello", "Thank you", "The bill, please", "Do you speak English?", "Where is the bathroom?", and "How do I get to...?".
 3. CUSTOMS: Provide 2-3 specific local etiquette or behavioral tips in the 'localCustoms' array (e.g. "Dinner is eaten late, rarely before 9 PM").
 4. LANGUAGE: Identify the primary local language spoken in the SPECIFIC destination city/region (e.g., if the destination is Zurich, output "Swiss German"). Keep it to 1-2 words. Also provide a strict 1-3 word 'englishProficiency' rating (e.g., "Widely Spoken", "Moderate", "Rarely Spoken").
+5. THEME VIBE: Based on the destination's geography, climate, and cultural identity, select the single most appropriate themeVibe from this exact list: MEDITERRANEAN, NORDIC, TROPICAL, URBAN_NIGHT, ALPINE, DESERT, COASTAL, PEAR_DEFAULT. If uncertain, return PEAR_DEFAULT.
 
 ════════════════════════════════════════
 JSON OUTPUT STRUCTURE & FIELD RULES
@@ -309,6 +310,7 @@ Return ONLY valid JSON with the exact structure below. Note the boolean properti
 
 {
   "id": "gen-123",
+  "themeVibe": "string",
   "generatedAt": "2026-03-21T12:00:00Z",
   "totalEstimatedCostGBP": 0,
   "unscheduledOptions": [

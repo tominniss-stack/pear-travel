@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import QRCode from 'react-qr-code';
+import Link from 'next/link';
 import type { Itinerary, DayItinerary, ItineraryEntry, TransitMethod } from '@/types';
 import PlaceDetailsModal, { DocumentInfo } from './PlaceDetailsModal';
 import FilingCabinet from './FilingCabinet';
 import DayMap from './DayMap';
 import { useTripStore } from '@/store/tripStore';
 import { fetchTripDocuments } from '@/app/actions/documents';
-import { fetchTripWeather, DailyWeather } from '@/app/actions/weather';
 
 export interface ClientTripProps {
   id: string;
@@ -19,17 +19,6 @@ export interface ClientTripProps {
   startDate: string | null;
   endDate: string | null;
   intake?: any;
-}
-
-function getWeatherEmoji(code: number): string {
-  if (code === 0) return '☀️'; 
-  if (code === 1 || code === 2 || code === 3) return '🌤️'; 
-  if (code >= 45 && code <= 48) return '🌫️'; 
-  if (code >= 51 && code <= 67) return '🌧️'; 
-  if (code >= 71 && code <= 77) return '❄️'; 
-  if (code >= 80 && code <= 82) return '🌦️'; 
-  if (code >= 95 && code <= 99) return '⛈️'; 
-  return '⛅'; 
 }
 
 const TRANSIT_CONFIG: Record<TransitMethod, { emoji: string; colour: string; bgColour: string }> = {
@@ -254,7 +243,7 @@ function TimelineEntry({
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-3 flex-wrap mb-1">
-                <h4 className={`text-xl font-serif leading-snug transition-colors ${hasPlaceId ? 'text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-300' : 'text-slate-900 dark:text-white'}`}>{displayTitle}</h4>
+                <h4 className={`text-xl font-serif leading-snug transition-colors ${hasPlaceId ? 'text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400' : 'text-slate-900 dark:text-white'}`}>{displayTitle}</h4>
                 {hasPlaceId && (
                   <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(displayTitle + ', ' + destination)}&query_place_id=${entry.placeId}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="relative z-10 text-[9px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-none transition-colors">Map ↗</a>
                 )}
@@ -292,13 +281,6 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
   const [tripDocuments, setTripDocuments] = useState<DocumentInfo[]>([]);
 
   const { exchangeRate, setExchangeRate, displayCurrency, toggleCurrency, intake } = useTripStore();
-  const [now, setNow] = useState<Date | null>(null);
-
-  useEffect(() => {
-    setNow(new Date());
-    const timer = setInterval(() => setNow(new Date()), 60000);
-    return () => clearInterval(timer);
-  }, []);
 
   useEffect(() => { setViewMode('list'); }, [activeTab]);
 
@@ -327,7 +309,6 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
     }
   }, [localCurrencyRaw, setExchangeRate]);
 
-  // FIX: Using proper backticks for the template literal string interpolation
   const [heroImage, setHeroImage] = useState<string>(`https://picsum.photos/seed/${trip.id}/1200/600`);
   
   useEffect(() => {
@@ -381,17 +362,18 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
         <FilingCabinet isOpen={isFilingCabinetOpen} onClose={() => setIsFilingCabinetOpen(false)} tripId={trip.id} availablePOIs={days.flatMap(d => d.entries.map(e => ({ id: e.id, name: e.locationName, dayName: `Day ${d.dayNumber}` })))} documents={tripDocuments} onUploadSuccess={loadDocuments} />
         {selectedPOI && <PlaceDetailsModal placeId={selectedPOI.placeId} poiId={selectedPOI.poiId} tripId={trip.id} tripDocuments={tripDocuments} onClose={() => setSelectedPOI(null)} onDocumentUpdate={loadDocuments} />}
 
-        {/* ── THE MAGAZINE HERO ── */}
-        <div className="relative w-full h-[50vh] min-h-[450px] overflow-hidden bg-slate-900">
-          <img src={heroImage} alt={trip.destination} className="absolute inset-0 w-full h-full object-cover opacity-60 mix-blend-overlay" />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/40 to-transparent" />
+        {/* ── THE MAGAZINE HERO (FIX 2: Light Mode Accessibility) ── */}
+        <div className="relative w-full h-[50vh] min-h-[450px] overflow-hidden bg-slate-100 dark:bg-slate-900">
+          {/* Grayscale in light mode, standard overlay in dark mode */}
+          <img src={heroImage} alt={trip.destination} className="absolute inset-0 w-full h-full object-cover opacity-80 mix-blend-multiply dark:mix-blend-overlay dark:opacity-60 grayscale dark:grayscale-0 transition-all duration-700" />
+          <div className="absolute inset-0 bg-gradient-to-t from-white via-white/80 to-transparent dark:from-slate-950 dark:via-slate-900/40 dark:to-transparent" />
           
           <div className="absolute bottom-16 left-0 w-full px-6 max-w-5xl mx-auto flex flex-col items-start">
-            <p className="text-brand-300 font-serif italic text-xl md:text-2xl mb-2 tracking-wide">A curated journey to</p>
-            <h1 className="text-6xl md:text-8xl lg:text-9xl font-serif text-white tracking-tight leading-none mb-6">
+            <p className="text-brand-700 dark:text-brand-300 font-serif italic text-xl md:text-2xl mb-2 tracking-wide">A curated journey to</p>
+            <h1 className="text-6xl md:text-8xl lg:text-9xl font-serif text-slate-900 dark:text-white tracking-tight leading-none mb-6">
               {trip.destination}
             </h1>
-            <div className="flex flex-wrap items-center gap-6 border-t border-white/20 pt-6 mt-2 text-white/80 font-mono text-xs uppercase tracking-widest">
+            <div className="flex flex-wrap items-center gap-6 border-t border-slate-900/20 dark:border-white/20 pt-6 mt-2 text-slate-700 dark:text-white/80 font-mono text-xs uppercase tracking-widest">
               <span>{trip.startDate && trip.endDate ? `${format(new Date(trip.startDate), 'MMM d')} – ${format(new Date(trip.endDate), 'MMM d, yyyy')}` : `${trip.duration} Days`}</span>
               <span className="w-1 h-1 bg-brand-500 rounded-full" />
               <span>{days.length} Days</span>
@@ -418,7 +400,6 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
               ))}
             </div>
 
-            {/* Print Booklet Button - Restored for V2 */}
             <button onClick={() => window.print()} className="hidden md:flex pb-4 text-xs font-mono tracking-[0.2em] uppercase text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors items-center gap-2 group">
               <span>Print Guide</span>
               <span className="opacity-50 group-hover:opacity-100 transition-opacity">🖨️</span>
@@ -443,7 +424,6 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
                   
                   {/* 1. THE EDITORIAL BRIEFING */}
                   <div className="relative">
-                    {/* FIX: Removed the fake 'language' prop reference */}
                     <p className="font-serif text-3xl md:text-4xl lg:text-5xl leading-[1.4] text-slate-800 dark:text-slate-200">
                       In {trip.destination}, you'll navigate primarily by <span className="italic text-brand-600 dark:text-brand-400">{essentials.airportTransit.toLowerCase().includes('uber') || essentials.airportTransit.toLowerCase().includes('taxi') ? 'taxi and rideshare' : 'local transit'}</span>. 
                       English proficiency here is generally <span className="italic text-brand-600 dark:text-brand-400">{essentials.englishProficiency?.toLowerCase() || 'moderate'}</span>. 
@@ -499,7 +479,7 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
                   <div>
                     <div className="flex items-end justify-between border-b border-slate-200 dark:border-slate-800 pb-2 mb-6">
                       <h2 className="text-[10px] font-mono uppercase tracking-widest text-slate-400">The Residence</h2>
-                      <button onClick={() => { if (onEditRequest) onEditRequest(); else setActiveTab(1); }} className="text-[9px] font-mono uppercase tracking-widest text-brand-600 hover:text-brand-500">
+                      <button onClick={() => { if (onEditRequest) onEditRequest(); else setActiveTab(1); }} className="text-[9px] font-mono uppercase tracking-widest text-brand-600 dark:text-brand-400 hover:text-brand-500">
                         Manage ↗
                       </button>
                     </div>
@@ -508,14 +488,13 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
                       <div className="flex flex-col gap-6">
                         {dynamicStays.map((stay, idx) => {
                           const hasPlaceId = !!(stay.placeId && stay.placeId !== "null" && stay.placeId !== "");
-                          // FIX: Proper template strings
                           const mapsUrl = hasPlaceId ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stay.name + ', ' + trip.destination)}&query_place_id=${stay.placeId}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stay.name + ', ' + trip.destination)}`;
 
                           return (
                             <div key={idx} className="group flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer" onClick={() => hasPlaceId && setSelectedPOI({ placeId: stay.placeId!, poiId: stay.poiId })}>
                               <div>
                                 <p className="text-[9px] font-mono uppercase tracking-widest text-slate-400 mb-2">Check-in Day {stay.startDay}</p>
-                                <h3 className="text-3xl font-serif text-slate-900 dark:text-white group-hover:text-brand-600 transition-colors">{stay.name}</h3>
+                                <h3 className="text-3xl font-serif text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">{stay.name}</h3>
                               </div>
                               <a href={mapsUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="w-max text-[9px] font-mono uppercase tracking-widest text-slate-500 border border-slate-300 dark:border-slate-700 px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
                                 Map ↗
@@ -544,11 +523,21 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
                     </div>
                   )}
 
-                  {/* 5. THE TREASURY (Ledger) */}
+                  {/* 5. THE TREASURY (Ledger) - FIX 3: Robust Button Link */}
                   <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 p-8 md:p-12">
-                    <h2 className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-8 border-b border-slate-300 dark:border-slate-700 pb-2 flex justify-between">
+                    <h2 className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-8 border-b border-slate-300 dark:border-slate-700 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <span>The Treasury</span>
-                      <button onClick={toggleCurrency} className="text-brand-600 hover:text-brand-500">{displayCurrency === 'GBP' ? 'View Local' : 'View GBP'}</button>
+                      <div className="flex items-center gap-4">
+                        <button onClick={toggleCurrency} className="text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">
+                          {displayCurrency === 'GBP' ? 'View Local' : 'View GBP'}
+                        </button>
+                        <Link 
+                          href={`/itinerary/${trip.id}/ledger`} 
+                          className="bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-5 py-2 hover:bg-brand-600 dark:hover:bg-brand-400 hover:text-white transition-colors font-sans font-bold tracking-normal text-xs rounded-sm flex items-center gap-2 shadow-sm"
+                        >
+                          Open Ledger ↗
+                        </Link>
+                      </div>
                     </h2>
                     
                     <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-12">
@@ -587,7 +576,7 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
                       <>
                         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-16 border-b border-slate-200 dark:border-slate-800 pb-6">
                           <div>
-                            <p className="text-[10px] font-mono uppercase tracking-widest text-brand-500 mb-2">Schedule</p>
+                            <p className="text-[10px] font-mono uppercase tracking-widest text-brand-600 dark:text-brand-400 mb-2">Schedule</p>
                             <h2 className="text-5xl font-serif text-slate-900 dark:text-white">Day {activeDay.dayNumber}</h2>
                           </div>
                           {mapUrl && (
@@ -625,7 +614,7 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
                       <div>
                         <h3 className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-4 pb-2 border-b border-slate-200 dark:border-slate-800 flex justify-between">
                           <span>Day {activeDay.dayNumber} Spend</span>
-                          {!isDomesticTrip && <button onClick={toggleCurrency} className="text-brand-600 hover:text-brand-500">{displayCurrency === 'GBP' ? 'LOCAL' : 'GBP'}</button>}
+                          {!isDomesticTrip && <button onClick={toggleCurrency} className="text-brand-600 dark:text-brand-400 hover:text-brand-500">{displayCurrency === 'GBP' ? 'LOCAL' : 'GBP'}</button>}
                         </h3>
                         
                         <div className={`text-4xl font-serif leading-none mb-2 ${(activeDay.estimatedDailySpendGBP || 0) > (trip.budgetGBP / trip.duration) ? 'text-red-600' : 'text-slate-900 dark:text-white'}`}>

@@ -128,6 +128,7 @@ export interface CityEssentials {
 
 export interface Itinerary {
   id: string;
+  themeVibe?: string;
   days: DayItinerary[];
   unscheduledOptions?: ItineraryEntry[];  
   essentials?: CityEssentials;

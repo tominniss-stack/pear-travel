@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { fetchAllUserDocuments, deleteDocument } from '@/app/actions/documents';
 import { useTripStore } from '@/store/tripStore';
 import type { AestheticPreference } from '@/types';
+import Link from 'next/link';
 
 type Tab = 'account' | 'appearance' | 'files';
 
@@ -19,7 +20,7 @@ export default function SettingsPage() {
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
 
   // Appearance State
-  const { aestheticPreference, setAestheticPreference, useDynamicColors, toggleDynamicColors } = useTripStore();
+  const { aestheticPreference, setAestheticPreference, useDynamicColors, toggleDynamicColors, currentTripId } = useTripStore();
 
   const themes: { id: AestheticPreference; name: string; desc: string; icon: string; status: 'active' | 'coming_soon' }[] = [
     { id: 'CLASSIC', name: 'The Classic', desc: 'Data-dense, highly functional card-based layout.', icon: '📋', status: 'active' },
@@ -67,7 +68,15 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-12 animate-in fade-in duration-500 font-sans">
-      <h1 className="text-3xl font-black mb-8 text-slate-900 dark:text-slate-100 tracking-tight">Settings</h1>
+      <div className="mb-8">
+        <Link 
+          href={currentTripId ? `/itinerary/${currentTripId}` : '/dashboard'} 
+          className="text-sm font-bold text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors mb-4 inline-block"
+        >
+          ← Back to {currentTripId ? 'Trip' : 'Dashboard'}
+        </Link>
+        <h1 className="text-3xl font-black text-slate-900 dark:text-slate-100 tracking-tight">Settings</h1>
+      </div>
       
       <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-start">
         

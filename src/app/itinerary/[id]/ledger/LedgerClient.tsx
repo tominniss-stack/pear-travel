@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useTripStore } from '@/store/tripStore';
 import { fetchTripDocuments } from '@/app/actions/documents';
+import ThemeInjector from '@/components/layout/ThemeInjector';
 import type { Itinerary, ExpenseCategory, MiscExpense, ItineraryEntry } from '@/types';
 import type { DocumentInfo } from '@/components/itinerary/PlaceDetailsModal';
 
@@ -35,8 +36,11 @@ const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
 };
 
 export default function LedgerClient({ trip, initialItinerary }: LedgerClientProps) {
-  const { setItinerary, itinerary: storeItinerary, setActualCost, addMiscExpense, removeMiscExpense, exchangeRate, displayCurrency, toggleCurrency } = useTripStore();
+  const { setItinerary, itinerary: storeItinerary, setActualCost, addMiscExpense, removeMiscExpense, exchangeRate, displayCurrency, toggleCurrency, aestheticPreference } = useTripStore();
   
+  // ── FIX 4: Determine if we should use Magazine Typography ──
+  const isEditorial = aestheticPreference === 'EDITORIAL';
+
   useEffect(() => {
     if (!storeItinerary || storeItinerary.id !== initialItinerary.id) {
       setItinerary(initialItinerary);
@@ -76,7 +80,6 @@ export default function LedgerClient({ trip, initialItinerary }: LedgerClientPro
   const currentFlag = getCurrencyFlag(targetCurrency);
 
   // ── Background Database Sync ──
-  // Fires a non-blocking PATCH request to permanently save Ledger state changes
   const syncLedger = () => {
     setTimeout(async () => {
       const latestItinerary = useTripStore.getState().itinerary;
@@ -90,7 +93,7 @@ export default function LedgerClient({ trip, initialItinerary }: LedgerClientPro
       } catch (error) {
         console.error("Failed to persist ledger state to database:", error);
       }
-    }, 50); // Small buffer to ensure Zustand has flushed the update
+    }, 50); 
   };
 
   // ── Derived Financial Data ──
@@ -101,10 +104,8 @@ export default function LedgerClient({ trip, initialItinerary }: LedgerClientPro
 
     activeItinerary.days.forEach(day => {
       day.entries.forEach(entry => {
-        // 1. Filter out raw transit bookends
         if (entry.transitMethod === 'Start of Day') return; 
         
-        // 2. Bulletproof Accommodation Filter (Kills "Est: CHF 0.00" noise)
         const isAccommodation = 
           entry.type === 'ACCOMMODATION' ||
           /(accommodation|hotel|airbnb|return to)/i.test(entry.locationName || '') ||
@@ -114,7 +115,6 @@ export default function LedgerClient({ trip, initialItinerary }: LedgerClientPro
         const cost = entry.actualCostGBP !== undefined ? entry.actualCostGBP : entry.estimatedCostGBP;
         activeTimelineSpend += cost;
         
-        // Auto-categorize timeline items
         let derivedCategory: ExpenseCategory = 'Activities';
         if (entry.isDining) derivedCategory = 'Dining';
         else if (entry.type === 'TRAVEL' || entry.transitMethod !== 'Walking') derivedCategory = 'Transit';
@@ -162,7 +162,7 @@ export default function LedgerClient({ trip, initialItinerary }: LedgerClientPro
     }
 
     setActualCost(dayNumber, entryId, amountInGBP, editDocId || undefined);
-    syncLedger(); // Permanently save to DB
+    syncLedger(); 
     
     setEditingEntryId(null);
     setEditAmount('');
@@ -182,11 +182,11 @@ export default function LedgerClient({ trip, initialItinerary }: LedgerClientPro
       title: newTitle,
       amountGBP: amountInGBP,
       category: newCategory,
-      isSunkCost: newIsPrePaid, // Preserves the schema structure
+      isSunkCost: newIsPrePaid, 
       linkedDocumentId: newDocId || undefined,
       date: new Date().toISOString()
     });
-    syncLedger(); // Permanently save to DB
+    syncLedger(); 
 
     setIsAdding(false);
     setNewTitle(''); setNewAmount(''); setNewDocId(''); setNewIsPrePaid(false);
@@ -194,20 +194,20 @@ export default function LedgerClient({ trip, initialItinerary }: LedgerClientPro
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans pb-32">
-      
-      {/* ── Sticky Top Nav with Global Currency Toggle ── */}
+      <ThemeInjector />
+
+      {/* ── Sticky Top Nav ── */}
       <div className="sticky top-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href={`/itinerary/${trip.id}`} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-600 font-bold transition-colors shadow-inner">
               ←
             </Link>
-            <h1 className="text-lg md:text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
+            <h1 className={`text-lg md:text-xl font-black text-slate-900 dark:text-white flex items-center gap-2 ${isEditorial ? 'font-serif md:text-2xl font-medium tracking-tight' : ''}`}>
               <span className="text-2xl leading-none">💳</span> Expense Ledger
             </h1>
           </div>
           
-          {/* Global Currency Toggle */}
           {!isDomesticTrip && (
             <button 
               onClick={toggleCurrency}
@@ -226,14 +226,14 @@ export default function LedgerClient({ trip, initialItinerary }: LedgerClientPro
         
         <div className="flex flex-col lg:flex-row gap-8 items-start">
           
-          {/* ── LEFT COLUMN: Summary & Charts ── */}
+          {/* ── LEFT COLUMN ── */}
           <div className="w-full lg:w-[340px] flex-shrink-0 lg:sticky lg:top-28 flex flex-col gap-6">
             
             {/* Daily Fund Card */}
             <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 md:p-8 border border-slate-200 dark:border-slate-800 shadow-sm min-w-0">
               <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-2">Daily Fund (Pocket Money)</h3>
               <div className="flex items-end gap-2 mb-4 min-w-0">
-                <span className={`text-4xl md:text-5xl font-black tracking-tighter truncate ${totalActiveSpend > trip.budgetGBP ? 'text-red-500' : 'text-slate-900 dark:text-white'}`} title={formatCost(totalActiveSpend)}>
+                <span className={`text-4xl md:text-5xl font-black tracking-tighter truncate ${totalActiveSpend > trip.budgetGBP ? 'text-red-500' : 'text-slate-900 dark:text-white'} ${isEditorial ? 'font-serif' : ''}`} title={formatCost(totalActiveSpend)}>
                   {formatCost(totalActiveSpend)}
                 </span>
               </div>
@@ -253,7 +253,6 @@ export default function LedgerClient({ trip, initialItinerary }: LedgerClientPro
             <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm">
               <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4">Spend by Category</h3>
               
-              {/* Visual Bar */}
               <div className="flex h-3 w-full rounded-full overflow-hidden mb-5 bg-slate-100 dark:bg-slate-800 shadow-inner gap-[1px]">
                 {Object.entries(categoryBreakdown).map(([cat, amount]) => {
                   if (amount === 0) return null;
@@ -269,7 +268,6 @@ export default function LedgerClient({ trip, initialItinerary }: LedgerClientPro
                 })}
               </div>
 
-              {/* Table Rows */}
               <div className="flex flex-col gap-3">
                 {Object.entries(categoryBreakdown)
                   .filter(([_, amount]) => amount > 0)
@@ -291,7 +289,7 @@ export default function LedgerClient({ trip, initialItinerary }: LedgerClientPro
               <div className="absolute -right-8 -top-8 w-32 h-32 bg-brand-500/20 rounded-full blur-2xl pointer-events-none" />
               <div className="relative z-10 min-w-0">
                 <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Grand Total</h3>
-                <div className="text-3xl md:text-4xl font-black tracking-tighter mb-2 truncate" title={formatCost(grandTotal)}>
+                <div className={`text-3xl md:text-4xl font-black tracking-tighter mb-2 truncate ${isEditorial ? 'font-serif' : ''}`} title={formatCost(grandTotal)}>
                   {formatCost(grandTotal)}
                 </div>
                 <p className="text-xs text-slate-400 font-medium leading-relaxed mb-4 border-b border-slate-800 pb-4">
@@ -339,7 +337,7 @@ export default function LedgerClient({ trip, initialItinerary }: LedgerClientPro
                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">{item.derivedCategory}</span>
                             {item.linkedDocumentId && <span className="text-xs" title="Receipt Attached">📎</span>}
                           </div>
-                          <p className="font-bold text-slate-900 dark:text-white text-base leading-tight truncate">{item.locationName}</p>
+                          <p className={`font-bold text-slate-900 dark:text-white text-base leading-tight truncate ${isEditorial ? 'font-serif text-lg' : ''}`}>{item.locationName}</p>
                         </div>
                         
                         {/* Status / Trigger Button */}
@@ -497,7 +495,7 @@ export default function LedgerClient({ trip, initialItinerary }: LedgerClientPro
                       <div key={exp.id} className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors">
                         <div className="min-w-0 pr-4">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <span className="font-bold text-slate-900 dark:text-white text-base leading-tight truncate">{exp.title}</span>
+                            <span className={`font-bold text-slate-900 dark:text-white text-base leading-tight truncate ${isEditorial ? 'font-serif text-lg' : ''}`}>{exp.title}</span>
                             {exp.isSunkCost && <span className="text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-slate-800 text-slate-500 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 shadow-sm">Pre-paid</span>}
                             {exp.linkedDocumentId && <span className="text-sm" title="Receipt attached">📎</span>}
                           </div>

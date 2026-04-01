@@ -6,6 +6,7 @@ import Link from 'next/link';
 import SortableItinerary from '@/components/itinerary/SortableItinerary';
 import ItineraryDisplay from '@/components/itinerary/ItineraryDisplay';
 import ItineraryDisplayV2 from '@/components/itinerary/ItineraryDisplayV2';
+import ThemeInjector from '@/components/layout/ThemeInjector';
 import type { Itinerary, TripIntake } from '@/types'; 
 import { useTripStore } from '@/store/tripStore';
 
@@ -30,14 +31,16 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
   const setCurrentTripId = useTripStore((state) => state.setCurrentTripId);
   const itinerary = useTripStore((state) => state.itinerary);
   
-  // ── PHASE 8: THEME ROUTER STATE ──
   const aestheticPreference = useTripStore((state) => state.aestheticPreference);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // ── FIX 1: Hydration state to prevent flickering ──
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    // ── THE DESYNC FIX: Sync server state to Zustand immediately ──
+    setIsMounted(true);
     setItinerary(dbItinerary);
     setIntake(dbTrip.intake); 
     setCurrentTripId(dbTrip.id);
@@ -48,7 +51,6 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
 
     setIsSaving(true);
     try {
-      // FIX: Changed from /api/itinerary/ to /api/trip/ to hit the correct V3 JSON handler
       const response = await fetch(`/api/trip/${dbTrip.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -67,8 +69,15 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
 
   const currentItinerary = itinerary || dbItinerary;
 
+  // Do not render structural themes until the client confirms its preference
+  if (!isMounted) {
+    return <div className="min-h-screen bg-slate-50 dark:bg-slate-950 w-full animate-pulse" />;
+  }
+
   return (
-    <div className="w-full py-8">
+    <div className="w-full py-8 relative">
+      <ThemeInjector />
+
       <div className="print:hidden mb-6 max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
         <Link
           href="/dashboard"
@@ -100,7 +109,6 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
       {isEditing ? (
         <SortableItinerary />
       ) : (
-        /* ── PHASE 8: DYNAMIC COMPONENT SWAPPING ── */
         aestheticPreference === 'EDITORIAL' ? (
           <ItineraryDisplayV2 
             itinerary={currentItinerary} 
@@ -108,7 +116,6 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
             onEditRequest={() => setIsEditing(true)} 
           />
         ) : (
-          /* Default Fallback is Classic V1 */
           <ItineraryDisplay 
             itinerary={currentItinerary} 
             trip={dbTrip} 
