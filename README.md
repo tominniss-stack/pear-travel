@@ -1,58 +1,77 @@
-# Pear Travel 🍐
+# Pear Travel
 
-AI-powered travel itineraries that respect your time and budget.
+When Google killed the Google Trips app, it left a massive hole in how I organised my travel. I wanted an app that could scrape together scattered ideas, flights, and reservations, and organise them into a clean, offline-ready itinerary. Pear Travel is my attempt to bring that magic back—supercharged with modern AI.
 
-## About
+Pear Travel is a mobile-first travel planner that takes the unpredictability of AI generation and locks it down into a strict, highly editable, and manageable schedule. 
 
-Pear Travel generates hyper-optimized, day-by-day itineraries for your trips. Simply tell us where you want to go and what you love doing—we handle the rest, factoring in transit times, respecting opening hours, and ensuring a perfectly routed experience.
+## Why Pear Travel?
 
-## Getting Started
+Most AI travel planners just spit out a wall of text that is impossible to edit or follow. Pear Travel treats your itinerary as structured data. When you drag and drop an activity, the app automatically recalculates your transit times. When you log an expense, it automatically converts the currency. It's designed to do the heavy lifting of travel maths so you can focus on the trip.
 
-First, run the development server:
+## Core Features
 
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the app.
+* **Smart AI Generation:** Tell the app your destination, dates, budget, and vibe. It uses Google Places and Gemini to generate a realistic, paced-out itinerary.
+* **Interactive Timeline:** A drag-and-drop schedule that automatically calculates travel times between locations and warns you if activities overlap.
+* **The Ledger:** A built-in expense tracker. Log what you spend, and the app automatically converts it from the local currency back to your home budget using real-time exchange rates.
+* **Maps Integration:** View your daily itinerary plotted on an interactive map. With one tap, export your day's sequence into the native Google Maps app for live navigation.
+* **Printable Travel Booklets:** Not everything needs to be on a screen. Pear Travel generates a clean, ink-friendly A4 printout of your trip. It strips away the complex UI and replaces it with scannable QR codes so you can bridge the paper itinerary back to your phone.
+* **The Filing Cabinet:** Upload and attach PDFs, tickets, and image receipts directly to specific events on your timeline.
+* **Destination-Adaptive Theming:** The app actually changes how it looks based on where you are going. Accent colours, typography, and UI layouts automatically shift to match the vibe of your destination.
 
 ## Tech Stack
 
-- **Framework**: [Next.js](https://nextjs.org)
-- **Database**: PostgreSQL with [Prisma](https://www.prisma.io)
-- **Styling**: Tailwind CSS
-- **Maps**: Google Maps API
-- **AI**: Google Generative AI
-- **State Management**: Zustand
-- **UI Components**: React DnD Kit for drag-and-drop
+* **Frontend:** Next.js (App Router), React, Tailwind CSS
+* **Database:** PostgreSQL managed via Prisma ORM
+* **State Management:** Zustand
+* **AI & APIs:** Google Gemini, Google Maps JS API, Open-Meteo, Frankfurter Currency API
+* **Deployment:** Docker & Docker Compose
 
-## Project Structure
+---
 
-- `/src/app` - Next.js app directory with routes and layouts
-- `/src/components` - React components organized by feature
-- `/src/lib` - Utility functions and shared code
-- `/src/store` - Zustand state management
-- `/src/types` - TypeScript type definitions
-- `/prisma` - Database schema and migrations
+## Deployment Guide (Docker)
 
-## Development
+Pear Travel is designed to be self-hosted and easily deployed using Docker and Docker Compose. 
 
-Install dependencies:
-```bash
-npm install
+### 1. Prerequisites
+You will need API keys from the following services to run the app:
+* **Google Cloud Console:** A key with the Maps JavaScript API, Places API, and Geocoding API enabled.
+* **Google AI Studio:** A Gemini API key.
+* **NextAuth Secret:** A random 32+ character string (you can generate this by running `openssl rand -base64 32` in your terminal).
+
+### 2. Environment Setup
+Create a `.env` file in the root of the project. If you are using a tool like Portainer, you can paste these directly into the stack's environment variables.
+
+```env
+# Database Configuration
+POSTGRES_USER=pear_admin
+POSTGRES_PASSWORD=your_secure_password
+POSTGRES_DB=pear_db
+DATABASE_URL=postgresql://pear_admin:your_secure_password@db:5432/pear_db?schema=public
+
+# Authentication
+NEXTAUTH_URL=[https://travel.yourdomain.com](https://travel.yourdomain.com) # Your public URL
+NEXTAUTH_SECRET=your_generated_secret_string
+
+# APIs
+GEMINI_API_KEY=your_gemini_api_key
+GOOGLE_PLACES_API_KEY=your_google_maps_key
+
+# Build-Time Variables (Crucial for Docker)
+NEXT_PUBLIC_GOOGLE_PLACES_API_KEY=your_google_maps_key
+Note: NEXT_PUBLIC_ variables are baked into the frontend code at build time. The provided docker-compose.prod.yml is configured to pass this variable as a build argument so the interactive maps load correctly.
+
+# Hero image fallback generated by Unsplash (if no image is found for a destination)
+UNSPLASH_ACCESS_KEY=
+
 ```
 
-Set up environment variables:
-```bash
-cp .env.example .env.local
-```
+3. Spin it up
+Run the following command to build the image and start the containers. The startup script will automatically handle database creation and Prisma migrations.
 
-Run database migrations:
-```bash
-npx prisma migrate dev
-```
+Bash
+docker compose -f docker-compose.prod.yml up -d --build
 
-## Learn More
+4. Secure Routing (Optional but Recommended)
+Rather than opening ports on your router to expose the app to the internet, it is highly recommended to run Pear Travel behind a Cloudflare Zero Trust Tunnel (cloudflared).
 
-- [Next.js Documentation](https://nextjs.org/docs)
-- [Prisma Documentation](https://www.prisma.io/docs/)
+You can run cloudflared as a separate Docker container on the same network (pear_network), mapping your public domain directly to the internal Next.js container (http://app:3000). This provides bank-grade security and SSL without complex reverse-proxy configurations.
