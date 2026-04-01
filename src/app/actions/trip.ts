@@ -13,6 +13,7 @@ export async function createTripAction(data: {
   duration: number;
   startDate?: Date;
   endDate?: Date;
+  bookingMode: string;
   ownerId: string;
   intakeData: any;
   itinerary: any;
@@ -28,6 +29,7 @@ export async function createTripAction(data: {
           duration: data.duration,
           startDate: data.startDate,
           endDate: data.endDate,
+          bookingMode: data.bookingMode,
           ownerId: data.ownerId,     // Maps correctly to your schema
           intake: data.intakeData,   // V3 Schema field
           itinerary: data.itinerary, // V3 Schema field

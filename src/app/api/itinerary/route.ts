@@ -468,6 +468,7 @@ export async function POST(request: NextRequest) {
         duration: intake.duration,
         startDate: intake.startDate ? new Date(intake.startDate) : undefined,
         endDate: intake.endDate ? new Date(intake.endDate) : undefined,
+        bookingMode: intake.bookingMode,
         ownerId: userId,
         intakeData: {
           ...intake,
