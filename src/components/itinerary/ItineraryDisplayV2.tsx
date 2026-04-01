@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import QRCode from 'react-qr-code';
 import Link from 'next/link';
@@ -20,21 +20,6 @@ export interface ClientTripProps {
   endDate: string | null;
   intake?: any;
 }
-
-const TRANSIT_CONFIG: Record<TransitMethod, { emoji: string; colour: string; bgColour: string }> = {
-  'Walking':          { emoji: '🚶', colour: 'text-emerald-700 dark:text-emerald-400', bgColour: 'bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800' },
-  'Tube':             { emoji: '🚇', colour: 'text-blue-700 dark:text-blue-400',    bgColour: 'bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-800'       },
-  'Bus':              { emoji: '🚌', colour: 'text-orange-700 dark:text-orange-400',  bgColour: 'bg-orange-50 border-orange-200 dark:bg-orange-900/30 dark:border-orange-800'   },
-  'Metro':            { emoji: '🚊', colour: 'text-purple-700 dark:text-purple-400',  bgColour: 'bg-purple-50 border-purple-200 dark:bg-purple-900/30 dark:border-purple-800'   },
-  'Tram':             { emoji: '🚋', colour: 'text-teal-700 dark:text-teal-400',    bgColour: 'bg-teal-50 border-teal-200 dark:bg-teal-900/30 dark:border-teal-800'       },
-  'Taxi / Rideshare': { emoji: '🚕', colour: 'text-yellow-700 dark:text-yellow-400',  bgColour: 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/30 dark:border-yellow-800'   },
-  'Train':            { emoji: '🚂', colour: 'text-red-700 dark:text-red-400',     bgColour: 'bg-red-50 border-red-200 dark:bg-red-900/30 dark:border-red-800'         },
-  'Ferry':            { emoji: '⛴️', colour: 'text-cyan-700 dark:text-cyan-400',    bgColour: 'bg-cyan-50 border-cyan-200 dark:bg-cyan-900/30 dark:border-cyan-800'       },
-  'Cycling':          { emoji: '🚲', colour: 'text-lime-700 dark:text-lime-400',    bgColour: 'bg-lime-50 border-lime-200 dark:bg-lime-900/30 dark:border-lime-800'       },
-  'Start of Day':     { emoji: '🌅', colour: 'text-slate-700 dark:text-slate-400',   bgColour: 'bg-slate-50 border-slate-200 dark:bg-slate-800/50 dark:border-slate-700'     },
-};
-
-function getTransitConfig(method?: TransitMethod) { return TRANSIT_CONFIG[method ?? 'Start of Day'] ?? TRANSIT_CONFIG['Start of Day']; }
 
 function parseTimeToMinutes(time: string | undefined): number | null {
   if (!time) return null;
@@ -68,7 +53,7 @@ function generateGoogleMapsDayUrl(entries: ItineraryEntry[], destinationCity: st
   if (validEntries.length === 0) return null;
   if (validEntries.length === 1) {
      const placeIdParam = validEntries[0].placeId && validEntries[0].placeId !== "null" ? `&query_place_id=${validEntries[0].placeId}` : '';
-     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(validEntries[0].locationName + ', ' + destinationCity)}${placeIdParam}`;
+     return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(validEntries[0].locationName + ', ' + destinationCity)}${placeIdParam}`;
   }
   const origin = validEntries[0];
   const dest = validEntries[validEntries.length - 1];
@@ -93,7 +78,7 @@ function PrintOnlyBooklet({ trip, itinerary, formatCost, localCurrencyRaw, total
   const essentials = itinerary.essentials;
   const phrases = essentials?.usefulPhrases && essentials.usefulPhrases.length > 0 ? essentials.usefulPhrases : [];
   const plugType = essentials?.plugType || 'Type C / F (230V)';
-  const tapWater = essentials?.tapWater || 'Safe to drink 🚰';
+  const tapWater = essentials?.tapWater || 'Safe to drink';
   const risk = essentials?.contextualRisk || 'Stay alert around major tourist hubs.';
   const localSymbol = localCurrencyRaw.split(' ')[0] || '€';
 
@@ -114,7 +99,7 @@ function PrintOnlyBooklet({ trip, itinerary, formatCost, localCurrencyRaw, total
             <p className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-1">Your Travel Booklet</p>
             <h1 className="text-6xl font-serif mb-3 tracking-tight">{trip.destination}</h1>
             <p className="text-xl font-medium text-slate-700 flex items-center gap-2 font-mono uppercase tracking-widest text-xs">
-              {trip.startDate && trip.endDate ? `${format(new Date(trip.startDate), 'd MMM')} – ${format(new Date(trip.endDate), 'd MMM yyyy')}` : `${trip.duration} Days`}
+              {trip.startDate && trip.endDate ? `${format(new Date(trip.startDate), 'do MMMM')} — ${format(new Date(trip.endDate), 'do MMMM yyyy')}` : `${trip.duration} Days`}
               <span>·</span> {totalStops} Stops <span>·</span> Est. Budget: {formatCost(trip.budgetGBP)}
             </p>
           </div>
@@ -211,9 +196,9 @@ function PrintOnlyBooklet({ trip, itinerary, formatCost, localCurrencyRaw, total
 
 // ── Timeline Entry ───────────────────────────────────────
 function TimelineEntry({ 
-  entry, nextEntry, isLast, accommodationName, destination, onPlaceClick, formatCost 
+  entry, nextEntry, isLast, isOdd, accommodationName, destination, onPlaceClick, formatCost 
 }: { 
-  entry: ItineraryEntry; nextEntry?: ItineraryEntry; isLast: boolean; dayNumber: number; accommodationName?: string; destination: string; onPlaceClick: (placeId: string, poiId: string) => void; formatCost: (cost?: number) => string;
+  entry: ItineraryEntry; nextEntry?: ItineraryEntry; isLast: boolean; isOdd: boolean; dayNumber: number; accommodationName?: string; destination: string; onPlaceClick: (placeId: string, poiId: string) => void; formatCost: (cost?: number) => string;
 }) {
   const isStartDay = entry.transitMethod === 'Start of Day';
   const hasPlaceId = !!(entry.placeId && entry.placeId !== "null" && entry.placeId !== "");
@@ -229,42 +214,44 @@ function TimelineEntry({
     if (isGeneric && accommodationName) displayTitle = accommodationName;
   }
   
-  const nextTransitConfig = getTransitConfig(nextEntry?.transitMethod);
-
   return (
-    <div className="flex flex-col py-2">
-      <div className="flex gap-6 items-start">
-        <div className="flex w-16 flex-shrink-0 flex-col items-end pt-1 border-r border-slate-200 dark:border-slate-800 pr-6">
-          <span className="text-sm font-medium text-slate-500 dark:text-slate-400 font-mono tracking-tighter">
-            {entry.time ?? '—'}
+    <div className="flex flex-col border-t border-slate-300 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row items-stretch">
+        {/* TIME COLUMN */}
+        <div className="w-full sm:w-32 flex-shrink-0 border-b sm:border-b-0 sm:border-r border-slate-300 dark:border-slate-800 pt-6 pb-2 sm:py-8 pr-6">
+          <span className="text-4xl md:text-5xl italic font-serif text-slate-900 dark:text-white block sm:text-right">
+            {entry.time ? entry.time.replace(/^0/, '') : '—'}
           </span>
         </div>
-        <div onClick={() => hasPlaceId && onPlaceClick(entry.placeId!, entry.id)} className={`flex-1 pb-8 group ${hasPlaceId ? 'cursor-pointer' : 'cursor-default'}`}>
-          <div className="flex items-start justify-between gap-4">
+        
+        {/* CONTENT COLUMN */}
+        <div onClick={() => hasPlaceId && onPlaceClick(entry.placeId!, entry.id)} className={`flex-1 py-6 sm:py-8 group ${hasPlaceId ? 'cursor-pointer' : 'cursor-default'} ${isOdd ? 'sm:pl-16 md:pl-32' : 'sm:pl-6 md:pl-12'}`}>
+          <div className="flex items-start justify-between gap-6">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-3 flex-wrap mb-1">
-                <h4 className={`text-xl font-serif leading-snug transition-colors ${hasPlaceId ? 'text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400' : 'text-slate-900 dark:text-white'}`}>{displayTitle}</h4>
+              <div className="flex items-center gap-4 flex-wrap mb-3">
+                <h4 className={`text-3xl md:text-4xl font-serif leading-none transition-colors ${hasPlaceId ? 'text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400' : 'text-slate-900 dark:text-white'}`}>{displayTitle}</h4>
                 {hasPlaceId && (
-                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(displayTitle + ', ' + destination)}&query_place_id=${entry.placeId}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="relative z-10 text-[9px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-none transition-colors">Map ↗</a>
+                  <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(displayTitle + ', ' + destination)}&query_place_id=${entry.placeId}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="relative z-10 text-[9px] font-mono font-bold uppercase tracking-[0.2em] text-slate-500 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-slate-600 px-2 py-1 transition-colors">Map ↗</a>
                 )}
               </div>
-              <p className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400 font-light max-w-2xl">{displayDesc}</p>
+              <p className="text-base md:text-lg leading-[1.6] text-slate-600 dark:text-slate-400 font-sans max-w-2xl">{displayDesc}</p>
             </div>
-            {!isBookend && <span className="flex-shrink-0 text-xs font-mono text-slate-400 pt-1">{formatCost(entry.estimatedCostGBP)}</span>}
+            {!isBookend && <span className="flex-shrink-0 text-sm font-mono text-slate-500 pt-2">{formatCost(entry.estimatedCostGBP)}</span>}
           </div>
+
+          {/* BRUTALIST TRANSIT PILL */}
+          {!isLast && nextEntry && nextEntry.transitNote && (
+             <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-800/50 w-max">
+               <a href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(displayTitle + ', ' + destination)}&destination=${encodeURIComponent(nextEntry.locationName + ', ' + destination)}&travelmode=${getGoogleMapsTravelMode(nextEntry.transitMethod)}`} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-3 text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 hover:text-slate-900 dark:hover:text-white transition-all`} title={`Get directions to ${nextEntry.locationName}`}>
+                 <span className="border border-slate-400 dark:border-slate-600 px-2.5 py-1">
+                   {nextEntry.transitMethod.replace('Taxi / Rideshare', 'Taxi').toUpperCase()}
+                 </span>
+                 <span className="tracking-widest">— {nextEntry.transitNote}</span>
+               </a>
+             </div>
+          )}
         </div>
       </div>
-      {!isLast && nextEntry && (
-        <div className="flex gap-4 pl-[88px] pb-6 -mt-4">
-          <div className="flex flex-col justify-center">
-            {nextEntry.transitNote && (
-              <a href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(displayTitle + ', ' + destination)}&destination=${encodeURIComponent(nextEntry.locationName + ', ' + destination)}&travelmode=${getGoogleMapsTravelMode(nextEntry.transitMethod)}`} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all`} title={`Get directions to ${nextEntry.locationName}`}>
-                <span className="opacity-50">{nextTransitConfig.emoji}</span><span>{nextEntry.transitNote}</span><span className="ml-1 opacity-50">↗</span>
-              </a>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -293,6 +280,12 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
   const localSymbol = localCurrencyRaw.split(' ')[0] || '€';
   const isDomesticTrip = localSymbol === '£' || localCurrencyRaw.includes('GBP');
   const symbolSpacer = localSymbol.length > 1 ? ' ' : '';
+
+  // ── Pseudo-random template selector ──
+  const briefingTemplateIndex = useMemo(() => {
+    if (!trip.id) return 0;
+    return trip.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 3;
+  }, [trip.id]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -351,8 +344,60 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
   const apps = essentials?.apps && essentials.apps.length > 0 ? essentials.apps : ['Uber', 'Google Maps'];
   const risk = essentials?.contextualRisk || 'Stay alert in crowds.';
 
+  const renderEditorialBriefing = () => {
+    const transitText = essentials?.airportTransit.toLowerCase().includes('uber') || essentials?.airportTransit.toLowerCase().includes('taxi') ? 'taxis and rideshares' : 'the local transit system';
+    const englishText = essentials?.englishProficiency?.toLowerCase() || 'moderate';
+    const tippingText = essentials?.tippingEtiquette?.toLowerCase() || 'tip around 10%';
+    const tippingCap = tippingText.charAt(0).toUpperCase() + tippingText.slice(1);
+    const waterText = tapWater.toLowerCase().includes('safe') ? 'perfectly safe to drink' : 'best avoided in favour of bottled';
+
+    const templates = [
+      (
+        <div className="font-serif text-xl md:text-2xl leading-[1.8] text-slate-900 dark:text-slate-100 md:columns-2 gap-12 lg:gap-20 text-justify">
+          <p className="break-inside-avoid mb-8">
+            <span className="float-left font-serif text-[7.5rem] md:text-[9rem] leading-[0.7] pr-4 pt-3 pb-2 text-slate-900 dark:text-white">
+              Y
+            </span>
+            our time in <strong className="font-black tracking-wide uppercase">{trip.destination}</strong> will be shaped by how you move. Expect to rely on <span className="italic text-slate-700 dark:text-slate-300">{transitText}</span> to get between neighbourhoods. English is spoken at a <span className="italic text-slate-700 dark:text-slate-300">{englishText}</span> level, making navigation manageable, though a few local phrases go a long way.
+          </p>
+          <p className="break-inside-avoid mb-8">
+            When settling the bill for food or services, the standard practice is to <span className="italic text-slate-700 dark:text-slate-300">{tippingText}</span>. For daily hydration and basics, keep in mind that the tap water is <span className="italic text-slate-700 dark:text-slate-300">{waterText}</span>. Keep these details in mind, and the city will open up to you.
+          </p>
+        </div>
+      ),
+      (
+        <div className="font-serif text-xl md:text-2xl leading-[1.8] text-slate-900 dark:text-slate-100 md:columns-2 gap-12 lg:gap-20 text-justify">
+          <p className="break-inside-avoid mb-8">
+            <span className="float-left font-serif text-[7.5rem] md:text-[9rem] leading-[0.7] pr-4 pt-3 pb-2 text-slate-900 dark:text-white">
+              G
+            </span>
+            etting the most out of <strong className="font-black tracking-wide uppercase">{trip.destination}</strong> requires a bit of practical groundwork. You will be using <span className="italic text-slate-700 dark:text-slate-300">{transitText}</span> as your primary way around the city. Communication shouldn't be a major barrier—English proficiency is <span className="italic text-slate-700 dark:text-slate-300">{englishText}</span>—but local etiquette still applies.
+          </p>
+          <p className="break-inside-avoid mb-8">
+            <span className="italic text-slate-700 dark:text-slate-300">{tippingCap}</span> when dining out to show appreciation for good service. Finally, a quick note on the essentials: the tap water here is <span className="italic text-slate-700 dark:text-slate-300">{waterText}</span>. Use this briefing as your baseline for the days ahead.
+          </p>
+        </div>
+      ),
+      (
+        <div className="font-serif text-xl md:text-2xl leading-[1.8] text-slate-900 dark:text-slate-100 md:columns-2 gap-12 lg:gap-20 text-justify">
+          <p className="break-inside-avoid mb-8">
+            <span className="float-left font-serif text-[7.5rem] md:text-[9rem] leading-[0.7] pr-4 pt-3 pb-2 text-slate-900 dark:text-white">
+              L
+            </span>
+            ogistics dictate the flow of any trip to <strong className="font-black tracking-wide uppercase">{trip.destination}</strong>. The city is best tackled using <span className="italic text-slate-700 dark:text-slate-300">{transitText}</span>. You will find the general English proficiency to be <span className="italic text-slate-700 dark:text-slate-300">{englishText}</span>, meaning your phrasebook will be a useful fallback for daily interactions.
+          </p>
+          <p className="break-inside-avoid mb-8">
+            Hospitality norms here suggest you <span className="italic text-slate-700 dark:text-slate-300">{tippingText}</span>. As for the absolute basics to keep you going, the tap water is <span className="italic text-slate-700 dark:text-slate-300">{waterText}</span>. Get comfortable with these ground rules before stepping out.
+          </p>
+        </div>
+      )
+    ];
+
+    return templates[briefingTemplateIndex];
+  };
+
   return (
-    <div className="w-full font-sans print:m-0 print:p-0 bg-white dark:bg-slate-950 min-h-screen">
+    <div className="w-full font-sans print:m-0 print:p-0 bg-[#FAF9F6] dark:bg-slate-950 min-h-screen">
       
       {/* ── PRINT BOOKLET ── */}
       <PrintOnlyBooklet trip={trip} itinerary={itinerary} formatCost={formatCost} localCurrencyRaw={localCurrencyRaw} totalStops={totalStops} />
@@ -362,47 +407,50 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
         <FilingCabinet isOpen={isFilingCabinetOpen} onClose={() => setIsFilingCabinetOpen(false)} tripId={trip.id} availablePOIs={days.flatMap(d => d.entries.map(e => ({ id: e.id, name: e.locationName, dayName: `Day ${d.dayNumber}` })))} documents={tripDocuments} onUploadSuccess={loadDocuments} />
         {selectedPOI && <PlaceDetailsModal placeId={selectedPOI.placeId} poiId={selectedPOI.poiId} tripId={trip.id} tripDocuments={tripDocuments} onClose={() => setSelectedPOI(null)} onDocumentUpdate={loadDocuments} />}
 
-        {/* ── THE MAGAZINE HERO (FIX 2: Light Mode Accessibility) ── */}
-        <div className="relative w-full h-[50vh] min-h-[450px] overflow-hidden bg-slate-100 dark:bg-slate-900">
-          {/* Grayscale in light mode, standard overlay in dark mode */}
-          <img src={heroImage} alt={trip.destination} className="absolute inset-0 w-full h-full object-cover opacity-80 mix-blend-multiply dark:mix-blend-overlay dark:opacity-60 grayscale dark:grayscale-0 transition-all duration-700" />
-          <div className="absolute inset-0 bg-gradient-to-t from-white via-white/80 to-transparent dark:from-slate-950 dark:via-slate-900/40 dark:to-transparent" />
-          
-          <div className="absolute bottom-16 left-0 w-full px-6 max-w-5xl mx-auto flex flex-col items-start">
-            <p className="text-brand-700 dark:text-brand-300 font-serif italic text-xl md:text-2xl mb-2 tracking-wide">A curated journey to</p>
-            <h1 className="text-6xl md:text-8xl lg:text-9xl font-serif text-slate-900 dark:text-white tracking-tight leading-none mb-6">
-              {trip.destination}
-            </h1>
-            <div className="flex flex-wrap items-center gap-6 border-t border-slate-900/20 dark:border-white/20 pt-6 mt-2 text-slate-700 dark:text-white/80 font-mono text-xs uppercase tracking-widest">
-              <span>{trip.startDate && trip.endDate ? `${format(new Date(trip.startDate), 'MMM d')} – ${format(new Date(trip.endDate), 'MMM d, yyyy')}` : `${trip.duration} Days`}</span>
-              <span className="w-1 h-1 bg-brand-500 rounded-full" />
-              <span>{days.length} Days</span>
-              <span className="w-1 h-1 bg-brand-500 rounded-full" />
-              <span>{totalStops} Stops</span>
+        {/* ── THE PASSEPARTOUT HERO ── */}
+        <div className="px-4 md:px-8 lg:px-12 pt-8 md:pt-12 w-full max-w-7xl mx-auto">
+          <div className="relative w-full h-[60vh] min-h-[500px]">
+            <img src={heroImage} alt={trip.destination} className="w-full h-full object-cover grayscale opacity-90 dark:opacity-60 border border-slate-200 dark:border-slate-800 shadow-sm" />
+            
+            {/* The Text Bleed */}
+            <div className="absolute -bottom-16 md:-bottom-24 left-4 md:left-12 z-10 pointer-events-none w-full max-w-4xl">
+              <h1 className="text-[6rem] sm:text-[9rem] md:text-[12rem] lg:text-[14rem] font-serif text-slate-900 dark:text-white tracking-tighter leading-[0.75] m-0 drop-shadow-xl md:drop-shadow-none break-words">
+                {trip.destination}
+              </h1>
             </div>
           </div>
+        </div>
+
+        {/* Spacer for the overlapping text to breathe */}
+        <div className="h-28 md:h-40 w-full" />
+
+        <div className="max-w-5xl mx-auto w-full px-6 flex flex-wrap items-center gap-6 border-t-2 border-slate-900 dark:border-white pt-6 text-slate-900 dark:text-white font-mono text-[10px] md:text-xs uppercase tracking-[0.2em]">
+          <span>{trip.startDate && trip.endDate ? `${format(new Date(trip.startDate), 'do MMMM')} — ${format(new Date(trip.endDate), 'do MMMM yyyy')}` : `${trip.duration} Days`}</span>
+          <span className="w-1 h-1 bg-brand-500 rounded-full" />
+          <span>{days.length} Days</span>
+          <span className="w-1 h-1 bg-brand-500 rounded-full" />
+          <span>{totalStops} Stops</span>
         </div>
 
         <div className="max-w-5xl mx-auto w-full px-6 relative mt-16">
           
           {/* ── EDITORIAL TABS ── */}
-          <div className="sticky top-16 md:top-16 z-30 bg-white/95 dark:bg-slate-950/95 backdrop-blur-xl pt-6 pb-4 mb-16 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
+          <div className="sticky top-16 md:top-16 z-30 bg-[#FAF9F6]/95 dark:bg-slate-950/95 backdrop-blur-xl pt-6 pb-4 mb-16 border-b-2 border-slate-900 dark:border-white flex justify-between items-center">
             <div className="flex gap-10 overflow-x-auto hide-scrollbar px-2 flex-1">
               <button onClick={() => setActiveTab('overview')} className={`pb-4 text-xs font-mono tracking-[0.2em] uppercase transition-colors relative whitespace-nowrap ${activeTab === 'overview' ? 'text-slate-900 dark:text-white' : 'text-slate-400 hover:text-slate-600'}`}>
                 The Guide
-                {activeTab === 'overview' && <span className="absolute bottom-0 left-0 w-full h-px bg-slate-900 dark:bg-white" />}
+                {activeTab === 'overview' && <span className="absolute -bottom-[2px] left-0 w-full h-[3px] bg-brand-500" />}
               </button>
               {days.map((day) => (
                 <button key={day.dayNumber} onClick={() => setActiveTab(day.dayNumber)} className={`pb-4 text-xs font-mono tracking-[0.2em] uppercase transition-colors relative whitespace-nowrap ${activeTab === day.dayNumber ? 'text-slate-900 dark:text-white' : 'text-slate-400 hover:text-slate-600'}`}>
                   Day {day.dayNumber}
-                  {activeTab === day.dayNumber && <span className="absolute bottom-0 left-0 w-full h-px bg-slate-900 dark:bg-white" />}
+                  {activeTab === day.dayNumber && <span className="absolute -bottom-[2px] left-0 w-full h-[3px] bg-brand-500" />}
                 </button>
               ))}
             </div>
 
             <button onClick={() => window.print()} className="hidden md:flex pb-4 text-xs font-mono tracking-[0.2em] uppercase text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors items-center gap-2 group">
               <span>Print Guide</span>
-              <span className="opacity-50 group-hover:opacity-100 transition-opacity">🖨️</span>
             </button>
           </div>
 
@@ -420,120 +468,122 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
             {essentials && (
               <div className={`animate-fade-in ${activeTab === 'overview' ? 'block' : 'hidden'}`}>
                 
-                <div className="flex flex-col gap-24 max-w-3xl mx-auto">
+                <div className="flex flex-col gap-24 max-w-4xl mx-auto pt-4 md:pt-12">
                   
-                  {/* 1. THE EDITORIAL BRIEFING */}
-                  <div className="relative">
-                    <p className="font-serif text-3xl md:text-4xl lg:text-5xl leading-[1.4] text-slate-800 dark:text-slate-200">
-                      In {trip.destination}, you'll navigate primarily by <span className="italic text-brand-600 dark:text-brand-400">{essentials.airportTransit.toLowerCase().includes('uber') || essentials.airportTransit.toLowerCase().includes('taxi') ? 'taxi and rideshare' : 'local transit'}</span>. 
-                      English proficiency here is generally <span className="italic text-brand-600 dark:text-brand-400">{essentials.englishProficiency?.toLowerCase() || 'moderate'}</span>. 
-                      When dining out, <span className="italic text-brand-600 dark:text-brand-400">{essentials.tippingEtiquette?.toLowerCase() || 'tip around 10%'}</span>. 
-                      And take note: the tap water is <span className="italic text-brand-600 dark:text-brand-400">{tapWater.toLowerCase().includes('safe') ? 'safe to drink' : 'not recommended'}</span>.
-                    </p>
+                  {/* 1. THE EDITORIAL BRIEFING (Dynamic Templates) */}
+                  <div>
+                    {renderEditorialBriefing()}
 
-                    <div className="mt-12 flex flex-wrap gap-4 border-t border-slate-200 dark:border-slate-800 pt-8">
-                      <span className="px-4 py-1.5 text-slate-500 font-mono text-[10px] uppercase tracking-widest border border-slate-300 dark:border-slate-700">🔌 {plugType}</span>
-                      <span className="px-4 py-1.5 text-slate-500 font-mono text-[10px] uppercase tracking-widest border border-slate-300 dark:border-slate-700">🚨 {risk}</span>
-                      {apps.map((app, i) => (
-                        <span key={i} className="px-4 py-1.5 text-slate-500 font-mono text-[10px] uppercase tracking-widest border border-slate-300 dark:border-slate-700">📱 {app}</span>
-                      ))}
+                    <div className="mt-12 flex flex-wrap gap-x-16 gap-y-10 border-t-2 border-slate-900 dark:border-white pt-10">
+                      <div className="min-w-[140px]">
+                        <h4 className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 mb-3">Power Supply</h4>
+                        <p className="font-serif text-xl text-slate-900 dark:text-white italic">{plugType}</p>
+                      </div>
+                      <div className="min-w-[140px] flex-1 max-w-sm">
+                        <h4 className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 mb-3">Risk Assessment</h4>
+                        <p className="font-serif text-xl text-slate-900 dark:text-white italic leading-snug">{risk}</p>
+                      </div>
+                      <div className="min-w-[140px]">
+                        <h4 className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 mb-3">Essential Apps</h4>
+                        <p className="font-serif text-xl text-slate-900 dark:text-white italic">{apps.join(', ')}</p>
+                      </div>
                     </div>
                   </div>
 
                   {/* 2. THE AIRMAIL TRANSIT TICKET */}
                   {trip.intake?.transitDetails && ['Flight', 'Train'].includes(trip.intake.transitDetails.mode) && (
                     <div>
-                      <h2 className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-6 flex justify-between items-end border-b border-slate-200 dark:border-slate-800 pb-2">
+                      <h2 className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 mb-6 flex justify-between items-end border-b border-slate-300 dark:border-slate-800 pb-2">
                         <span>Transit Documents</span>
-                        <span className="text-brand-500">{trip.intake.transitDetails.mode}</span>
+                        <span className="text-slate-900 dark:text-white">{trip.intake.transitDetails.mode}</span>
                       </h2>
                       
-                      <div className="w-full border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/20 p-8 flex flex-col md:flex-row justify-between gap-12 relative">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-[repeating-linear-gradient(45deg,#ef4444,#ef4444_10px,transparent_10px,transparent_20px,#3b82f6_20px,#3b82f6_30px,transparent_30px,transparent_40px)] opacity-50" />
+                      <div className="w-full border-2 border-slate-900 dark:border-white bg-white dark:bg-slate-900 p-8 flex flex-col md:flex-row justify-between gap-12 relative shadow-[8px_8px_0px_rgba(0,0,0,0.1)] dark:shadow-[8px_8px_0px_rgba(255,255,255,0.1)]">
+                        <div className="absolute top-0 left-0 w-full h-1.5 bg-[repeating-linear-gradient(45deg,#ef4444,#ef4444_15px,transparent_15px,transparent_30px,#3b82f6_30px,#3b82f6_45px,transparent_45px,transparent_60px)] opacity-80" />
                         
-                        <div className="flex-1">
-                          <p className="text-[10px] font-mono uppercase tracking-widest text-slate-500 mb-4">Outbound</p>
-                          <div className="text-5xl font-serif text-slate-900 dark:text-white mb-2">{trip.intake.transitDetails.outbound?.time || 'TBD'}</div>
-                          <div className="text-sm font-sans text-slate-500 mb-6">Arrive {trip.destination}</div>
-                          <div className="font-mono text-xs uppercase tracking-widest text-slate-900 dark:text-white border-t border-slate-200 dark:border-slate-700 pt-4">
-                            Ref // {trip.intake.transitDetails.outbound?.reference || 'PENDING'}
+                        <div className="flex-1 mt-4">
+                          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 mb-4">Outbound</p>
+                          <div className="text-6xl font-serif text-slate-900 dark:text-white mb-2">{trip.intake.transitDetails.outbound?.time || 'TBD'}</div>
+                          <div className="text-sm font-sans text-slate-500 mb-8 italic">Arrive {trip.destination}</div>
+                          <div className="font-mono text-xs uppercase tracking-widest text-slate-900 dark:text-white border-t border-slate-300 dark:border-slate-700 pt-4">
+                            Ref // <span className="font-bold">{trip.intake.transitDetails.outbound?.reference || 'PENDING'}</span>
                           </div>
                         </div>
 
                         <div className="hidden md:block w-px bg-slate-300 dark:bg-slate-700" />
                         <div className="md:hidden h-px w-full bg-slate-300 dark:bg-slate-700" />
 
-                        <div className="flex-1">
-                          <p className="text-[10px] font-mono uppercase tracking-widest text-slate-500 mb-4">Return</p>
-                          <div className="text-5xl font-serif text-slate-900 dark:text-white mb-2">{trip.intake.transitDetails.return?.time || 'TBD'}</div>
-                          <div className="text-sm font-sans text-slate-500 mb-6">Depart {trip.destination}</div>
-                          <div className="font-mono text-xs uppercase tracking-widest text-slate-900 dark:text-white border-t border-slate-200 dark:border-slate-700 pt-4">
-                            Ref // {trip.intake.transitDetails.return?.reference || 'PENDING'}
+                        <div className="flex-1 mt-4">
+                          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 mb-4">Return</p>
+                          <div className="text-6xl font-serif text-slate-900 dark:text-white mb-2">{trip.intake.transitDetails.return?.time || 'TBD'}</div>
+                          <div className="text-sm font-sans text-slate-500 mb-8 italic">Depart {trip.destination}</div>
+                          <div className="font-mono text-xs uppercase tracking-widest text-slate-900 dark:text-white border-t border-slate-300 dark:border-slate-700 pt-4">
+                            Ref // <span className="font-bold">{trip.intake.transitDetails.return?.reference || 'PENDING'}</span>
                           </div>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {/* 3. THE RESIDENCE */}
-                  <div>
-                    <div className="flex items-end justify-between border-b border-slate-200 dark:border-slate-800 pb-2 mb-6">
-                      <h2 className="text-[10px] font-mono uppercase tracking-widest text-slate-400">The Residence</h2>
-                      <button onClick={() => { if (onEditRequest) onEditRequest(); else setActiveTab(1); }} className="text-[9px] font-mono uppercase tracking-widest text-brand-600 dark:text-brand-400 hover:text-brand-500">
-                        Manage ↗
-                      </button>
-                    </div>
-                    
-                    {dynamicStays.length > 0 ? (
-                      <div className="flex flex-col gap-6">
-                        {dynamicStays.map((stay, idx) => {
-                          const hasPlaceId = !!(stay.placeId && stay.placeId !== "null" && stay.placeId !== "");
-                          const mapsUrl = hasPlaceId ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stay.name + ', ' + trip.destination)}&query_place_id=${stay.placeId}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stay.name + ', ' + trip.destination)}`;
-
-                          return (
-                            <div key={idx} className="group flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer" onClick={() => hasPlaceId && setSelectedPOI({ placeId: stay.placeId!, poiId: stay.poiId })}>
-                              <div>
-                                <p className="text-[9px] font-mono uppercase tracking-widest text-slate-400 mb-2">Check-in Day {stay.startDay}</p>
-                                <h3 className="text-3xl font-serif text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">{stay.name}</h3>
-                              </div>
-                              <a href={mapsUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="w-max text-[9px] font-mono uppercase tracking-widest text-slate-500 border border-slate-300 dark:border-slate-700 px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
-                                Map ↗
-                              </a>
-                            </div>
-                          );
-                        })}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-16 md:gap-24">
+                    {/* 3. THE RESIDENCE */}
+                    <div>
+                      <div className="flex items-end justify-between border-b border-slate-300 dark:border-slate-800 pb-2 mb-8">
+                        <h2 className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500">The Residence</h2>
+                        <button onClick={() => { if (onEditRequest) onEditRequest(); else setActiveTab(1); }} className="text-[9px] font-mono uppercase tracking-widest text-slate-900 dark:text-white hover:text-brand-600 transition-colors">
+                          Manage ↗
+                        </button>
                       </div>
-                    ) : (
-                      <p className="text-lg font-serif italic text-slate-500">No accommodation scheduled yet. Let the Matchmaker suggest an area, or pin one to your timeline.</p>
+                      
+                      {dynamicStays.length > 0 ? (
+                        <div className="flex flex-col gap-10">
+                          {dynamicStays.map((stay, idx) => {
+                            const hasPlaceId = !!(stay.placeId && stay.placeId !== "null" && stay.placeId !== "");
+                            const mapsUrl = hasPlaceId ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stay.name + ', ' + trip.destination)}&query_place_id=${stay.placeId}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stay.name + ', ' + trip.destination)}`;
+
+                            return (
+                              <div key={idx} className="group cursor-pointer" onClick={() => hasPlaceId && setSelectedPOI({ placeId: stay.placeId!, poiId: stay.poiId })}>
+                                <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-slate-400 mb-3">Check-in Day {stay.startDay}</p>
+                                <h3 className="text-3xl font-serif text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors mb-4 leading-tight">{stay.name}</h3>
+                                <a href={mapsUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-block text-[9px] font-mono uppercase tracking-widest text-slate-500 border border-slate-300 dark:border-slate-700 px-3 py-1.5 hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-slate-900 transition-colors">
+                                  Map ↗
+                                </a>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-lg font-serif italic text-slate-500">No accommodation scheduled yet.</p>
+                      )}
+                    </div>
+
+                    {/* 4. THE PHRASEBOOK */}
+                    {essentials?.usefulPhrases && essentials.usefulPhrases.length > 0 && (
+                      <div>
+                        <h2 className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 mb-8 border-b border-slate-300 dark:border-slate-800 pb-2">The Phrasebook</h2>
+                        <div className="columns-1 md:columns-2 gap-12">
+                          {essentials.usefulPhrases.slice(0,6).map((p, i) => (
+                            <div key={i} className="mb-6 break-inside-avoid">
+                              <span className="font-black font-sans text-xs uppercase tracking-widest text-slate-900 dark:text-white mr-3">{p.phrase}.</span>
+                              <span className="font-serif text-xl text-slate-600 dark:text-slate-400 italic">{p.translation}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
 
-                  {/* 4. THE PHRASEBOOK */}
-                  {essentials?.usefulPhrases && essentials.usefulPhrases.length > 0 && (
-                    <div>
-                      <h2 className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-6 border-b border-slate-200 dark:border-slate-800 pb-2">The Phrasebook</h2>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-6">
-                        {essentials.usefulPhrases.slice(0,8).map((p, i) => (
-                          <div key={i} className="flex justify-between items-baseline">
-                            <span className="text-sm font-sans text-slate-500">{p.phrase}</span>
-                            <span className="text-lg font-serif text-slate-900 dark:text-white">{p.translation}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 5. THE TREASURY (Ledger) - FIX 3: Robust Button Link */}
-                  <div className="bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 p-8 md:p-12">
-                    <h2 className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-8 border-b border-slate-300 dark:border-slate-700 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  {/* 5. THE TREASURY (Ledger) */}
+                  <div className="border-t border-slate-900 dark:border-white pt-12 mt-8">
+                    <h2 className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 mb-12 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <span>The Treasury</span>
-                      <div className="flex items-center gap-4">
-                        <button onClick={toggleCurrency} className="text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">
+                      <div className="flex items-center gap-6">
+                        <button onClick={toggleCurrency} className="text-slate-900 dark:text-white hover:text-brand-600 transition-colors">
                           {displayCurrency === 'GBP' ? 'View Local' : 'View GBP'}
                         </button>
                         <Link 
                           href={`/itinerary/${trip.id}/ledger`} 
-                          className="bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-5 py-2 hover:bg-brand-600 dark:hover:bg-brand-400 hover:text-white transition-colors font-sans font-bold tracking-normal text-xs rounded-sm flex items-center gap-2 shadow-sm"
+                          className="bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-6 py-2.5 hover:bg-brand-600 transition-colors font-mono tracking-widest text-[10px] uppercase"
                         >
                           Open Ledger ↗
                         </Link>
@@ -542,19 +592,20 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
                     
                     <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-12">
                       <div>
-                        <p className="text-xs font-sans text-slate-500 mb-2">Estimated Itinerary Spend</p>
-                        <div className="text-6xl font-serif text-slate-900 dark:text-white leading-none mb-4">
-                          {formatCost(dynamicTotalCost)}
+                        <p className="text-[10px] font-mono uppercase tracking-widest text-slate-500 mb-4">Estimated Exposure</p>
+                        <div className="text-7xl font-serif text-slate-900 dark:text-white leading-none mb-6 flex items-start">
+                          <span className="text-3xl mt-2 mr-1">{displayCurrency === 'GBP' ? '£' : localSymbol}</span>
+                          <span>{formatCost(dynamicTotalCost).replace(/^[^\d\s]+\s*/, '')}</span>
                         </div>
-                        <p className="text-sm font-sans text-slate-500 border-l-2 border-slate-300 pl-3">
+                        <p className="text-sm font-serif italic text-slate-500">
                           of your {formatCost(trip.budgetGBP)} initial budget
                         </p>
                       </div>
 
-                      <div className="w-full md:w-auto text-left md:text-right border-t border-slate-200 dark:border-slate-800 md:border-0 pt-6 md:pt-0">
-                        <p className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-2">Current Exchange</p>
-                        <div className="text-2xl font-serif text-slate-900 dark:text-white mb-1">£1 = {localSymbol}{exchangeRate.toFixed(2)}</div>
-                        <p className="text-xs font-sans text-slate-500">{localCurrencyRaw}</p>
+                      <div className="w-full md:w-auto text-left md:text-right">
+                        <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 mb-4">Current Exchange</p>
+                        <div className="text-3xl font-serif text-slate-900 dark:text-white mb-2">£1 = {localSymbol}{exchangeRate.toFixed(2)}</div>
+                        <p className="text-xs font-mono uppercase tracking-widest text-slate-500">{localCurrencyRaw}</p>
                       </div>
                     </div>
                   </div>
@@ -569,59 +620,59 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
               const mapUrl = generateGoogleMapsDayUrl(activeDay.entries, trip.destination);
               
               return (
-                <div key={activeDay.dayNumber} className={`${isActiveTab ? 'flex' : 'hidden'} flex-col lg:flex-row gap-12 lg:gap-20 animate-fade-in max-w-5xl mx-auto`}>
+                <div key={activeDay.dayNumber} className={`${isActiveTab ? 'flex' : 'hidden'} flex-col lg:flex-row gap-12 lg:gap-24 animate-fade-in max-w-6xl mx-auto pt-8 md:pt-16`}>
                   
                   <div className="flex-1">
                     {viewMode === 'list' || typeof window === 'undefined' ? (
                       <>
-                        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-16 border-b border-slate-200 dark:border-slate-800 pb-6">
+                        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-16 border-b-2 border-slate-900 dark:border-white pb-8">
                           <div>
-                            <p className="text-[10px] font-mono uppercase tracking-widest text-brand-600 dark:text-brand-400 mb-2">Schedule</p>
-                            <h2 className="text-5xl font-serif text-slate-900 dark:text-white">Day {activeDay.dayNumber}</h2>
+                            <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 mb-4">Schedule</p>
+                            <h2 className="text-6xl font-serif text-slate-900 dark:text-white">Day {activeDay.dayNumber}</h2>
                           </div>
                           {mapUrl && (
-                            <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="inline-flex w-max items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors">
-                              Open Maps ↗
+                            <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="inline-flex w-max items-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-slate-900 dark:text-white border border-slate-900 dark:border-white px-5 py-2.5 hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-slate-900 transition-colors">
+                              Route Map ↗
                             </a>
                           )}
                         </div>
                         
                         <div className="flex flex-col">
                           {(activeDay.entries || []).map((entry, index, arr) => (
-                            <TimelineEntry key={`${entry.id}-${entry.time}`} entry={entry} nextEntry={arr[index + 1]} isLast={index === arr.length - 1} dayNumber={activeDay.dayNumber} accommodationName={accommodationName} onPlaceClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })} formatCost={formatCost} destination={trip.destination} />
+                            <TimelineEntry key={`${entry.id}-${entry.time}`} entry={entry} nextEntry={arr[index + 1]} isLast={index === arr.length - 1} isOdd={index % 2 !== 0} dayNumber={activeDay.dayNumber} accommodationName={accommodationName} onPlaceClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })} formatCost={formatCost} destination={trip.destination} />
                           ))}
                         </div>
                       </>
                     ) : (
-                      <div className="h-[65vh] min-h-[600px] w-full border border-slate-200 dark:border-slate-800 relative">
+                      <div className="h-[65vh] min-h-[600px] w-full border border-slate-300 dark:border-slate-800 relative">
                          <DayMap entries={activeDay.entries || []} destination={trip.destination} onMarkerClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })} />
                       </div>
                     )}
                   </div>
 
-                  <div className="w-full lg:w-64 flex-shrink-0">
-                    <div className="sticky top-40 flex flex-col gap-12">
+                  <div className="w-full lg:w-72 flex-shrink-0">
+                    <div className="sticky top-40 flex flex-col gap-16">
                       
-                      <div className="flex flex-col gap-2">
-                        <button onClick={() => setViewMode('list')} className={`text-left py-2 text-[10px] font-mono uppercase tracking-widest border-b transition-all ${viewMode === 'list' ? 'border-slate-900 dark:border-white text-slate-900 dark:text-white' : 'border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600'}`}>
+                      <div className="flex flex-col gap-4">
+                        <button onClick={() => setViewMode('list')} className={`text-left pb-2 text-[10px] font-mono uppercase tracking-[0.2em] border-b transition-all ${viewMode === 'list' ? 'border-slate-900 dark:border-white text-slate-900 dark:text-white' : 'border-slate-300 dark:border-slate-800 text-slate-400 hover:text-slate-600'}`}>
                           Read Timeline
                         </button>
-                        <button onClick={() => setViewMode('map')} className={`text-left py-2 text-[10px] font-mono uppercase tracking-widest border-b transition-all ${viewMode === 'map' ? 'border-slate-900 dark:border-white text-slate-900 dark:text-white' : 'border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600'}`}>
-                          View Live Map
+                        <button onClick={() => setViewMode('map')} className={`text-left pb-2 text-[10px] font-mono uppercase tracking-[0.2em] border-b transition-all ${viewMode === 'map' ? 'border-slate-900 dark:border-white text-slate-900 dark:text-white' : 'border-slate-300 dark:border-slate-800 text-slate-400 hover:text-slate-600'}`}>
+                          Live Routing Map
                         </button>
                       </div>
                       
                       <div>
-                        <h3 className="text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-4 pb-2 border-b border-slate-200 dark:border-slate-800 flex justify-between">
+                        <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 mb-6 pb-2 border-b border-slate-300 dark:border-slate-800 flex justify-between">
                           <span>Day {activeDay.dayNumber} Spend</span>
-                          {!isDomesticTrip && <button onClick={toggleCurrency} className="text-brand-600 dark:text-brand-400 hover:text-brand-500">{displayCurrency === 'GBP' ? 'LOCAL' : 'GBP'}</button>}
+                          {!isDomesticTrip && <button onClick={toggleCurrency} className="text-slate-900 dark:text-white hover:text-brand-600">{displayCurrency === 'GBP' ? 'LOCAL' : 'GBP'}</button>}
                         </h3>
                         
-                        <div className={`text-4xl font-serif leading-none mb-2 ${(activeDay.estimatedDailySpendGBP || 0) > (trip.budgetGBP / trip.duration) ? 'text-red-600' : 'text-slate-900 dark:text-white'}`}>
+                        <div className={`text-5xl font-serif leading-none mb-3 ${(activeDay.estimatedDailySpendGBP || 0) > (trip.budgetGBP / trip.duration) ? 'text-red-600' : 'text-slate-900 dark:text-white'}`}>
                           {formatCost(activeDay.estimatedDailySpendGBP || 0)}
                         </div>
-                        <div className="text-sm font-sans text-slate-400 mb-6">
-                          / {formatCost(trip.budgetGBP / trip.duration)} limit
+                        <div className="text-sm font-serif italic text-slate-500 mb-8">
+                          of {formatCost(trip.budgetGBP / trip.duration)} limit
                         </div>
 
                         {/* Cumulative Spend Tracker */}
@@ -629,9 +680,9 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
                           const currentDayNum = activeDay.dayNumber;
                           const spendToDate = days.filter(d => d.dayNumber <= currentDayNum).reduce((sum, d) => sum + (d.estimatedDailySpendGBP || 0), 0);
                           return (
-                            <div className="bg-slate-50 dark:bg-slate-900 p-4 border border-slate-200 dark:border-slate-800">
-                              <p className="text-[9px] font-mono uppercase tracking-widest text-slate-500 mb-1">Spend to Date</p>
-                              <p className="text-lg font-serif text-slate-900 dark:text-white">{formatCost(spendToDate)}</p>
+                            <div className="border-l border-slate-300 dark:border-slate-800 pl-4">
+                              <p className="text-[9px] font-mono uppercase tracking-widest text-slate-500 mb-2">Spend to Date</p>
+                              <p className="text-2xl font-serif text-slate-900 dark:text-white">{formatCost(spendToDate)}</p>
                             </div>
                           );
                         })()}
