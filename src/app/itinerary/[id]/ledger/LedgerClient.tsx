@@ -8,6 +8,7 @@ import ThemeInjector from '@/components/layout/ThemeInjector';
 import type { Itinerary, ExpenseCategory, MiscExpense, ItineraryEntry } from '@/types';
 import type { DocumentInfo } from '@/components/itinerary/PlaceDetailsModal';
 import LedgerEditorial from './LedgerEditorial';
+import LedgerNotebook from './LedgerNotebook';
 
 export interface LedgerClientProps {
   trip: any;
@@ -222,6 +223,15 @@ export default function LedgerClient({ trip, initialItinerary }: LedgerClientPro
     toggleCurrency, totalActiveSpend, prePaidSpend, grandTotal, timelineItems, categoryBreakdown,
     formatCost, handleSaveActual, handleAddMisc, removeMiscExpense, syncLedger
   };
+  
+if (aestheticPreference === 'NOTEBOOK') {
+    return (
+      <div className="min-h-screen pb-32">
+        <ThemeInjector />
+        <LedgerNotebook trip={trip} initialItinerary={activeItinerary} />
+      </div>
+    );
+  }
 
   if (aestheticPreference === 'EDITORIAL') {
     return (

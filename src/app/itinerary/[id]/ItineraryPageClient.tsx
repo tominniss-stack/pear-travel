@@ -6,6 +6,7 @@ import Link from 'next/link';
 import SortableItinerary from '@/components/itinerary/SortableItinerary';
 import ItineraryDisplay from '@/components/itinerary/ItineraryDisplay';
 import ItineraryDisplayV2 from '@/components/itinerary/ItineraryDisplayV2';
+import ItineraryDisplayNotebook from '@/components/itinerary/ItineraryDisplayNotebook';
 import ThemeInjector from '@/components/layout/ThemeInjector';
 import type { Itinerary, TripIntake } from '@/types'; 
 import { useTripStore } from '@/store/tripStore';
@@ -109,7 +110,13 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
       {isEditing ? (
         <SortableItinerary />
       ) : (
-        aestheticPreference === 'EDITORIAL' ? (
+        aestheticPreference === 'NOTEBOOK' ? (
+          <ItineraryDisplayNotebook
+            itinerary={currentItinerary} 
+            trip={dbTrip} 
+            onEditRequest={() => setIsEditing(true)} 
+          />
+        ) : aestheticPreference === 'EDITORIAL' ? (
           <ItineraryDisplayV2 
             itinerary={currentItinerary} 
             trip={dbTrip} 

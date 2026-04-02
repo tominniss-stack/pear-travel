@@ -25,7 +25,8 @@ export default function SettingsPage() {
   const themes: { id: AestheticPreference; name: string; desc: string; icon: string; status: 'active' | 'coming_soon' }[] = [
     { id: 'CLASSIC', name: 'The Classic', desc: 'Data-dense, highly functional card-based layout.', icon: '📋', status: 'active' },
     { id: 'EDITORIAL', name: 'The Editorial', desc: 'A curated, magazine-style luxury reading experience.', icon: '📖', status: 'active' },
-    { id: 'NOTEBOOK', name: 'Field Notes', desc: 'Tactile, analogue journal aesthetics.', icon: '📓', status: 'coming_soon' },
+    // ── FIX: Changed status to 'active' so the button is clickable ──
+    { id: 'NOTEBOOK', name: 'Field Notes', desc: 'Tactile, analogue journal aesthetics.', icon: '📓', status: 'active' },
     { id: 'TERMINAL', name: 'Terminal', desc: 'CLI-inspired green-on-black departure board.', icon: '📟', status: 'coming_soon' },
     { id: 'CONCIERGE', name: 'Concierge', desc: 'Ultra-minimalist architectural luxury.', icon: '🛎️', status: 'coming_soon' },
   ];
