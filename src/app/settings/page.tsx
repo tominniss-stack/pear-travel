@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { signOut, useSession } from 'next-auth/react';
 import { format } from 'date-fns';
 import { fetchAllUserDocuments, deleteDocument } from '@/app/actions/documents';
+import { changePassword } from '@/app/actions/auth';
 import { useTripStore } from '@/store/tripStore';
 import type { AestheticPreference } from '@/types';
 import Link from 'next/link';
@@ -22,12 +23,20 @@ export default function SettingsPage() {
   // Appearance State
   const { aestheticPreference, setAestheticPreference, useDynamicColors, toggleDynamicColors, currentTripId } = useTripStore();
 
+  // Password Change State
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+
   const themes: { id: AestheticPreference; name: string; desc: string; icon: string; status: 'active' | 'coming_soon' }[] = [
     { id: 'CLASSIC', name: 'The Classic', desc: 'Data-dense, highly functional card-based layout.', icon: '📋', status: 'active' },
     { id: 'EDITORIAL', name: 'The Editorial', desc: 'A curated, magazine-style luxury reading experience.', icon: '📖', status: 'active' },
-    // ── FIX: Changed status to 'active' so the button is clickable ──
     { id: 'NOTEBOOK', name: 'Field Notes', desc: 'Tactile, analogue journal aesthetics.', icon: '📓', status: 'active' },
-    { id: 'TERMINAL', name: 'Terminal', desc: 'CLI-inspired green-on-black departure board.', icon: '📟', status: 'coming_soon' },
+    { id: 'TERMINAL', name: 'Terminal', desc: 'CLI-inspired green-on-black departure board.', icon: '📟', status: 'active' },
     { id: 'CONCIERGE', name: 'Concierge', desc: 'Ultra-minimalist architectural luxury.', icon: '🛎️', status: 'coming_soon' },
   ];
 
@@ -54,6 +63,38 @@ export default function SettingsPage() {
       setDocuments(docs => docs.filter(d => d.id !== docId));
     }
     setIsDeletingId(null);
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New passwords do not match.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPasswordError('New password must be at least 6 characters.');
+      return;
+    }
+
+    setIsSavingPassword(true);
+    const result = await changePassword(currentPassword, newPassword);
+    setIsSavingPassword(false);
+
+    if (result.success) {
+      setPasswordSuccess('Password updated successfully.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => {
+        setIsChangingPassword(false);
+        setPasswordSuccess(null);
+      }, 2000);
+    } else {
+      setPasswordError(result.error || 'Failed to update password.');
+    }
   };
 
   // Helper to format bytes to MB/KB
@@ -106,7 +147,7 @@ export default function SettingsPage() {
         {/* ── Main Content Area ── */}
         <div className="flex-1 w-full">
           
-          {/* 1. Account Tab (Preserved) */}
+          {/* 1. Account Tab */}
           {activeTab === 'account' && (
             <div className="space-y-8 animate-fade-in">
               <section className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -123,12 +164,80 @@ export default function SettingsPage() {
 
               <section className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
                 <h2 className="text-xl font-bold mb-6 text-slate-900 dark:text-slate-100">Security</h2>
-                <button className="px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 text-sm">
-                  Change Password
-                </button>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-4 font-medium leading-relaxed max-w-md">
-                  Password change functionality will be wired securely in the next update.
-                </p>
+                
+                {!isChangingPassword ? (
+                  <>
+                    <button 
+                      onClick={() => setIsChangingPassword(true)}
+                      className="px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-xl font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 text-sm"
+                    >
+                      Change Password
+                    </button>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-4 font-medium leading-relaxed max-w-md">
+                      Update your account password securely.
+                    </p>
+                  </>
+                ) : (
+                  <form onSubmit={handlePasswordChange} className="space-y-4 max-w-sm animate-in fade-in slide-in-from-top-2">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Current Password</label>
+                      <input 
+                        type="password" 
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        required
+                        className="w-full bg-slate-50 dark:bg-slate-950 px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">New Password</label>
+                      <input 
+                        type="password" 
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        required
+                        className="w-full bg-slate-50 dark:bg-slate-950 px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Confirm New Password</label>
+                      <input 
+                        type="password" 
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                        className="w-full bg-slate-50 dark:bg-slate-950 px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      />
+                    </div>
+
+                    {passwordError && <p className="text-xs text-red-500 font-bold">{passwordError}</p>}
+                    {passwordSuccess && <p className="text-xs text-green-500 font-bold">{passwordSuccess}</p>}
+
+                    <div className="flex items-center gap-3 pt-2">
+                      <button 
+                        type="submit"
+                        disabled={isSavingPassword}
+                        className="px-6 py-3 bg-brand-500 text-white rounded-xl font-bold hover:bg-brand-600 transition-all disabled:opacity-50 text-sm"
+                      >
+                        {isSavingPassword ? 'Saving...' : 'Save New Password'}
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setIsChangingPassword(false);
+                          setPasswordError(null);
+                          setPasswordSuccess(null);
+                          setCurrentPassword('');
+                          setNewPassword('');
+                          setConfirmPassword('');
+                        }}
+                        className="px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all text-sm"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                )}
               </section>
 
               <section className="pt-4">
@@ -142,7 +251,7 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* 2. Appearance Tab (New) */}
+          {/* 2. Appearance Tab */}
           {activeTab === 'appearance' && (
             <div className="space-y-8 animate-fade-in">
               <section className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -211,7 +320,7 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* 3. Files & Storage Tab (Preserved) */}
+          {/* 3. Files & Storage Tab */}
           {activeTab === 'files' && (
             <div className="space-y-8 animate-fade-in">
               <section className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">

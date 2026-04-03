@@ -7,6 +7,7 @@ import SortableItinerary from '@/components/itinerary/SortableItinerary';
 import ItineraryDisplay from '@/components/itinerary/ItineraryDisplay';
 import ItineraryDisplayV2 from '@/components/itinerary/ItineraryDisplayV2';
 import ItineraryDisplayNotebook from '@/components/itinerary/ItineraryDisplayNotebook';
+import ItineraryDisplayTerminal from '@/components/itinerary/ItineraryDisplayTerminal';
 import ThemeInjector from '@/components/layout/ThemeInjector';
 import type { Itinerary, TripIntake } from '@/types'; 
 import { useTripStore } from '@/store/tripStore';
@@ -37,7 +38,6 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
-  // ── FIX 1: Hydration state to prevent flickering ──
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -70,7 +70,6 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
 
   const currentItinerary = itinerary || dbItinerary;
 
-  // Do not render structural themes until the client confirms its preference
   if (!isMounted) {
     return <div className="min-h-screen bg-slate-50 dark:bg-slate-950 w-full animate-pulse" />;
   }
@@ -79,38 +78,66 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
     <div className="w-full py-8 relative">
       <ThemeInjector />
 
-      <div className="print:hidden mb-6 max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center text-sm font-bold text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
-        >
-          <span aria-hidden="true" className="mr-2">←</span>
-          Back to My Trips
-        </Link>
+      {/* ── DYNAMIC HEADER BAR ── */}
+      {isEditing ? (
+        // STATE 1: EDITING MODE (Abort vs Save)
+        <div className="print:hidden mb-6 max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
+          <button
+            onClick={() => setIsEditing(false)}
+            className="inline-flex items-center text-sm font-bold text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+          >
+            <span aria-hidden="true" className="mr-2">✕</span>
+            Abort Changes
+          </button>
 
-        <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => {
-              if (isEditing) handleSaveItinerary();
-              else setIsEditing(true);
-            }}
+            onClick={handleSaveItinerary}
             disabled={isSaving}
-            className={`inline-flex items-center rounded-xl px-4 py-2 text-sm font-bold shadow-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
-              isEditing 
-                ? 'bg-brand-500 text-white hover:bg-brand-400 border border-brand-400' 
-                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
-            }`}
+            className="inline-flex items-center rounded-xl px-4 py-2 text-sm font-bold shadow-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-brand-500 text-white hover:bg-brand-400 border border-brand-400"
           >
-            {isSaving ? 'Saving...' : isEditing ? 'Save Changes' : 'Edit Trip Planner'}
+            {isSaving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
-      </div>
+      ) : (
+        // STATE 2: VIEWING MODE (Hide entirely for Terminal so it stays immersive)
+        aestheticPreference !== 'TERMINAL' && (
+          <div className="print:hidden mb-6 max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center text-sm font-bold text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
+            >
+              <span aria-hidden="true" className="mr-2">←</span>
+              Back to My Trips
+            </Link>
 
+            {/* Hide the standard Edit button for Notebook since it provides its own native UI tab */}
+            {aestheticPreference !== 'NOTEBOOK' && (
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  className="inline-flex items-center rounded-xl px-4 py-2 text-sm font-bold shadow-sm transition-all bg-white dark:bg-slate-800 text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700"
+                >
+                  Edit Trip Planner
+                </button>
+              </div>
+            )}
+          </div>
+        )
+      )}
+
+      {/* ── THEME ENGINE ROUTING ── */}
       {isEditing ? (
         <SortableItinerary />
       ) : (
-        aestheticPreference === 'NOTEBOOK' ? (
+        aestheticPreference === 'TERMINAL' ? (
+          <ItineraryDisplayTerminal
+            itinerary={currentItinerary} 
+            trip={dbTrip} 
+            onEditAction={() => setIsEditing(true)} 
+          />
+        ) : aestheticPreference === 'NOTEBOOK' ? (
           <ItineraryDisplayNotebook
             itinerary={currentItinerary} 
             trip={dbTrip} 

@@ -2,6 +2,8 @@
 
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 export async function registerUser(prevState: any, formData: FormData) {
   const name = formData.get('name') as string;
@@ -59,4 +61,48 @@ export async function registerAction(username: string, password: string) {
   formData.append('password', password);
   formData.append('confirmPassword', password);
   return registerUser(null, formData);
+}
+
+// ── NEW: Secure Password Change Action ──
+export async function changePassword(currentPassword: string, newPassword: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.username) {
+      return { success: false, error: 'Not authenticated.' };
+    }
+
+    if (!currentPassword || !newPassword) {
+      return { success: false, error: 'Please provide both current and new passwords.' };
+    }
+
+    if (newPassword.length < 6) {
+      return { success: false, error: 'New password must be at least 6 characters long.' };
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { username: session.user.username }
+    });
+
+    if (!user) {
+      return { success: false, error: 'User not found.' };
+    }
+
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+
+    if (!isPasswordValid) {
+      return { success: false, error: 'Incorrect current password.' };
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashedPassword }
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Change password error:', error);
+    return { success: false, error: 'Something went wrong while updating your password.' };
+  }
 }

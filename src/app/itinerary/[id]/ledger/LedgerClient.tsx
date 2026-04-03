@@ -9,6 +9,7 @@ import type { Itinerary, ExpenseCategory, MiscExpense, ItineraryEntry } from '@/
 import type { DocumentInfo } from '@/components/itinerary/PlaceDetailsModal';
 import LedgerEditorial from './LedgerEditorial';
 import LedgerNotebook from './LedgerNotebook';
+import LedgerTerminal from './LedgerTerminal';
 
 export interface LedgerClientProps {
   trip: any;
@@ -223,6 +224,14 @@ export default function LedgerClient({ trip, initialItinerary }: LedgerClientPro
     toggleCurrency, totalActiveSpend, prePaidSpend, grandTotal, timelineItems, categoryBreakdown,
     formatCost, handleSaveActual, handleAddMisc, removeMiscExpense, syncLedger
   };
+  
+ if (aestheticPreference === 'TERMINAL') {
+    return (
+      <div className="min-h-screen bg-black font-mono pb-32">
+        <LedgerTerminal trip={trip} initialItinerary={activeItinerary} />
+      </div>
+    );
+  }
   
 if (aestheticPreference === 'NOTEBOOK') {
     return (

@@ -397,7 +397,7 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
   };
 
   return (
-    <div className="w-full font-sans print:m-0 print:p-0 bg-[#FAF9F6] dark:bg-slate-950 dark:text-slate-100 min-h-screen transition-colors duration-300">
+    <div className="w-full font-sans print:m-0 print:p-0 bg-[#FAF9F6] dark:bg-slate-950 min-h-screen">
       
       {/* ── PRINT BOOKLET ── */}
       <PrintOnlyBooklet trip={trip} itinerary={itinerary} formatCost={formatCost} localCurrencyRaw={localCurrencyRaw} totalStops={totalStops} />
