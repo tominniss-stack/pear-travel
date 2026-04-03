@@ -10,7 +10,13 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        // App Core & Editorial Theme
+        sans: ['var(--font-inter)', 'Inter', 'system-ui', 'sans-serif'],
+        serif: ['var(--font-playfair)', 'Georgia', 'serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+        // Notebook Theme
+        handwriting: ['var(--font-caveat)', 'cursive'],
+        typewriter: ['var(--font-special-elite)', 'monospace'],
       },
       colors: {
         brand: {

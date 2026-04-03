@@ -114,7 +114,7 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
           <ItineraryDisplayNotebook
             itinerary={currentItinerary} 
             trip={dbTrip} 
-            onEditRequest={() => setIsEditing(true)} 
+            onEditAction={() => setIsEditing(true)} 
           />
         ) : aestheticPreference === 'EDITORIAL' ? (
           <ItineraryDisplayV2 

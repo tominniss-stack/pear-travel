@@ -31,8 +31,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} ${playfair.variable} ${caveat.variable} ${specialElite.variable} font-sans bg-slate-50 text-slate-900 antialiased selection:bg-brand-500/30 min-h-screen flex flex-col`}>
+    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${playfair.variable} ${caveat.variable} ${specialElite.variable}`}>
+      <body className="font-sans bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased selection:bg-brand-500/30 min-h-screen flex flex-col transition-colors duration-300">
         <ThemeProvider>
           <Providers>
             <GlobalNav />

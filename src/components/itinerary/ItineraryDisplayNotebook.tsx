@@ -135,9 +135,9 @@ function PrintOnlyBooklet({ trip, itinerary, formatCost, localCurrencyRaw, total
 }
 
 function TimelineEntryNotebook({ 
-  entry, nextEntry, isLast, accommodationName, destination, onPlaceClick, formatCost 
+  entry, nextEntry, isLast, isOdd, accommodationName, destination, onPlaceClick, formatCost 
 }: { 
-  entry: ItineraryEntry; nextEntry?: ItineraryEntry; isLast: boolean; accommodationName?: string; destination: string; onPlaceClick: (placeId: string, poiId: string) => void; formatCost: (cost?: number) => string;
+  entry: ItineraryEntry; nextEntry?: ItineraryEntry; isLast: boolean; isOdd: boolean; accommodationName?: string; destination: string; onPlaceClick: (placeId: string, poiId: string) => void; formatCost: (cost?: number) => string;
 }) {
   const hasPlaceId = !!(entry.placeId && entry.placeId !== "null" && entry.placeId !== "");
   const isBookend = (entry.type === 'ACCOMMODATION' || entry.transitMethod === 'Start of Day') && !entry.isDining;
@@ -146,19 +146,37 @@ function TimelineEntryNotebook({
   if (isBookend && accommodationName && /^(accommodation|hotel|airbnb|start of day)/i.test(displayTitle.trim())) {
     displayTitle = accommodationName;
   }
+
+  // FIXED: Removed strict overlap checks to clear TS Error 2367
+  const getMarginDoodle = () => {
+    if (isBookend) return null;
+    const isDining = entry.isDining || /lunch|dinner|breakfast|cafe|restaurant|eat/i.test(entry.activityDescription + ' ' + entry.locationName);
+    
+    if (isDining) {
+      return <span className="font-handwriting text-xs text-slate-500 -rotate-6 inline-block mt-3 opacity-60 dark:opacity-40">(dining)</span>;
+    }
+    
+    const isTransit = entry.transitMethod && !entry.transitMethod.toLowerCase().includes('walk') && entry.transitMethod !== 'Start of Day';
+    if (isTransit) {
+      return <span className="font-handwriting text-xs text-slate-500 rotate-6 inline-block mt-3 opacity-60 dark:opacity-40">travel →</span>;
+    }
+    
+    return <span className="font-handwriting text-xs text-slate-500 -rotate-3 inline-block mt-3 opacity-60 dark:opacity-40">explore</span>;
+  };
   
   return (
     <div className="flex flex-col relative pb-10">
       {!isLast && <div className="absolute left-[24px] top-12 bottom-0 w-0.5 bg-slate-300 dark:bg-slate-700 border-l-2 border-dotted border-slate-400 dark:border-slate-500" />}
 
       <div className="flex items-start gap-4 md:gap-8 relative z-10">
-        <div className="w-12 md:w-16 pt-2 flex-shrink-0">
+        <div className="w-12 md:w-16 pt-2 flex-shrink-0 flex flex-col items-center">
           <span className="font-typewriter text-red-600 dark:text-red-400 border-2 border-red-600/40 dark:border-red-400/40 rounded-sm shadow-sm px-1 md:px-1.5 py-1 -rotate-3 inline-block font-bold text-sm md:text-base mix-blend-multiply dark:mix-blend-screen bg-red-50/50 dark:bg-red-900/20 backdrop-blur-sm">
             {entry.time ? entry.time.replace(/^0/, '') : 'TBD'}
           </span>
+          {getMarginDoodle()}
         </div>
         
-        <div onClick={() => hasPlaceId && onPlaceClick(entry.placeId!, entry.id)} className={`flex-1 group ${hasPlaceId ? 'cursor-pointer' : 'cursor-default'} relative`}>
+        <div onClick={() => hasPlaceId && onPlaceClick(entry.placeId!, entry.id)} className={`flex-1 group ${hasPlaceId ? 'cursor-pointer' : 'cursor-default'} relative ${isOdd ? 'md:ml-12' : 'md:ml-0'}`}>
           <div className="absolute inset-0 bg-white/40 dark:bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity -mx-4 px-4 rounded-xl -rotate-1 pointer-events-none" />
 
           <div className="relative z-10">
@@ -189,7 +207,8 @@ function TimelineEntryNotebook({
   );
 }
 
-export default function ItineraryDisplayNotebook({ itinerary, trip, onEditRequest }: { itinerary: Itinerary; trip: ClientTripProps; onEditRequest?: () => void; }) {
+// FIXED: Renamed onEditRequest to onEditAction to clear TS Error 71007
+export default function ItineraryDisplayNotebook({ itinerary, trip, onEditAction }: { itinerary: Itinerary; trip: ClientTripProps; onEditAction?: () => void; }) {
   const days = itinerary.days ?? [];
   const essentials = itinerary.essentials;
   const [activeTab, setActiveTab] = useState<'overview' | number>('overview');
@@ -267,7 +286,6 @@ export default function ItineraryDisplayNotebook({ itinerary, trip, onEditReques
   const plugType = essentials?.plugType || 'Type C / F (230V)';
   const apps = essentials?.apps && essentials.apps.length > 0 ? essentials.apps : ['Uber', 'Google Maps'];
 
-  // Humanized Briefing Logic with CSS Highlighter Pen effects
   const humanizeBriefing = () => {
     if (!essentials) return null;
     const transit = essentials.airportTransit.toLowerCase().includes('uber') || essentials.airportTransit.toLowerCase().includes('taxi') ? 'taxis and rideshares' : 'local transit networks';
@@ -275,7 +293,6 @@ export default function ItineraryDisplayNotebook({ itinerary, trip, onEditReques
     const tipping = (essentials.tippingEtiquette || '10%').replace(/\.+$/, '');
     const water = essentials.tapWater?.toLowerCase().includes('safe') ? 'perfectly safe' : 'best avoided';
 
-    // CSS classes for highlighter markers
     const hlYellow = "bg-[#fef08a]/80 dark:bg-[#ca8a04]/40 text-slate-900 dark:text-white px-1.5 py-0.5 mx-1 font-bold rounded-sm inline-block -rotate-1 mix-blend-multiply dark:mix-blend-screen shadow-[1px_1px_2px_rgba(254,240,138,0.5)]";
     const hlPink = "bg-[#fbcfe8]/80 dark:bg-[#be185d]/40 text-slate-900 dark:text-white px-1.5 py-0.5 mx-1 font-bold rounded-sm inline-block rotate-1 mix-blend-multiply dark:mix-blend-screen shadow-[1px_1px_2px_rgba(251,207,232,0.5)]";
     const hlGreen = "bg-[#bbf7d0]/80 dark:bg-[#15803d]/40 text-slate-900 dark:text-white px-1.5 py-0.5 mx-1 font-bold rounded-sm inline-block -rotate-1 mix-blend-multiply dark:mix-blend-screen shadow-[1px_1px_2px_rgba(187,247,208,0.5)]";
@@ -295,11 +312,20 @@ export default function ItineraryDisplayNotebook({ itinerary, trip, onEditReques
   };
 
   return (
-    <div 
-      className="w-full min-h-screen relative overflow-x-hidden"
-      style={{ backgroundColor: 'var(--tw-bg-opacity, #Fdfbf7)' }}
-    >
-      <div className="absolute inset-0 z-0 bg-[#Fdfbf7] dark:bg-[#121212] bg-[linear-gradient(transparent_95%,rgba(148,163,184,0.15)_100%)] dark:bg-[linear-gradient(transparent_95%,rgba(255,255,255,0.03)_100%)] bg-[length:100%_2.5rem]" />
+    <div className="w-full min-h-screen font-sans relative overflow-x-hidden text-slate-900 dark:text-white notebook-bg-itinerary">
+      
+      {/* FIXED: Removed the red margin line from the main itinerary background */}
+      <style dangerouslySetInnerHTML={{__html: `
+        .notebook-bg-itinerary {
+          background-color: #Fdfbf7;
+          background-image: linear-gradient(#e8e4d9 1px, transparent 1px);
+          background-size: 100% 2.5rem;
+        }
+        .dark .notebook-bg-itinerary {
+          background-color: #121212;
+          background-image: linear-gradient(#2a2a2a 1px, transparent 1px);
+        }
+      `}} />
 
       <PrintOnlyBooklet trip={trip} itinerary={itinerary} formatCost={formatCost} localCurrencyRaw={localCurrencyRaw} totalStops={totalStops} />
 
@@ -326,11 +352,15 @@ export default function ItineraryDisplayNotebook({ itinerary, trip, onEditReques
         {/* ── MAIN CONTENT AREA ── */}
         <div className="flex-1 w-full pt-4 md:pt-16 max-w-4xl mx-auto relative z-10">
           
+          {/* THE POLAROID HERO */}
           <div className="w-full mb-16">
-            <div className="relative mx-auto max-w-xl bg-[#fff] dark:bg-[#1e1e1e] p-4 pb-12 md:p-5 md:pb-16 shadow-[0_10px_30px_rgba(0,0,0,0.15)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.6)] -rotate-1 group border border-slate-200 dark:border-[#333]">
+            <div className="relative mx-auto max-w-xl bg-[#fff] dark:bg-[#1e1e1e] p-4 pb-20 md:p-5 md:pb-24 shadow-[0_10px_30px_rgba(0,0,0,0.15)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.6)] -rotate-1 group border border-slate-200 dark:border-[#333]">
               <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-32 h-8 bg-[#fdf8f0]/80 dark:bg-[#2d2d2d]/80 backdrop-blur-md rotate-3 shadow-[0_1px_3px_rgba(0,0,0,0.1)] border border-[#e5e0d8]/50 dark:border-[#444] z-10" />
               <img src={heroImage} alt={trip.destination} className="w-full h-[250px] md:h-[350px] object-cover filter sepia-[0.15] contrast-[0.95] dark:brightness-90" />
-              <div className="absolute bottom-2 md:bottom-3 left-0 w-full text-center">
+              
+              <div className="absolute bottom-16 left-8 right-8 h-px bg-slate-300/50 dark:bg-slate-700/50 rotate-[0.5deg]" />
+              
+              <div className="absolute bottom-4 left-0 w-full text-center">
                 <h1 className="text-4xl md:text-5xl font-handwriting text-slate-800 dark:text-[#f0f0f0] drop-shadow-sm">{trip.destination}</h1>
               </div>
             </div>
@@ -339,7 +369,12 @@ export default function ItineraryDisplayNotebook({ itinerary, trip, onEditReques
           {/* OVERVIEW / BRIEFING */}
           {essentials && (
             <div className={`animate-fade-in ${activeTab === 'overview' ? 'block' : 'hidden'}`}>
-              <div className="flex flex-col gap-16">
+              <div className="flex flex-col gap-16 relative">
+                
+                {/* The Coffee Ring Smudge */}
+                <div className="absolute top-16 right-0 md:-right-8 w-32 h-32 rounded-full border-4 border-amber-800/10 dark:border-amber-200/5 opacity-40 pointer-events-none mix-blend-multiply dark:mix-blend-screen"
+                 style={{ boxShadow: 'inset 0 0 12px rgba(120,80,40,0.1)' }} 
+                />
                 
                 {humanizeBriefing()}
 
@@ -423,7 +458,7 @@ export default function ItineraryDisplayNotebook({ itinerary, trip, onEditReques
                   </div>
                 )}
 
-                {/* THE TORN RECEIPT (Restored to the bottom of overview) */}
+                {/* THE TORN RECEIPT */}
                 <div className="mt-16 mb-8 flex justify-center w-full">
                   <div className="bg-[#f8f9fa] dark:bg-[#d1d5db] text-slate-800 p-8 shadow-[2px_4px_16px_rgba(0,0,0,0.15)] dark:shadow-[2px_4px_16px_rgba(0,0,0,0.8)] rotate-2 relative w-full sm:w-96 font-typewriter border-x border-slate-200 dark:border-slate-400">
                     <div className="absolute top-[-8px] left-0 right-0 h-[8px] bg-[radial-gradient(circle,transparent,transparent_4px,#f8f9fa_4px,#f8f9fa_10px)] dark:bg-[radial-gradient(circle,transparent,transparent_4px,#d1d5db_4px,#d1d5db_10px)] bg-[length:16px_16px]" />
@@ -474,7 +509,7 @@ export default function ItineraryDisplayNotebook({ itinerary, trip, onEditReques
               {viewMode === 'list' || typeof window === 'undefined' ? (
                 <div className="flex flex-col">
                   {(activeDay.entries || []).map((entry, index, arr) => (
-                    <TimelineEntryNotebook key={`${entry.id}-${entry.time}`} entry={entry} nextEntry={arr[index + 1]} isLast={index === arr.length - 1} accommodationName={accommodationName} onPlaceClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })} formatCost={formatCost} destination={trip.destination} />
+                    <TimelineEntryNotebook key={`${entry.id}-${entry.time}`} entry={entry} nextEntry={arr[index + 1]} isLast={index === arr.length - 1} isOdd={index % 2 !== 0} accommodationName={accommodationName} onPlaceClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })} formatCost={formatCost} destination={trip.destination} />
                   ))}
                 </div>
               ) : (
@@ -515,6 +550,9 @@ export default function ItineraryDisplayNotebook({ itinerary, trip, onEditReques
              <Link href={`/itinerary/${trip.id}/ledger`} className="font-typewriter text-xs font-bold uppercase tracking-widest text-slate-900 dark:text-[#1a1a1a] bg-[#bbf7d0] dark:bg-[#4ade80] px-4 py-2 border border-slate-800 shadow-[2px_2px_0px_#1e293b] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-[1px_1px_0px_#1e293b] transition-all rotate-2">
                Open Ledger ↗
              </Link>
+             <button onClick={() => { if (onEditAction) onEditAction(); else setActiveTab(1); }} className="font-typewriter text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2">
+               ✏️ Edit Trip
+             </button>
              <button onClick={() => window.print()} className="font-typewriter text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2">
                🖨️ Print Journal
              </button>
