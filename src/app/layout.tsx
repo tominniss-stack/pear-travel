@@ -20,6 +20,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "Pear Travel",
   description: "Curated, aesthetic itineraries for the modern traveler.",
+  manifest: "/manifest.webmanifest",
   icons: {
     icon: '/icon.png',
   }

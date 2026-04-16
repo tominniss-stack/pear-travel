@@ -56,3 +56,8 @@ node_modules/
 .env.production.local
 
 public/uploads/
+
+# serwist (PWA service worker build output)
+public/sw.js
+public/sw.js.map
+public/swe-worker-*.js
