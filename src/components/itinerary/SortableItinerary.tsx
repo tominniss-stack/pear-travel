@@ -11,8 +11,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useHydratedTripStore, useTripStore } from '@/store/tripStore';
 import { recalculateDay } from '@/lib/itinerary/recalc';
-import { minifyItineraryContext } from '@/lib/itinerary/serialization';
-import type { DayItinerary, DayOverride, DailyPacing, ItineraryEntry, TransitMethod, MinifiedTimelineItem } from '@/types';
+import { minifyItineraryContext, minifyAllDays } from '@/lib/itinerary/serialization';
+import type { DayItinerary, DayOverride, DailyPacing, ItineraryEntry, TransitMethod, MinifiedTimelineItem, AutoFitResponse } from '@/types';
 import PlaceDetailsModal from './PlaceDetailsModal';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -748,11 +748,12 @@ function DayColumn({
 }
 
 function ParkingLot({
-  items, anyDragActive, accommodationName, destination, onPlaceClick, onEditTime, onDeleteRequest, onToggleFixed, onEditAccommodation, onDiscoverMore
+  items, anyDragActive, accommodationName, destination, onPlaceClick, onEditTime, onDeleteRequest, onToggleFixed, onEditAccommodation, onDiscoverMore, onAutoFit, isAutoFitting
 }: {
   items: ItineraryEntry[]; anyDragActive: boolean; accommodationName?: string; destination: string; onPlaceClick: (placeId: string, poiId: string, note?: string) => void; onEditTime: (t: NonNullable<ModalTarget>) => void;
   onDeleteRequest: (t: NonNullable<ModalTarget>) => void; onToggleFixed: (dayNumber: number, entryId: string) => void;
   onEditAccommodation: (t: NonNullable<ModalTarget>) => void; onDiscoverMore: () => void;
+  onAutoFit: () => void; isAutoFitting: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: 'parking-lot' });
 
@@ -767,6 +768,34 @@ function ParkingLot({
 
   return (
     <div className="sticky top-24 flex flex-col gap-4">
+      {/* ── Magic Auto-Fit Button — only shown when orphaned items exist ── */}
+      {rescheduleCount > 0 && (
+        <button
+          onClick={onAutoFit}
+          disabled={isAutoFitting}
+          className="w-full flex items-center justify-center gap-2.5 py-3.5 px-4 rounded-2xl font-bold text-sm text-white shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed
+            bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500
+            dark:from-violet-500 dark:to-indigo-500 dark:hover:from-violet-400 dark:hover:to-indigo-400
+            ring-2 ring-violet-300/40 dark:ring-violet-700/40 hover:ring-violet-400/60
+            hover:shadow-violet-500/25 hover:scale-[1.01] active:scale-[0.99]"
+        >
+          {isAutoFitting ? (
+            <>
+              <svg className="w-4 h-4 animate-spin flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              <span>Calculating Physics…</span>
+            </>
+          ) : (
+            <>
+              <span className="text-base leading-none">✨</span>
+              <span>Magic Auto-Fit</span>
+              <span className="ml-auto text-[10px] font-black uppercase tracking-widest bg-white/20 px-2 py-0.5 rounded-md">
+                {rescheduleCount} item{rescheduleCount !== 1 ? 's' : ''}
+              </span>
+            </>
+          )}
+        </button>
+      )}
+
       <div className="flex items-center justify-between px-2">
         <div className="flex items-center gap-2">
           <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">The Parking Lot</h3>
@@ -852,10 +881,103 @@ export default function SortableItinerary() {
   const [pendingDayData, setPendingDayData] = useState<{ day: DayItinerary; ejectedItems: MinifiedTimelineItem[] } | null>(null);
   const [clashModalOpen, setClashModalOpen] = useState(false);
 
+  // ── Auto-Fit state ──
+  const [isAutoFitting, setIsAutoFitting] = useState(false);
+  const [autoFitToast, setAutoFitToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
   const handleSaveDayOverride = useCallback((dayNumber: number, override: DayOverride) => {
     setLocalDayOverrides(prev => ({ ...prev, [dayNumber]: override }));
     // TODO: persist to Zustand / database in a future phase
   }, []);
+
+  // ── Auto-Fit handler ──────────────────────────────────────────────────────
+  const handleAutoFit = useCallback(async () => {
+    if (!itinerary || !currentTripId || isAutoFitting) return;
+
+    const orphanedItems = (itinerary.unscheduledOptions ?? []).filter(
+      (e) => e.requiresReschedule,
+    );
+    if (orphanedItems.length === 0) return;
+
+    // Build minified orphaned payload
+    const minifiedOrphans: MinifiedTimelineItem[] = orphanedItems.map((e) => ({
+      id: e.id,
+      title: e.locationName,
+      startTime: e.time,
+      endTime: undefined,
+      location: {
+        name: e.locationName,
+        placeId: e.placeId ?? undefined,
+        formattedAddress: e.googleMapsUrl
+          ? decodeURIComponent(
+              e.googleMapsUrl
+                .replace(/^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=/, '')
+                .replace(/&query_place_id=.*$/, '')
+                .split('&')[0],
+            )
+          : undefined,
+      },
+    }));
+
+    // Build minified trip skeleton (all days, pinned items only)
+    const tripSkeleton = minifyAllDays(itinerary.days);
+
+    setIsAutoFitting(true);
+    setAutoFitToast(null);
+
+    try {
+      const response = await fetch(`/api/itinerary/${currentTripId}/autofit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orphanedItems: minifiedOrphans, tripSkeleton }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        console.error('Auto-Fit failed:', err);
+        setAutoFitToast({ message: 'Auto-Fit failed. Please try again.', type: 'error' });
+        return;
+      }
+
+      const data = (await response.json()) as AutoFitResponse;
+      if (!data?.updatedDays) {
+        setAutoFitToast({ message: 'Auto-Fit returned an unexpected response.', type: 'error' });
+        return;
+      }
+
+      // ── Surgically merge only the returned days ──
+      const nextDays = itinerary.days.map((d) => {
+        const updated = data.updatedDays[d.dayNumber];
+        return updated ?? d;
+      });
+
+      // ── Remove orphaned items from the parking lot ──
+      const orphanedIds = new Set(orphanedItems.map((e) => e.id));
+      const nextUnscheduled = (itinerary.unscheduledOptions ?? []).filter(
+        (e) => !orphanedIds.has(e.id),
+      );
+
+      setItinerary({
+        ...itinerary,
+        days: nextDays,
+        unscheduledOptions: nextUnscheduled,
+      });
+
+      const count = orphanedItems.length;
+      setAutoFitToast({
+        message: `✨ Successfully rescheduled ${count} item${count !== 1 ? 's' : ''}!`,
+        type: 'success',
+      });
+
+      // Auto-dismiss toast after 4 s
+      setTimeout(() => setAutoFitToast(null), 4000);
+    } catch (err) {
+      console.error('Auto-Fit error:', err);
+      setAutoFitToast({ message: 'Auto-Fit encountered an error. Please try again.', type: 'error' });
+    } finally {
+      setIsAutoFitting(false);
+    }
+  }, [itinerary, currentTripId, isAutoFitting, setItinerary]);
 
   const handleRegenerateDay = useCallback(async (dayNumber: number) => {
     if (!itinerary || !currentTripId || regeneratingDay !== null) return;
@@ -1119,12 +1241,14 @@ export default function SortableItinerary() {
               ))}
             </div>
             <div className="w-full lg:w-80 flex-shrink-0">
-              <ParkingLot 
+              <ParkingLot
                 items={itinerary.unscheduledOptions || []} anyDragActive={!!activeEntry} accommodationName={intake?.accommodation} destination={activeDestination}
                 onPlaceClick={handleOpenPlaceModal}
-                onEditTime={setEditingTimeTarget} onDeleteRequest={setDeletingTarget} 
+                onEditTime={setEditingTimeTarget} onDeleteRequest={setDeletingTarget}
                 onToggleFixed={toggleEntryFixed} onEditAccommodation={setEditingAccTarget}
                 onDiscoverMore={handleDiscoverMore}
+                onAutoFit={handleAutoFit}
+                isAutoFitting={isAutoFitting}
               />
             </div>
           </div>
@@ -1272,6 +1396,35 @@ export default function SortableItinerary() {
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Auto-Fit Toast Notification ── */}
+      <AnimatePresence>
+        {autoFitToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 24, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: 0.96 }}
+            transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+            className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[800] flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-2xl border text-sm font-bold max-w-sm w-full mx-4 ${
+              autoFitToast.type === 'success'
+                ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-500/20'
+                : 'bg-red-600 text-white border-red-500 shadow-red-500/20'
+            }`}
+          >
+            <span className="text-base flex-shrink-0">
+              {autoFitToast.type === 'success' ? '✅' : '❌'}
+            </span>
+            <span className="flex-1">{autoFitToast.message}</span>
+            <button
+              onClick={() => setAutoFitToast(null)}
+              className="flex-shrink-0 opacity-70 hover:opacity-100 transition-opacity ml-1"
+              aria-label="Dismiss"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </motion.div>
         )}
       </AnimatePresence>
     </>

@@ -143,6 +143,17 @@ export interface RegenerateDayResponse {
   ejectedItems?: MinifiedTimelineItem[]; // Present when pinned items were removed to accommodate a fixed external event
 }
 
+// ── Auto-Fit API Types ────────────────────────────────────────────────────────
+export interface AutoFitPayload {
+  orphanedItems: MinifiedTimelineItem[];
+  tripSkeleton: Record<number, MinifiedTimelineItem[]>;
+}
+
+export interface AutoFitResponse {
+  updatedDays: Record<number, DayItinerary>;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export interface DayItinerary {
   dayNumber: number;
   date?: string;

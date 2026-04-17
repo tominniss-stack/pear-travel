@@ -1,6 +1,18 @@
 import { Trip } from '@prisma/client';
 import { Itinerary, TripIntake, LockedAccommodation, MinifiedTimelineItem, DayItinerary } from '@/types';
 
+// ── minifyAllDays ─────────────────────────────────────────────────────────────
+// Produces a token-efficient skeleton of the entire trip for the Auto-Fit API.
+// Each day is reduced to its pinned (isFixed) entries only, keyed by dayNumber.
+// ─────────────────────────────────────────────────────────────────────────────
+export function minifyAllDays(days: DayItinerary[]): Record<number, MinifiedTimelineItem[]> {
+  const skeleton: Record<number, MinifiedTimelineItem[]> = {};
+  for (const day of days) {
+    skeleton[day.dayNumber] = minifyItineraryContext(day);
+  }
+  return skeleton;
+}
+
 export type DeserialisedTrip = Omit<Trip, 'intake' | 'itinerary' | 'lockedAccommodations'> & {
   intake: TripIntake | null;
   itinerary: Itinerary | null;
