@@ -748,6 +748,18 @@ function DayColumn({
   const containerId = getDayContainerId(day.dayNumber);
   const { setNodeRef, isOver } = useDroppable({ id: containerId });
   const mapUrl = generateGoogleMapsDayUrl(day.entries, destination);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = React.useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  React.useEffect(() => {
+    if (!moreMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) setMoreMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [moreMenuOpen]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -755,47 +767,55 @@ function DayColumn({
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-brand-600 text-white flex items-center justify-center font-black text-sm shadow-md">{day.dayNumber}</div>
           <h3 className="font-extrabold text-slate-900 dark:text-white text-lg">Day {day.dayNumber}</h3>
-          {/* Active override indicator */}
           {activeOverride && Object.keys(activeOverride).length > 0 && (
             <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 dark:bg-amber-900/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50">
               ⚙️ Custom
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {/* Regenerate Day button */}
+        {/* ── More Options (···) dropdown ── */}
+        <div className="relative" ref={moreMenuRef}>
           <button
-            onClick={() => onRegenerateDay(day.dayNumber)}
+            onClick={() => setMoreMenuOpen(v => !v)}
             disabled={isRegenerating}
-            className="text-[11px] font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800/50 px-3 py-1.5 rounded-lg hover:bg-brand-100 dark:hover:bg-brand-900/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 shadow-sm"
-            title={`Regenerate Day ${day.dayNumber} (pinned items are preserved)`}
+            className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 transition-colors shadow-sm disabled:opacity-50"
+            title="More options"
           >
             {isRegenerating ? (
-              <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+              <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
             ) : (
-              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.43"/></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="5" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
             )}
-            {isRegenerating ? 'Regenerating…' : 'Regenerate'}
           </button>
-          {/* Day Settings button */}
-          <button
-            onClick={() => onDaySettings(day.dayNumber)}
-            className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-1.5 shadow-sm"
-            title={`Configure Day ${day.dayNumber} pacing & start time`}
-          >
-            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
-            Day Settings
-          </button>
-          {mapUrl && (
-            <a
-              href={mapUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors flex items-center gap-1.5 shadow-sm"
-            >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon><line x1="9" y1="3" x2="9" y2="18"></line><line x1="15" y1="6" x2="15" y2="21"></line></svg>
-              Map Route
-            </a>
+          {moreMenuOpen && (
+            <div className="absolute right-0 top-full mt-1.5 w-52 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 z-50 overflow-hidden py-1">
+              <button
+                onClick={() => { setMoreMenuOpen(false); onRegenerateDay(day.dayNumber); }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-brand-50 dark:hover:bg-brand-900/20 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+              >
+                <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.43"/></svg>
+                Regenerate Day
+              </button>
+              <button
+                onClick={() => { setMoreMenuOpen(false); onDaySettings(day.dayNumber); }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              >
+                <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>
+                Day Settings
+              </button>
+              {mapUrl && (
+                <a
+                  href={mapUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setMoreMenuOpen(false)}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                >
+                  <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon><line x1="9" y1="3" x2="9" y2="18"></line><line x1="15" y1="6" x2="15" y2="21"></line></svg>
+                  Map Route
+                </a>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -922,7 +942,10 @@ export default function SortableItinerary() {
   const updateEntryTime = useTripStore((state) => state.updateEntryTime);
   const toggleEntryFixed = useTripStore((state) => state.toggleEntryFixed);
   const updateAccommodation = useTripStore((state) => state.updateAccommodation);
-  
+
+  // ── Mobile tab toggle ──
+  const [mobileView, setMobileView] = useState<'timeline' | 'staging'>('timeline');
+
   const [activeEntry, setActiveEntry] = useState<ItineraryEntry | null>(null);
   const [addingToDay, setAddingToDay] = useState<number | null>(null);
   const [addingRestToDay, setAddingRestToDay] = useState<number | null>(null);
@@ -1255,8 +1278,31 @@ export default function SortableItinerary() {
     <>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="max-w-6xl mx-auto w-full px-4 sm:px-6 pb-20">
+
+          {/* ── Mobile segmented control (hidden on lg+) ── */}
+          <div className="block lg:hidden mb-6">
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-2xl p-1 gap-1">
+              <button
+                onClick={() => setMobileView('timeline')}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${mobileView === 'timeline' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
+              >
+                📅 Timeline
+              </button>
+              <button
+                onClick={() => setMobileView('staging')}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${mobileView === 'staging' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'}`}
+              >
+                🅿️ Staging
+                {(itinerary.unscheduledOptions?.length ?? 0) > 0 && (
+                  <span className="ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded-full bg-brand-600 text-white text-[9px] font-black">{itinerary.unscheduledOptions!.length}</span>
+                )}
+              </button>
+            </div>
+          </div>
+
           <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
-            <div className="flex-1 flex flex-col gap-10">
+            {/* ── Days column: always visible on desktop; conditionally on mobile ── */}
+            <div className={`flex-1 flex flex-col gap-10 ${mobileView === 'staging' ? 'hidden lg:flex' : 'flex'}`}>
               {itinerary.days.map(day => (
                 <DayColumn
                   key={day.dayNumber} day={day} anyDragActive={!!activeEntry} accommodationName={intake?.accommodation} destination={activeDestination}
@@ -1272,17 +1318,20 @@ export default function SortableItinerary() {
                 />
               ))}
             </div>
-            <div className="w-full lg:w-80 flex-shrink-0">
-              <ParkingLot
-                items={itinerary.unscheduledOptions || []} anyDragActive={!!activeEntry} accommodationName={intake?.accommodation} destination={activeDestination}
-                onPlaceClick={handleOpenPlaceModal}
-                onEditTime={setEditingTimeTarget} onDeleteRequest={setDeletingTarget}
-                onToggleFixed={toggleEntryFixed} onEditAccommodation={setEditingAccTarget}
-                onDiscoverMore={handleDiscoverMore}
-                onAutoFit={handleAutoFit}
-                isAutoFitting={isAutoFitting}
-                onOpenActionSheet={setActionSheetTarget}
-              />
+            {/* ── Parking Lot: sticky sidebar on desktop; conditionally on mobile ── */}
+            <div className={`w-full lg:w-80 flex-shrink-0 ${mobileView === 'timeline' ? 'hidden lg:block' : 'block'}`}>
+              <div className="lg:sticky lg:top-24 lg:h-[calc(100vh-6rem)] lg:overflow-y-auto">
+                <ParkingLot
+                  items={itinerary.unscheduledOptions || []} anyDragActive={!!activeEntry} accommodationName={intake?.accommodation} destination={activeDestination}
+                  onPlaceClick={handleOpenPlaceModal}
+                  onEditTime={setEditingTimeTarget} onDeleteRequest={setDeletingTarget}
+                  onToggleFixed={toggleEntryFixed} onEditAccommodation={setEditingAccTarget}
+                  onDiscoverMore={handleDiscoverMore}
+                  onAutoFit={handleAutoFit}
+                  isAutoFitting={isAutoFitting}
+                  onOpenActionSheet={setActionSheetTarget}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -1373,6 +1422,16 @@ export default function SortableItinerary() {
                       {actionSheetTarget.entry.isFixed ? 'Unpin Activity' : 'Pin Activity (Lock Time)'}
                     </button>
                   </>
+                )}
+
+                {/* ── Move to Day (Parking Lot only) ── */}
+                {actionSheetTarget.dayNumber === -1 && (
+                  <button
+                    onClick={() => { setActionSheetTarget(null); alert('Move to Day logic coming in Phase 2'); }}
+                    className="w-full flex items-center gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-900/30 dark:hover:text-brand-400 text-slate-900 dark:text-white font-bold transition-colors border border-slate-100 dark:border-slate-700"
+                  >
+                    <span className="text-xl">📥</span> Move to Day…
+                  </button>
                 )}
 
                 <button
