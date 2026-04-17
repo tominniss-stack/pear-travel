@@ -1,5 +1,41 @@
 import { Trip } from '@prisma/client';
-import { Itinerary, TripIntake, LockedAccommodation, MinifiedTimelineItem, DayItinerary } from '@/types';
+import { Itinerary, TripIntake, LockedAccommodation, MinifiedTimelineItem, DayItinerary, ItineraryEntry } from '@/types';
+
+// ── minifyEntry ───────────────────────────────────────────────────────────────
+// Converts a single ItineraryEntry into a token-efficient MinifiedTimelineItem,
+// deriving endTime from startTime + durationMinutes when available.
+// ─────────────────────────────────────────────────────────────────────────────
+function minifyEntry(entry: ItineraryEntry): MinifiedTimelineItem {
+  let endTime: string | undefined;
+  if (entry.time && entry.durationMinutes) {
+    const [h, m] = entry.time.split(':').map(Number);
+    const totalMins = h * 60 + m + entry.durationMinutes;
+    const endH = Math.floor(totalMins / 60) % 24;
+    const endM = totalMins % 60;
+    endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+  }
+
+  return {
+    id: entry.id,
+    title: entry.locationName,
+    startTime: entry.time,
+    endTime,
+    location: {
+      name: entry.locationName,
+      placeId: entry.placeId ?? undefined,
+      // googleMapsUrl carries the canonical address — use it as formattedAddress
+      // so the AI can resolve transit without hallucinating coordinates.
+      formattedAddress: entry.googleMapsUrl
+        ? decodeURIComponent(
+            entry.googleMapsUrl
+              .replace(/^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=/, '')
+              .replace(/&query_place_id=.*$/, '')
+              .split('&')[0],
+          )
+        : undefined,
+    },
+  };
+}
 
 // ── minifyAllDays ─────────────────────────────────────────────────────────────
 // Produces a token-efficient skeleton of the entire trip for the Auto-Fit API.
@@ -11,6 +47,33 @@ export function minifyAllDays(days: DayItinerary[]): Record<number, MinifiedTime
     skeleton[day.dayNumber] = minifyItineraryContext(day);
   }
   return skeleton;
+}
+
+// ── minifyCarParkItems ────────────────────────────────────────────────────────
+// Splits the Car Park (unscheduledOptions) into two buckets for the Auto-Fit
+// Multi-Day Concierge payload:
+//
+//   orphanedItems     — requiresReschedule === true  → AI MUST place these
+//   aspirationalItems — requiresReschedule !== true  → AI places if they fit
+//
+// ─────────────────────────────────────────────────────────────────────────────
+export function minifyCarParkItems(unscheduledOptions: ItineraryEntry[]): {
+  orphanedItems: MinifiedTimelineItem[];
+  aspirationalItems: MinifiedTimelineItem[];
+} {
+  const orphanedItems: MinifiedTimelineItem[] = [];
+  const aspirationalItems: MinifiedTimelineItem[] = [];
+
+  for (const entry of unscheduledOptions) {
+    const minified = minifyEntry(entry);
+    if (entry.requiresReschedule === true) {
+      orphanedItems.push(minified);
+    } else {
+      aspirationalItems.push(minified);
+    }
+  }
+
+  return { orphanedItems, aspirationalItems };
 }
 
 export type DeserialisedTrip = Omit<Trip, 'intake' | 'itinerary' | 'lockedAccommodations'> & {
@@ -36,36 +99,5 @@ export function deserializeTrip(dbTrip: Trip): DeserialisedTrip {
 export function minifyItineraryContext(day: DayItinerary): MinifiedTimelineItem[] {
   return day.entries
     .filter((entry) => entry.isFixed)
-    .map((entry): MinifiedTimelineItem => {
-      // Derive endTime from startTime + durationMinutes when available
-      let endTime: string | undefined;
-      if (entry.time && entry.durationMinutes) {
-        const [h, m] = entry.time.split(':').map(Number);
-        const totalMins = h * 60 + m + entry.durationMinutes;
-        const endH = Math.floor(totalMins / 60) % 24;
-        const endM = totalMins % 60;
-        endTime = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
-      }
-
-      return {
-        id: entry.id,
-        title: entry.locationName,
-        startTime: entry.time,
-        endTime,
-        location: {
-          name: entry.locationName,
-          placeId: entry.placeId ?? undefined,
-          // googleMapsUrl carries the canonical address — use it as formattedAddress
-          // so the AI can resolve transit without hallucinating coordinates.
-          formattedAddress: entry.googleMapsUrl
-            ? decodeURIComponent(
-                entry.googleMapsUrl
-                  .replace(/^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=/, '')
-                  .replace(/&query_place_id=.*$/, '')
-                  .split('&')[0]
-              )
-            : undefined,
-        },
-      };
-    });
+    .map(minifyEntry);
 }

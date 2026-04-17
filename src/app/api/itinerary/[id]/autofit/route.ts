@@ -1,15 +1,17 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/itinerary/[id]/autofit
-// Multi-Day Concierge Auto-Fit
+// Multi-Day Concierge Auto-Fit — Chain-of-Thought Geographic Planner
 //
 // Body: {
-//   orphanedItems: MinifiedTimelineItem[],
+//   orphanedItems: MinifiedTimelineItem[],      // requiresReschedule === true → MUST place
+//   aspirationalItems: MinifiedTimelineItem[],  // requiresReschedule !== true → place if possible
 //   tripSkeleton: Record<number, MinifiedTimelineItem[]>
 // }
 //
-// Sends all orphaned (requiresReschedule) items plus a minified skeleton of the
-// entire trip to Gemini. The AI finds the best logical gaps across multiple days
-// based on geography and transit time, then returns ONLY the days it modified.
+// Sends mandatory orphaned items + optional aspirational items plus a minified
+// skeleton of the entire trip to Gemini. The AI acts as a geographic planner,
+// clustering by neighbourhood, respecting physics/transit, and returning a
+// structured proposals array with per-day impact summaries.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -18,7 +20,7 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { updateTripItineraryAction } from '@/app/actions/trip';
-import type { TripIntake, Itinerary, DayItinerary, MinifiedTimelineItem } from '@/types';
+import type { TripIntake, Itinerary, DayItinerary, MinifiedTimelineItem, AutoFitProposal } from '@/types';
 
 export const maxDuration = 90;
 
@@ -35,15 +37,28 @@ function getGeminiClient() {
 function buildAutoFitPrompt(
   intake: TripIntake,
   orphanedItems: MinifiedTimelineItem[],
+  aspirationalItems: MinifiedTimelineItem[],
   tripSkeleton: Record<number, MinifiedTimelineItem[]>,
   totalDays: number,
 ): string {
-  const orphanedBlock = orphanedItems
-    .map((item) => {
-      const locationHint = item.location.formattedAddress ?? item.location.name;
-      return `  • "${item.title}" — ${locationHint}${item.location.placeId ? ` (placeId: ${item.location.placeId})` : ''}`;
-    })
-    .join('\n');
+  const formatItem = (item: MinifiedTimelineItem) => {
+    const locationHint = item.location.formattedAddress ?? item.location.name;
+    const coords =
+      item.location.lat != null && item.location.lng != null
+        ? ` [${item.location.lat.toFixed(4)}, ${item.location.lng.toFixed(4)}]`
+        : '';
+    return `  • id:"${item.id}" — "${item.title}" @ ${locationHint}${coords}${item.location.placeId ? ` (placeId: ${item.location.placeId})` : ''}`;
+  };
+
+  const orphanedBlock =
+    orphanedItems.length > 0
+      ? orphanedItems.map(formatItem).join('\n')
+      : '  (none)';
+
+  const aspirationalBlock =
+    aspirationalItems.length > 0
+      ? aspirationalItems.map(formatItem).join('\n')
+      : '  (none)';
 
   const skeletonBlock = Object.entries(tripSkeleton)
     .sort(([a], [b]) => Number(a) - Number(b))
@@ -56,7 +71,11 @@ function buildAutoFitPrompt(
                   item.startTime && item.endTime
                     ? `${item.startTime}–${item.endTime}`
                     : item.startTime ?? 'time TBD';
-                return `    - "${item.title}" @ ${timeRange} (${item.location.name})`;
+                const coords =
+                  item.location.lat != null && item.location.lng != null
+                    ? ` [${item.location.lat.toFixed(4)}, ${item.location.lng.toFixed(4)}]`
+                    : '';
+                return `    - id:"${item.id}" "${item.title}" @ ${timeRange} (${item.location.name}${coords})`;
               })
               .join('\n')
           : '    (empty day — fully available)';
@@ -65,12 +84,31 @@ function buildAutoFitPrompt(
     .join('\n\n');
 
   return `
-You are an expert travel concierge for Pear Travel. The user has orphaned items that MUST be rescheduled into their existing ${totalDays}-day trip to ${intake.destination}.
+You are an elite travel concierge for Pear Travel. You have MANDATORY 'orphanedItems' and OPTIONAL 'aspirationalItems'. You must place them into the 'tripSkeleton'.
+
+CRITICAL RULES:
+1. GEOGRAPHIC CLUSTERING: Do not assign items sequentially. Look at the coordinates/locations. You MUST group new items with existing items in the same neighbourhood on the same day.
+2. PHYSICS & TIME: You must allocate realistic durations for activities (e.g., 2+ hours for a museum). You must calculate logical transit times between locations. Do not hallucinate teleportation.
+3. OPERATING HOURS: Respect standard real-world opening hours. Do not schedule a gallery at 11:00 PM.
+4. IMPACT SUMMARY: For every day you modify, write a 2-sentence 'impactSummary' explaining what you added and how it changed the day (e.g., 'Added the Louvre. You will need to start 45 mins earlier and transit across the river.').
+5. MANDATORY vs OPTIONAL: Every item in orphanedItems MUST be placed. Items in aspirationalItems should be placed only if they fit without disrupting the day.
+6. Keep all existing pinned items at their exact times — do NOT move them.
+7. For each day you modify, return a COMPLETE proposedDayItinerary with ALL entries (bookends + existing + newly inserted items).
+8. transitMethod MUST be one of: "Walking", "Tube", "Bus", "Metro", "Tram", "Taxi / Rideshare", "Train", "Ferry", "Cycling", "Start of Day".
+9. transitNote must include an estimated transit time (e.g. "12 minute walk").
+10. Start each day with transitMethod: "Start of Day".
+11. End each day by 21:30 at the latest.
+12. Bookend entries (accommodation / hub) must have estimatedCostGBP: 0.
 
 ════════════════════════════════════════
-ORPHANED ITEMS (must be placed somewhere)
+MANDATORY ORPHANED ITEMS (MUST be placed)
 ════════════════════════════════════════
 ${orphanedBlock}
+
+════════════════════════════════════════
+OPTIONAL ASPIRATIONAL ITEMS (place if they fit)
+════════════════════════════════════════
+${aspirationalBlock}
 
 ════════════════════════════════════════
 CURRENT TRIP SKELETON (existing pinned/fixed items per day)
@@ -87,48 +125,47 @@ TRIP CONTEXT
 - Dining Profile: ${intake.diningProfile ?? 'mid-range'}
 
 ════════════════════════════════════════
-RULES
+CHAIN OF THOUGHT — work through these steps before writing JSON:
 ════════════════════════════════════════
-1. Find the best logical gaps across the days based on geography and time.
-2. You MAY override global pacing preferences to fit these items in.
-3. You MUST strictly respect physical transit times. Do NOT hallucinate teleportation.
-4. Keep all existing pinned items at their exact times — do NOT move them.
-5. For each day you modify, return a COMPLETE DayItinerary with ALL entries (bookends + existing + newly inserted orphans).
-6. transitMethod MUST be one of: "Walking", "Tube", "Bus", "Metro", "Tram", "Taxi / Rideshare", "Train", "Ferry", "Cycling", "Start of Day".
-7. transitNote must include an estimated transit time (e.g. "12 minute walk").
-8. Start each day with transitMethod: "Start of Day".
-9. End each day by 21:30 at the latest.
-10. Bookend entries (accommodation / hub) must have estimatedCostGBP: 0.
-11. Return ONLY the specific days that you modified. If an orphaned item fits into Day 2 and Day 4, only return those two days.
+Step 1 — CLUSTER: For each new item, identify which existing day has the most geographically proximate existing entries (same neighbourhood / shortest transit).
+Step 2 — CAPACITY CHECK: For each candidate day, calculate total time used by existing pinned items. Determine how many free hours remain.
+Step 3 — SLOT: Insert each new item into the best available time slot, respecting realistic durations and transit times.
+Step 4 — VALIDATE: Confirm no entry ends after 21:30. Confirm no teleportation (transit times are realistic). Confirm mandatory items are all placed.
+Step 5 — SUMMARISE: Write the 2-sentence impactSummary for each modified day.
 
 ════════════════════════════════════════
 JSON OUTPUT STRUCTURE
 ════════════════════════════════════════
 Return ONLY valid JSON in this exact shape — no markdown fences, no extra text:
 {
-  "updatedDays": {
-    "2": {
+  "proposals": [
+    {
       "dayNumber": 2,
-      "date": null,
-      "estimatedDailySpendGBP": 0,
-      "entries": [
-        {
-          "id": "unique-entry-id",
-          "time": "HH:MM",
-          "locationName": "string",
-          "activityDescription": "string",
-          "transitMethod": "string",
-          "transitNote": "string or null",
-          "estimatedCostGBP": 0,
-          "googleMapsUrl": "string",
-          "placeId": "string or null",
-          "isDining": false,
-          "isFixed": false,
-          "type": "ACTIVITY"
-        }
-      ]
+      "addedItemIds": ["id-of-item-1", "id-of-item-2"],
+      "impactSummary": "Added the Louvre and Sainte-Chapelle, both on the Île de la Cité. You will need to start 45 minutes earlier to fit both before your evening reservation.",
+      "proposedDayItinerary": {
+        "dayNumber": 2,
+        "date": null,
+        "estimatedDailySpendGBP": 0,
+        "entries": [
+          {
+            "id": "unique-entry-id",
+            "time": "HH:MM",
+            "locationName": "string",
+            "activityDescription": "string",
+            "transitMethod": "string",
+            "transitNote": "string or null",
+            "estimatedCostGBP": 0,
+            "googleMapsUrl": "string",
+            "placeId": "string or null",
+            "isDining": false,
+            "isFixed": false,
+            "type": "ACTIVITY"
+          }
+        ]
+      }
     }
-  }
+  ]
 }
 `.trim();
 }
@@ -161,8 +198,9 @@ export async function POST(
     const body = await request.json().catch(() => null);
     if (!body) return NextResponse.json({ error: 'Invalid body.' }, { status: 400 });
 
-    const { orphanedItems, tripSkeleton } = body as {
+    const { orphanedItems, aspirationalItems = [], tripSkeleton } = body as {
       orphanedItems: MinifiedTimelineItem[];
+      aspirationalItems: MinifiedTimelineItem[];
       tripSkeleton: Record<number, MinifiedTimelineItem[]>;
     };
 
@@ -194,13 +232,13 @@ export async function POST(
     const model = genAI.getGenerativeModel({
       model: 'gemini-2.5-flash-preview-04-17',
       generationConfig: {
-        maxOutputTokens: 8192,
-        temperature: 0.4,
+        maxOutputTokens: 16384,
+        temperature: 0.3,
         responseMimeType: 'application/json',
       },
     });
 
-    const prompt = buildAutoFitPrompt(intake, orphanedItems, tripSkeleton, totalDays);
+    const prompt = buildAutoFitPrompt(intake, orphanedItems, aspirationalItems, tripSkeleton, totalDays);
 
     const result = await model.generateContent(prompt);
     const rawText = result.response.text();
@@ -210,47 +248,45 @@ export async function POST(
     }
 
     // ── Parse response ──
-    let parsedResponse: { updatedDays: Record<string, DayItinerary> };
+    let parsedResponse: { proposals: AutoFitProposal[] };
     try {
       const parsed = JSON.parse(extractJSON(rawText));
-      if (!parsed?.updatedDays || typeof parsed.updatedDays !== 'object') {
-        throw new Error('Missing updatedDays in response');
+      if (!parsed?.proposals || !Array.isArray(parsed.proposals)) {
+        throw new Error('Missing proposals array in response');
       }
-      parsedResponse = parsed as { updatedDays: Record<string, DayItinerary> };
+      parsedResponse = parsed as { proposals: AutoFitProposal[] };
     } catch {
       console.error('Auto-Fit — JSON parse error:', rawText.slice(0, 500));
       return NextResponse.json({ error: 'AI returned invalid JSON.' }, { status: 502 });
     }
 
-    // ── Validate each returned day ──
-    const updatedDaysMap = parsedResponse.updatedDays;
-    for (const [dayKey, day] of Object.entries(updatedDaysMap)) {
-      if (!day?.entries || !Array.isArray(day.entries)) {
+    // ── Validate each proposal ──
+    for (const proposal of parsedResponse.proposals) {
+      if (
+        typeof proposal.dayNumber !== 'number' ||
+        !proposal.proposedDayItinerary?.entries ||
+        !Array.isArray(proposal.proposedDayItinerary.entries)
+      ) {
         return NextResponse.json(
-          { error: `Day ${dayKey} failed validation — missing entries array.` },
+          { error: `Proposal for day ${proposal.dayNumber} failed validation — missing entries array.` },
           { status: 502 },
         );
       }
     }
 
-    // ── Surgically merge updated days back into the full itinerary and persist ──
+    // ── Surgically merge proposed days back into the full itinerary and persist ──
+    const proposalsByDay = new Map<number, DayItinerary>(
+      parsedResponse.proposals.map((p) => [p.dayNumber, p.proposedDayItinerary]),
+    );
+
     const updatedItinerary: Itinerary = {
       ...existingItinerary,
-      days: existingItinerary.days.map((d) => {
-        const updated = updatedDaysMap[String(d.dayNumber)];
-        return updated ?? d;
-      }),
+      days: existingItinerary.days.map((d) => proposalsByDay.get(d.dayNumber) ?? d),
     };
 
     await updateTripItineraryAction(tripId, updatedItinerary);
 
-    // ── Return only the updated days (keyed by day number as number) ──
-    const responseUpdatedDays: Record<number, DayItinerary> = {};
-    for (const [key, day] of Object.entries(updatedDaysMap)) {
-      responseUpdatedDays[Number(key)] = day;
-    }
-
-    return NextResponse.json({ updatedDays: responseUpdatedDays }, { status: 200 });
+    return NextResponse.json({ proposals: parsedResponse.proposals }, { status: 200 });
   } catch (error) {
     console.error('POST /api/itinerary/[id]/autofit error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';

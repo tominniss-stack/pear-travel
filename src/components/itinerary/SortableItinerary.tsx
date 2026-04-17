@@ -11,8 +11,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useHydratedTripStore, useTripStore } from '@/store/tripStore';
 import { recalculateDay } from '@/lib/itinerary/recalc';
-import { minifyItineraryContext, minifyAllDays } from '@/lib/itinerary/serialization';
-import type { DayItinerary, DayOverride, DailyPacing, ItineraryEntry, TransitMethod, MinifiedTimelineItem, AutoFitResponse } from '@/types';
+import { minifyItineraryContext, minifyAllDays, minifyCarParkItems } from '@/lib/itinerary/serialization';
+import type { DayItinerary, DayOverride, DailyPacing, ItineraryEntry, TransitMethod, MinifiedTimelineItem, AutoFitResponse, Itinerary } from '@/types';
 import PlaceDetailsModal from './PlaceDetailsModal';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -472,14 +472,130 @@ function DayOverrideModal({
   );
 }
 
+// ── Auto-Fit Review Modal ────────────────────────────────────────────────────
+
+function AutoFitReviewModal({
+  proposals,
+  currentIndex,
+  itinerary,
+  onAccept,
+  onReject,
+}: {
+  proposals: AutoFitResponse['proposals'];
+  currentIndex: number;
+  itinerary: Itinerary;
+  onAccept: (proposal: AutoFitResponse['proposals'][number]) => void;
+  onReject: () => void;
+}) {
+  const proposal = proposals[currentIndex];
+  if (!proposal) return null;
+
+  const allEntries = itinerary.unscheduledOptions ?? [];
+  const addedTitles = proposal.addedItemIds.map((id) => {
+    const match = allEntries.find((e) => e.id === id);
+    return match?.locationName ?? id;
+  });
+
+  const total = proposals.length;
+  const isLast = currentIndex >= total - 1;
+
+  return (
+    <div className="fixed inset-0 z-[700] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4">
+      <motion.div
+        key={currentIndex}
+        initial={{ scale: 0.94, opacity: 0, y: 12 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.94, opacity: 0, y: 12 }}
+        transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+        className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-700/80 overflow-hidden"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl flex-shrink-0">✨</span>
+            <div>
+              <h3 className="text-base font-black text-slate-900 dark:text-white tracking-tight">
+                Proposal for Day {proposal.dayNumber}
+              </h3>
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                {currentIndex + 1} of {total}
+              </p>
+            </div>
+          </div>
+          {/* Progress dots */}
+          <div className="flex items-center gap-1">
+            {proposals.map((_, i) => (
+              <div
+                key={i}
+                className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                  i === currentIndex
+                    ? 'bg-indigo-500'
+                    : i < currentIndex
+                    ? 'bg-indigo-200 dark:bg-indigo-800'
+                    : 'bg-slate-200 dark:bg-slate-700'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Impact Summary */}
+        <div className="px-6 py-4 bg-indigo-50 dark:bg-indigo-900/20 border-b border-indigo-100 dark:border-indigo-800/40">
+          <p className="text-sm text-indigo-800 dark:text-indigo-300 leading-relaxed font-medium">
+            {proposal.impactSummary}
+          </p>
+        </div>
+
+        {/* Added items list */}
+        <div className="px-6 py-5 flex flex-col gap-2">
+          <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">
+            Items to be added
+          </p>
+          {addedTitles.length > 0 ? (
+            addedTitles.map((title, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/50"
+              >
+                <span className="text-base flex-shrink-0">📍</span>
+                <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{title}</p>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-slate-400 italic">No specific items listed.</p>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40">
+          <button
+            onClick={onReject}
+            className="flex-1 py-3 px-4 text-sm font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl border border-slate-200 dark:border-slate-700 transition-colors"
+          >
+            Reject
+          </button>
+          <button
+            onClick={() => onAccept(proposal)}
+            className="flex-1 py-3 px-4 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2"
+          >
+            <span>✅</span>
+            <span>{isLast ? 'Accept & Finish' : 'Accept & Next'}</span>
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 // ── Item Component (Zoned Interactions) ─────────────────────────────────────
 
-function SortableTimelineEntry({ 
-  entry, nextEntry, containerId, isDraggingGlobal, dayNumber, isParkingLot, accommodationName, destination, onPlaceClick, onEditTime, onDeleteRequest, onToggleFixed, onEditAccommodation 
-}: { 
+function SortableTimelineEntry({
+  entry, nextEntry, containerId, isDraggingGlobal, dayNumber, isParkingLot, accommodationName, destination, onPlaceClick, onEditTime, onDeleteRequest, onToggleFixed, onEditAccommodation, onOpenActionSheet
+}: {
   entry: ItineraryEntry; nextEntry?: ItineraryEntry; containerId: UniqueIdentifier; isDraggingGlobal: boolean; dayNumber: number; isParkingLot: boolean; accommodationName?: string; destination: string;
   onPlaceClick: (placeId: string, poiId: string, aiNote?: string) => void; onEditTime: (target: NonNullable<ModalTarget>) => void; onDeleteRequest: (target: NonNullable<ModalTarget>) => void;
   onToggleFixed: (dayNumber: number, entryId: string) => void; onEditAccommodation: (target: NonNullable<ModalTarget>) => void;
+  onOpenActionSheet: (target: NonNullable<ModalTarget>) => void;
 }) {
 
   const isManualRest = entry.locationName === 'Room Break' || entry.locationName === 'Local Coffee / Cafe Break';
@@ -487,10 +603,8 @@ function SortableTimelineEntry({
   const isFlight = /(airport|flight|departure)/i.test(entry.activityDescription || '') || /(airport|flight|departure)/i.test(entry.locationName || '');
   const isStay = isBookend && !isFlight;
 
-  const [showActions, setShowActions] = useState(false);
-
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ 
-    id: entry.id, data: { type: 'entry', containerId }, disabled: isBookend || entry.isFixed || showActions
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
+    id: entry.id, data: { type: 'entry', containerId }, disabled: isBookend || entry.isFixed
   });
   
   const dndStyle = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : 1 };
@@ -557,7 +671,7 @@ function SortableTimelineEntry({
                 <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700/50 shadow-sm">⚠️ Reschedule Required</span>
               </div>
             )}
-            {isParkingLot && !entry.requiresReschedule && annotation && (
+            {isParkingLot && !entry.requiresReschedule && annotation && !annotation.toLowerCase().includes('aspirational') && !annotation.toLowerCase().includes('unscheduled') && (
               <div className="mb-1.5 flex items-center">
                 <span className="inline-flex items-center gap-1 rounded-md bg-brand-50 dark:bg-brand-900/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-800/50 shadow-sm">✨ AI Note</span>
               </div>
@@ -585,8 +699,8 @@ function SortableTimelineEntry({
             ) : entry.isFixed ? (
                <div className="flex-1 bg-slate-50/50 dark:bg-slate-800/30 rounded-r-2xl" />
             ) : (
-               <button 
-                 onClick={(e) => { e.stopPropagation(); setShowActions(true); }} 
+               <button
+                 onClick={(e) => { e.stopPropagation(); onOpenActionSheet({ entry, dayNumber }); }}
                  className="flex-1 flex items-center justify-center text-slate-400 hover:text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-r-2xl transition-colors active:bg-slate-100"
                >
                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
@@ -615,61 +729,13 @@ function SortableTimelineEntry({
         )}
       </div>
 
-      {/* ── ACTION SHEET MODAL ── */}
-      <AnimatePresence>
-        {showActions && (
-          <div className="fixed inset-0 z-[600] flex items-end justify-center bg-slate-900/40 backdrop-blur-sm sm:items-center p-4" onClick={(e) => { e.stopPropagation(); setShowActions(false); }}>
-            <motion.div
-              initial={{ y: "100%", opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: "100%", opacity: 0 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-700"
-            >
-              <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-6 sm:hidden" />
-              <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4 text-center px-4 line-clamp-1">{displayTitle}</h3>
-
-              <div className="flex flex-col gap-3">
-                <button 
-                  onClick={() => { setShowActions(false); onEditTime({ entry, dayNumber }); }}
-                  className="w-full flex items-center gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-900/30 dark:hover:text-brand-400 text-slate-900 dark:text-white font-bold transition-colors border border-slate-100 dark:border-slate-700"
-                >
-                  <span className="text-xl">⏱️</span> Edit Time
-                </button>
-
-                <button 
-                  onClick={() => { setShowActions(false); onToggleFixed(dayNumber, entry.id); }}
-                  className="w-full flex items-center gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold transition-colors border border-slate-100 dark:border-slate-700"
-                >
-                  <span className="text-xl">{entry.isFixed ? '🔓' : '📌'}</span> {entry.isFixed ? 'Unpin Activity' : 'Pin Activity (Lock Time)'}
-                </button>
-
-                <button 
-                  onClick={() => { setShowActions(false); onDeleteRequest({ entry, dayNumber }); }}
-                  className="w-full flex items-center gap-3 p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 font-bold transition-colors border border-red-100 dark:border-red-900/50"
-                >
-                  <span className="text-xl">🗑️</span> Delete Activity
-                </button>
-              </div>
-
-              <button 
-                onClick={() => setShowActions(false)}
-                className="w-full mt-4 py-4 rounded-2xl text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-              >
-                Cancel
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </>
   );
 }
 // ── Drop Zone Components ───────────────────────────────────────────────────
 
 function DayColumn({
-  day, anyDragActive, accommodationName, destination, onAddActivity, onAddRest, onPlaceClick, onEditTime, onDeleteRequest, onToggleFixed, onEditAccommodation, onDaySettings, onRegenerateDay, activeOverride, isRegenerating
+  day, anyDragActive, accommodationName, destination, onAddActivity, onAddRest, onPlaceClick, onEditTime, onDeleteRequest, onToggleFixed, onEditAccommodation, onDaySettings, onRegenerateDay, activeOverride, isRegenerating, onOpenActionSheet
 }: {
   day: DayItinerary; anyDragActive: boolean; accommodationName?: string; destination: string;
   onAddActivity: (n: number) => void; onAddRest: (n: number) => void; onPlaceClick: (placeId: string, poiId: string, note?: string) => void;
@@ -677,6 +743,7 @@ function DayColumn({
   onToggleFixed: (dayNumber: number, entryId: string) => void; onEditAccommodation: (t: NonNullable<ModalTarget>) => void;
   onDaySettings: (dayNumber: number) => void; onRegenerateDay: (dayNumber: number) => void;
   activeOverride?: DayOverride; isRegenerating?: boolean;
+  onOpenActionSheet: (target: NonNullable<ModalTarget>) => void;
 }) {
   const containerId = getDayContainerId(day.dayNumber);
   const { setNodeRef, isOver } = useDroppable({ id: containerId });
@@ -735,7 +802,7 @@ function DayColumn({
       <div ref={setNodeRef} className={`p-4 rounded-3xl border-2 transition-all min-h-[100px] ${anyDragActive ? 'border-brand-300 dark:border-brand-600 bg-brand-50/20 border-dashed' : 'border-transparent bg-slate-50/50 dark:bg-slate-800/30'} ${isOver ? 'ring-4 ring-brand-200' : ''}`}>
         <SortableContext id={containerId as string} items={day.entries.map(e => e.id)} strategy={verticalListSortingStrategy}>
           {day.entries.map((entry, idx) => (
-            <SortableTimelineEntry key={entry.id} entry={entry} nextEntry={day.entries[idx+1]} dayNumber={day.dayNumber} containerId={containerId} accommodationName={accommodationName} destination={destination} isDraggingGlobal={anyDragActive} isParkingLot={false} onPlaceClick={onPlaceClick} onEditTime={onEditTime} onDeleteRequest={onDeleteRequest} onToggleFixed={onToggleFixed} onEditAccommodation={onEditAccommodation} />
+            <SortableTimelineEntry key={entry.id} entry={entry} nextEntry={day.entries[idx+1]} dayNumber={day.dayNumber} containerId={containerId} accommodationName={accommodationName} destination={destination} isDraggingGlobal={anyDragActive} isParkingLot={false} onPlaceClick={onPlaceClick} onEditTime={onEditTime} onDeleteRequest={onDeleteRequest} onToggleFixed={onToggleFixed} onEditAccommodation={onEditAccommodation} onOpenActionSheet={onOpenActionSheet} />
           ))}
           <div className="flex gap-3 mt-4">
             <button onClick={() => onAddActivity(day.dayNumber)} className="flex-1 py-3 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl text-xs font-black uppercase text-slate-500 hover:text-brand-600 hover:border-brand-300 transition-all bg-white dark:bg-slate-800">+ Add Activity</button>
@@ -748,12 +815,13 @@ function DayColumn({
 }
 
 function ParkingLot({
-  items, anyDragActive, accommodationName, destination, onPlaceClick, onEditTime, onDeleteRequest, onToggleFixed, onEditAccommodation, onDiscoverMore, onAutoFit, isAutoFitting
+  items, anyDragActive, accommodationName, destination, onPlaceClick, onEditTime, onDeleteRequest, onToggleFixed, onEditAccommodation, onDiscoverMore, onAutoFit, isAutoFitting, onOpenActionSheet
 }: {
   items: ItineraryEntry[]; anyDragActive: boolean; accommodationName?: string; destination: string; onPlaceClick: (placeId: string, poiId: string, note?: string) => void; onEditTime: (t: NonNullable<ModalTarget>) => void;
   onDeleteRequest: (t: NonNullable<ModalTarget>) => void; onToggleFixed: (dayNumber: number, entryId: string) => void;
   onEditAccommodation: (t: NonNullable<ModalTarget>) => void; onDiscoverMore: () => void;
   onAutoFit: () => void; isAutoFitting: boolean;
+  onOpenActionSheet: (target: NonNullable<ModalTarget>) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: 'parking-lot' });
 
@@ -768,44 +836,38 @@ function ParkingLot({
 
   return (
     <div className="sticky top-24 flex flex-col gap-4">
-      {/* ── Magic Auto-Fit Button — only shown when orphaned items exist ── */}
-      {rescheduleCount > 0 && (
-        <button
-          onClick={onAutoFit}
-          disabled={isAutoFitting}
-          className="w-full flex items-center justify-center gap-2.5 py-3.5 px-4 rounded-2xl font-bold text-sm text-white shadow-lg transition-all disabled:opacity-60 disabled:cursor-not-allowed
-            bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500
-            dark:from-violet-500 dark:to-indigo-500 dark:hover:from-violet-400 dark:hover:to-indigo-400
-            ring-2 ring-violet-300/40 dark:ring-violet-700/40 hover:ring-violet-400/60
-            hover:shadow-violet-500/25 hover:scale-[1.01] active:scale-[0.99]"
-        >
-          {isAutoFitting ? (
-            <>
-              <svg className="w-4 h-4 animate-spin flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-              <span>Calculating Physics…</span>
-            </>
-          ) : (
-            <>
-              <span className="text-base leading-none">✨</span>
-              <span>Magic Auto-Fit</span>
-              <span className="ml-auto text-[10px] font-black uppercase tracking-widest bg-white/20 px-2 py-0.5 rounded-md">
-                {rescheduleCount} item{rescheduleCount !== 1 ? 's' : ''}
-              </span>
-            </>
-          )}
-        </button>
-      )}
-
-      <div className="flex items-center justify-between px-2">
-        <div className="flex items-center gap-2">
-          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">The Parking Lot</h3>
+      {/* ── Header row: title + action buttons ── */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">The Parking Lot</h3>
           {rescheduleCount > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50">
-              ⚠️ {rescheduleCount} need rescheduling
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50 whitespace-nowrap">
+              ⚠️ {rescheduleCount}
             </span>
           )}
         </div>
-        <button onClick={onDiscoverMore} className="inline-flex items-center gap-1 rounded-full bg-brand-50 dark:bg-brand-900/20 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-brand-600 dark:text-brand-400 hover:bg-brand-100 dark:hover:bg-brand-900/40 transition-colors shadow-sm"><span>+</span> Discover More</button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {items.length > 0 && (
+            <button
+              onClick={onAutoFit}
+              disabled={isAutoFitting}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800/50 hover:bg-violet-100 dark:hover:bg-violet-900/40 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm whitespace-nowrap"
+            >
+              {isAutoFitting ? (
+                <>
+                  <svg className="w-3 h-3 animate-spin flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                  <span>Fitting…</span>
+                </>
+              ) : (
+                <>
+                  <span className="leading-none">✨</span>
+                  <span>Magic Auto-Fit</span>
+                </>
+              )}
+            </button>
+          )}
+          <button onClick={onDiscoverMore} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800/50 hover:bg-brand-100 dark:hover:bg-brand-900/40 transition-colors shadow-sm whitespace-nowrap"><span>+</span> Discover</button>
+        </div>
       </div>
       <div ref={setNodeRef} className={`p-4 rounded-3xl border-2 min-h-[250px] transition-all ${anyDragActive ? 'border-brand-300 bg-brand-50/20 border-dashed' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 shadow-xl'} ${isOver ? 'ring-4 ring-brand-200' : ''}`}>
         <SortableContext id="parking-lot" items={sortedItems.map(e => e.id)} strategy={verticalListSortingStrategy}>
@@ -833,7 +895,7 @@ function ParkingLot({
                         <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
                       </div>
                     )}
-                    <SortableTimelineEntry entry={entry} dayNumber={-1} containerId="parking-lot" accommodationName={accommodationName} destination={destination} isDraggingGlobal={anyDragActive} isParkingLot={true} onPlaceClick={onPlaceClick} onEditTime={onEditTime} onDeleteRequest={onDeleteRequest} onToggleFixed={onToggleFixed} onEditAccommodation={onEditAccommodation} />
+                    <SortableTimelineEntry entry={entry} dayNumber={-1} containerId="parking-lot" accommodationName={accommodationName} destination={destination} isDraggingGlobal={anyDragActive} isParkingLot={true} onPlaceClick={onPlaceClick} onEditTime={onEditTime} onDeleteRequest={onDeleteRequest} onToggleFixed={onToggleFixed} onEditAccommodation={onEditAccommodation} onOpenActionSheet={onOpenActionSheet} />
                   </React.Fragment>
                 );
               })}
@@ -867,6 +929,7 @@ export default function SortableItinerary() {
   const [editingTimeTarget, setEditingTimeTarget] = useState<ModalTarget>(null);
   const [editingAccTarget, setEditingAccTarget] = useState<ModalTarget>(null);
   const [deletingTarget, setDeletingTarget] = useState<ModalTarget>(null);
+  const [actionSheetTarget, setActionSheetTarget] = useState<ModalTarget>(null);
 
   // ── Day Override state ──
   const [daySettingsTarget, setDaySettingsTarget] = useState<number | null>(null);
@@ -884,6 +947,8 @@ export default function SortableItinerary() {
   // ── Auto-Fit state ──
   const [isAutoFitting, setIsAutoFitting] = useState(false);
   const [autoFitToast, setAutoFitToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [autoFitProposals, setAutoFitProposals] = useState<AutoFitResponse['proposals'] | null>(null);
+  const [currentProposalIndex, setCurrentProposalIndex] = useState(0);
 
   const handleSaveDayOverride = useCallback((dayNumber: number, override: DayOverride) => {
     setLocalDayOverrides(prev => ({ ...prev, [dayNumber]: override }));
@@ -894,30 +959,15 @@ export default function SortableItinerary() {
   const handleAutoFit = useCallback(async () => {
     if (!itinerary || !currentTripId || isAutoFitting) return;
 
-    const orphanedItems = (itinerary.unscheduledOptions ?? []).filter(
-      (e) => e.requiresReschedule,
-    );
-    if (orphanedItems.length === 0) return;
+    const unscheduled = itinerary.unscheduledOptions ?? [];
+    if (unscheduled.length === 0) return;
 
-    // Build minified orphaned payload
-    const minifiedOrphans: MinifiedTimelineItem[] = orphanedItems.map((e) => ({
-      id: e.id,
-      title: e.locationName,
-      startTime: e.time,
-      endTime: undefined,
-      location: {
-        name: e.locationName,
-        placeId: e.placeId ?? undefined,
-        formattedAddress: e.googleMapsUrl
-          ? decodeURIComponent(
-              e.googleMapsUrl
-                .replace(/^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=/, '')
-                .replace(/&query_place_id=.*$/, '')
-                .split('&')[0],
-            )
-          : undefined,
-      },
-    }));
+    // Split Car Park into mandatory orphans and optional aspirational items
+    const { orphanedItems: minifiedOrphans, aspirationalItems: minifiedAspirational } =
+      minifyCarParkItems(unscheduled);
+
+    // At least one mandatory orphan is required to trigger the concierge
+    if (minifiedOrphans.length === 0) return;
 
     // Build minified trip skeleton (all days, pinned items only)
     const tripSkeleton = minifyAllDays(itinerary.days);
@@ -929,55 +979,36 @@ export default function SortableItinerary() {
       const response = await fetch(`/api/itinerary/${currentTripId}/autofit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orphanedItems: minifiedOrphans, tripSkeleton }),
+        body: JSON.stringify({
+          orphanedItems: minifiedOrphans,
+          aspirationalItems: minifiedAspirational,
+          tripSkeleton,
+        }),
       });
 
       if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        console.error('Auto-Fit failed:', err);
-        setAutoFitToast({ message: 'Auto-Fit failed. Please try again.', type: 'error' });
+        const rawText = await response.text();
+        console.error('Auto-Fit failed with status:', response.status, rawText);
+        setAutoFitToast({ message: `Error ${response.status}: Failed to fit items.`, type: 'error' });
         return;
       }
 
       const data = (await response.json()) as AutoFitResponse;
-      if (!data?.updatedDays) {
+      if (!data?.proposals || !Array.isArray(data.proposals) || data.proposals.length === 0) {
         setAutoFitToast({ message: 'Auto-Fit returned an unexpected response.', type: 'error' });
         return;
       }
 
-      // ── Surgically merge only the returned days ──
-      const nextDays = itinerary.days.map((d) => {
-        const updated = data.updatedDays[d.dayNumber];
-        return updated ?? d;
-      });
-
-      // ── Remove orphaned items from the parking lot ──
-      const orphanedIds = new Set(orphanedItems.map((e) => e.id));
-      const nextUnscheduled = (itinerary.unscheduledOptions ?? []).filter(
-        (e) => !orphanedIds.has(e.id),
-      );
-
-      setItinerary({
-        ...itinerary,
-        days: nextDays,
-        unscheduledOptions: nextUnscheduled,
-      });
-
-      const count = orphanedItems.length;
-      setAutoFitToast({
-        message: `✨ Successfully rescheduled ${count} item${count !== 1 ? 's' : ''}!`,
-        type: 'success',
-      });
-
-      // Auto-dismiss toast after 4 s
-      setTimeout(() => setAutoFitToast(null), 4000);
+      // ── Open the proposal review modal ──
+      setCurrentProposalIndex(0);
+      setAutoFitProposals(data.proposals);
     } catch (err) {
       console.error('Auto-Fit error:', err);
       setAutoFitToast({ message: 'Auto-Fit encountered an error. Please try again.', type: 'error' });
     } finally {
       setIsAutoFitting(false);
     }
-  }, [itinerary, currentTripId, isAutoFitting, setItinerary]);
+  }, [itinerary, currentTripId, isAutoFitting]);
 
   const handleRegenerateDay = useCallback(async (dayNumber: number) => {
     if (!itinerary || !currentTripId || regeneratingDay !== null) return;
@@ -1237,6 +1268,7 @@ export default function SortableItinerary() {
                   onRegenerateDay={handleRegenerateDay}
                   isRegenerating={regeneratingDay === day.dayNumber}
                   activeOverride={localDayOverrides[day.dayNumber]}
+                  onOpenActionSheet={setActionSheetTarget}
                 />
               ))}
             </div>
@@ -1249,6 +1281,7 @@ export default function SortableItinerary() {
                 onDiscoverMore={handleDiscoverMore}
                 onAutoFit={handleAutoFit}
                 isAutoFitting={isAutoFitting}
+                onOpenActionSheet={setActionSheetTarget}
               />
             </div>
           </div>
@@ -1299,6 +1332,65 @@ export default function SortableItinerary() {
       <AnimatePresence>
         {deletingTarget && (
           <DeleteConfirmModal target={deletingTarget} onClose={() => setDeletingTarget(null)} onConfirm={executeDelete} />
+        )}
+      </AnimatePresence>
+
+      {/* ── Hoisted Action Sheet ── */}
+      <AnimatePresence>
+        {actionSheetTarget && (
+          <div
+            className="fixed inset-0 z-[600] flex items-end justify-center bg-slate-900/40 backdrop-blur-sm sm:items-center p-4"
+            onClick={() => setActionSheetTarget(null)}
+          >
+            <motion.div
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-700"
+            >
+              <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-6 sm:hidden" />
+              <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4 text-center px-4 line-clamp-1">
+                {actionSheetTarget.entry.locationName}
+              </h3>
+
+              <div className="flex flex-col gap-3">
+                {actionSheetTarget.dayNumber !== -1 && (
+                  <>
+                    <button
+                      onClick={() => { const t = actionSheetTarget; setActionSheetTarget(null); setEditingTimeTarget(t); }}
+                      className="w-full flex items-center gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-900/30 dark:hover:text-brand-400 text-slate-900 dark:text-white font-bold transition-colors border border-slate-100 dark:border-slate-700"
+                    >
+                      <span className="text-xl">⏱️</span> Edit Time
+                    </button>
+
+                    <button
+                      onClick={() => { const t = actionSheetTarget; setActionSheetTarget(null); toggleEntryFixed(t.dayNumber, t.entry.id); }}
+                      className="w-full flex items-center gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-bold transition-colors border border-slate-100 dark:border-slate-700"
+                    >
+                      <span className="text-xl">{actionSheetTarget.entry.isFixed ? '🔓' : '📌'}</span>
+                      {actionSheetTarget.entry.isFixed ? 'Unpin Activity' : 'Pin Activity (Lock Time)'}
+                    </button>
+                  </>
+                )}
+
+                <button
+                  onClick={() => { const t = actionSheetTarget; setActionSheetTarget(null); setDeletingTarget(t); }}
+                  className="w-full flex items-center gap-3 p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 font-bold transition-colors border border-red-100 dark:border-red-900/50"
+                >
+                  <span className="text-xl">🗑️</span> {actionSheetTarget.dayNumber === -1 ? 'Remove from Parking Lot' : 'Delete Activity'}
+                </button>
+              </div>
+
+              <button
+                onClick={() => setActionSheetTarget(null)}
+                className="w-full mt-4 py-4 rounded-2xl text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              >
+                Cancel
+              </button>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
@@ -1425,6 +1517,53 @@ export default function SortableItinerary() {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Auto-Fit Proposal Review Modal ── */}
+      <AnimatePresence>
+        {autoFitProposals && currentProposalIndex < autoFitProposals.length && (
+          <AutoFitReviewModal
+            proposals={autoFitProposals}
+            currentIndex={currentProposalIndex}
+            itinerary={itinerary}
+            onAccept={(proposal) => {
+              if (!itinerary) return;
+              const unscheduled = itinerary.unscheduledOptions ?? [];
+              const placedIds = new Set(proposal.addedItemIds);
+
+              // Merge this day's proposal into the store
+              const nextDays = itinerary.days.map((d) =>
+                d.dayNumber === proposal.dayNumber ? proposal.proposedDayItinerary : d
+              );
+              // Remove accepted items from parking lot
+              const nextUnscheduled = unscheduled.filter((e) => !placedIds.has(e.id));
+
+              setItinerary({ ...itinerary, days: nextDays, unscheduledOptions: nextUnscheduled });
+
+              const nextIndex = currentProposalIndex + 1;
+              if (nextIndex >= autoFitProposals.length) {
+                // All proposals reviewed
+                setAutoFitProposals(null);
+                setCurrentProposalIndex(0);
+                setAutoFitToast({ message: '✨ Review Complete!', type: 'success' });
+                setTimeout(() => setAutoFitToast(null), 4000);
+              } else {
+                setCurrentProposalIndex(nextIndex);
+              }
+            }}
+            onReject={() => {
+              const nextIndex = currentProposalIndex + 1;
+              if (nextIndex >= autoFitProposals.length) {
+                setAutoFitProposals(null);
+                setCurrentProposalIndex(0);
+                setAutoFitToast({ message: '✨ Review Complete!', type: 'success' });
+                setTimeout(() => setAutoFitToast(null), 4000);
+              } else {
+                setCurrentProposalIndex(nextIndex);
+              }
+            }}
+          />
         )}
       </AnimatePresence>
     </>

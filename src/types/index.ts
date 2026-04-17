@@ -145,12 +145,20 @@ export interface RegenerateDayResponse {
 
 // ── Auto-Fit API Types ────────────────────────────────────────────────────────
 export interface AutoFitPayload {
-  orphanedItems: MinifiedTimelineItem[];
+  orphanedItems: MinifiedTimelineItem[];       // requiresReschedule === true  → MUST be placed
+  aspirationalItems: MinifiedTimelineItem[];   // requiresReschedule !== true  → place if possible
   tripSkeleton: Record<number, MinifiedTimelineItem[]>;
 }
 
+export interface AutoFitProposal {
+  dayNumber: number;
+  addedItemIds: string[];
+  impactSummary: string;
+  proposedDayItinerary: DayItinerary;
+}
+
 export interface AutoFitResponse {
-  updatedDays: Record<number, DayItinerary>;
+  proposals: AutoFitProposal[];
 }
 // ─────────────────────────────────────────────────────────────────────────────
 

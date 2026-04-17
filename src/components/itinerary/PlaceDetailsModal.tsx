@@ -174,10 +174,16 @@ export default function PlaceDetailsModal({
             <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Fetching live data...</p>
           </div>
         ) : error ? (
-          <div className="p-12 text-center flex flex-col items-center justify-center h-64">
+          <div className="p-8 flex flex-col items-center">
+            {aiNote && (
+              <div className="w-full rounded-2xl bg-amber-50 dark:bg-amber-900/20 p-4 border border-amber-200 dark:border-amber-800/50 mb-6">
+                <p className="text-xs font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-1 flex items-center gap-2"><span>💡</span> AI Planning Note</p>
+                <p className="text-sm text-slate-700 dark:text-slate-300 italic leading-relaxed">"{aiNote}"</p>
+              </div>
+            )}
             <span className="text-4xl mb-4">📍</span>
             <p className="text-slate-900 dark:text-white font-bold mb-2">Details Unavailable</p>
-            <p className="text-slate-500 dark:text-slate-400 text-sm max-w-xs">{error}</p>
+            <p className="text-slate-500 dark:text-slate-400 text-sm max-w-xs text-center">{error}</p>
             <button onClick={onClose} className="mt-6 px-6 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-sm font-bold text-slate-900 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-700">Close</button>
           </div>
         ) : (
