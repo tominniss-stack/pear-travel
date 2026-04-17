@@ -2,8 +2,10 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { renameTripAction, toggleTripBookingStatusAction } from '@/app/actions/trip';
+import { useHydratedProfileStore } from '@/store/profileStore';
 
 type TripCardData = {
   id: string;
@@ -235,8 +237,20 @@ function TripCard({ trip, onDelete, onUpdate }: { trip: TripCardData; onDelete: 
 // ── Main Dashboard Page ──────────────────────────────────────────────────────
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const hasCompletedOnboarding = useHydratedProfileStore((s) => s.hasCompletedOnboarding);
   const [trips, setTrips] = useState<TripCardData[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // ── Onboarding Interceptor ──────────────────────────────────────────────────
+  // Wait for the profile store to hydrate from localStorage before checking.
+  // If the user hasn't completed onboarding, redirect to /welcome.
+  useEffect(() => {
+    if (hasCompletedOnboarding === undefined) return; // Still hydrating
+    if (hasCompletedOnboarding === false) {
+      router.replace('/welcome');
+    }
+  }, [hasCompletedOnboarding, router]);
 
   useEffect(() => {
     fetch('/api/trips').then(res => res.json()).then(data => {
@@ -251,6 +265,16 @@ export default function DashboardPage() {
   const updateTripInUI = (updatedTrip: TripCardData) => {
     setTrips(prev => prev.map(t => t.id === updatedTrip.id ? updatedTrip : t));
   };
+
+  // While hydrating or redirecting, show the loading spinner
+  if (hasCompletedOnboarding === undefined || hasCompletedOnboarding === false) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-8">
+        <div className="w-12 h-12 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mb-6" />
+        <p className="font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest text-[10px]">Loading…</p>
+      </div>
+    );
+  }
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] p-8">

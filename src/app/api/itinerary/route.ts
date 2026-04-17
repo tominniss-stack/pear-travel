@@ -15,7 +15,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { createTripAction, updateTripItineraryAction } from '@/app/actions/trip';
-import type { TripIntake, POI, Itinerary } from '@/types';
+import type { TripIntake, POI, Itinerary, TravelProfile } from '@/types';
 import { fetchHeroImage } from '@/lib/fetchHeroImage';
 
 export const maxDuration = 60; 
@@ -78,7 +78,62 @@ function parseAnchorPoints(anchorText: string): {
   return { timedAnchors, priorityAnchors };
 }
 
-function buildPrompt(intake: TripIntake, pois: POI[], existingItinerary?: Itinerary): string {
+// ── Personalisation block builder ─────────────────────────────────────────────
+
+function buildPersonalisationBlock(profile: TravelProfile | undefined): string {
+  if (!profile) return '';
+
+  const pacingLabel: Record<TravelProfile['dailyPacing'], string> = {
+    relaxed:   'Relaxed',
+    moderate:  'Moderate',
+    intensive: 'Intensive',
+  };
+  const transportLabel: Record<TravelProfile['transportPreference'], string> = {
+    'walk':             'Walk Everywhere',
+    'public-transport': 'Public Transport',
+    'private':          'Private / Taxi',
+  };
+  const diningLabel: Record<TravelProfile['diningStyle'], string> = {
+    gastronomy:  'Gastronomy Focus',
+    convenience: 'Convenience',
+  };
+
+  const pacingInstruction =
+    profile.dailyPacing === 'relaxed'
+      ? '1–2 main events per day maximum. Prioritise breathing room over coverage.'
+      : profile.dailyPacing === 'intensive'
+      ? 'Pack the schedule tightly. Maximise the number of activities within the day.'
+      : 'Balanced schedule — 3–4 activities per day with comfortable transitions.';
+
+  const transportInstruction =
+    profile.transportPreference === 'walk'
+      ? 'Keep all events geographically close together so the user can walk between them. Avoid cross-city jumps.'
+      : profile.transportPreference === 'public-transport'
+      ? 'Assume the user will use tube, metro, or bus. Transit times of 15–30 mins between stops are acceptable.'
+      : 'The user has access to taxis or private hire. Wider geographic spread is acceptable.';
+
+  const diningInstruction =
+    profile.diningStyle === 'gastronomy'
+      ? 'Build days around food experiences. Anchor morning, midday, and evening around notable restaurants or food markets. Treat dining as a headline activity, not a gap-filler.'
+      : 'Keep dining practical. Suggest quick, convenient options near activities. Do not build the schedule around restaurants.';
+
+  return `
+════════════════════════════════════════
+SYSTEM RULE: PERSONALISATION OVERRIDE ⚡
+════════════════════════════════════════
+The user has a specific Travel Profile that MUST dictate how you schedule this itinerary:
+
+- Daily Pacing: ${pacingLabel[profile.dailyPacing]}. ${pacingInstruction}
+- Transport: ${transportLabel[profile.transportPreference]}. ${transportInstruction}
+- Dining: ${diningLabel[profile.diningStyle]}. ${diningInstruction}
+- Start Time: The user's first scheduled activity MUST NOT begin before ${profile.idealStartTime}. Do not schedule any leisure activity, museum visit, or dining entry earlier than this time.
+
+These rules take ABSOLUTE PRIORITY over any default pacing or scheduling logic below.
+════════════════════════════════════════
+`;
+}
+
+function buildPrompt(intake: TripIntake, pois: POI[], existingItinerary?: Itinerary, travelProfile?: TravelProfile): string {
   const dailyBudget = Math.round(intake.budgetGBP / Math.max(intake.duration, 1));
   const activityCap = buildActivityCapInstructions(intake.duration);
   const { timedAnchors, priorityAnchors } = parseAnchorPoints(intake.anchorPoints ?? '');
@@ -234,9 +289,12 @@ CRITICAL UPDATE RULES:
 3. PARKING LOT: If a new candidate stop doesn't fit, move it to "unscheduledOptions" with a friendly, conversational bracketed note explaining why. DO NOT use robotic terms like "central core" or "operating hours". Talk like a helpful human guide. (e.g. "[Unscheduled: It's a bit too far across town to fit into your Day 2 schedule without rushing.]")
 ` : '';
 
+  const personalisationBlock = buildPersonalisationBlock(travelProfile);
+
   return `
 You are an expert travel planner for Pear Travel. Generate a realistic day-by-day itinerary as a single JSON object with high-fidelity scheduling.
 
+${personalisationBlock}
 ${reoptimizationContext}
 
 ════════════════════════════════════════
@@ -423,7 +481,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => null);
     if (!body) return NextResponse.json({ error: 'Invalid body.' }, { status: 400 });
 
-    const { intake, selectedPOIs } = body;
+    const { intake, selectedPOIs, travelProfile } = body as {
+      intake: TripIntake;
+      selectedPOIs: POI[];
+      travelProfile?: TravelProfile;
+    };
 
     const genAI = getGeminiClient();
     const model = genAI.getGenerativeModel({
@@ -435,7 +497,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const prompt = buildPrompt(intake, selectedPOIs);
+    const prompt = buildPrompt(intake, selectedPOIs, undefined, travelProfile);
     const result = await model.generateContent(prompt);
     const rawText = result.response.text();
 

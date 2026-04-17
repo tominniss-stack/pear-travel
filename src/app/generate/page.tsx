@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useHydratedTripStore } from '@/store/tripStore';
+import { useProfileStore } from '@/store/profileStore';
 
 const LOADING_MESSAGES = [
   'Analysing transit routes…',
@@ -52,11 +53,16 @@ export default function GeneratePage() {
       hasFetchedRef.current = true;
       const selectedPOIs = (allPOIs ?? []).filter((poi) => poi.isFavourited);
 
+      // Extract the travel profile snapshot from the store at call-time
+      const { dailyPacing, transportPreference, diningStyle, idealStartTime } =
+        useProfileStore.getState();
+      const travelProfile = { dailyPacing, transportPreference, diningStyle, idealStartTime };
+
       try {
         const response = await fetch('/api/itinerary', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ intake, selectedPOIs }),
+          body: JSON.stringify({ intake, selectedPOIs, travelProfile }),
         });
 
         // ── THE FIX: Extract the REAL error from the backend ──

@@ -1,3 +1,22 @@
+// ── Travel Profile (mirrors profileStore types) ───────────────────────────────
+export type DailyPacing = 'relaxed' | 'moderate' | 'intensive';
+export type TransportPreference = 'walk' | 'public-transport' | 'private';
+export type DiningStyle = 'gastronomy' | 'convenience';
+
+export interface TravelProfile {
+  dailyPacing: DailyPacing;
+  transportPreference: TransportPreference;
+  diningStyle: DiningStyle;
+  idealStartTime: string; // e.g. '09:00'
+}
+
+// ── API Payload ───────────────────────────────────────────────────────────────
+export interface GeneratePayload {
+  intake: TripIntake;
+  selectedPOIs: POI[];
+  travelProfile?: TravelProfile;
+}
+
 export type Interest = 'History' | 'Food & Drink' | 'Art & Culture' | 'Off the Beaten Path' | 'Nightlife' | 'Architecture' | 'Nature & Parks' | 'Shopping' | 'Music & Theatre' | 'Sport';
 export type DiningProfile = 'packed-lunch' | 'budget' | 'mid-range' | 'fine-dining';
 export type BookingMode = 'booked' | 'planning';
@@ -65,6 +84,22 @@ export interface POI {
 
 export type TransitMethod = 'Walking' | 'Tube' | 'Bus' | 'Metro' | 'Tram' | 'Taxi / Rideshare' | 'Train' | 'Ferry' | 'Cycling' | 'Start of Day';
 
+// ── Minified Timeline Item (token-efficient AI payload) ──────────────────────
+export interface MinifiedTimelineItem {
+  id: string;
+  title: string;
+  startTime: string | undefined;
+  endTime: string | undefined;
+  location: {
+    name: string;
+    placeId?: string;
+    lat?: number;
+    lng?: number;
+    formattedAddress?: string;
+  };
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 // ── NEW: Financial Ledger Types ──
 export type ExpenseCategory = 'Transit' | 'Dining' | 'Activities' | 'Accommodation' | 'Shopping' | 'Other';
 
@@ -81,8 +116,8 @@ export interface MiscExpense {
 
 export interface ItineraryEntry {
   id: string;
-  type: EntryType; 
-  time?: string;    
+  type: EntryType;
+  time?: string;
   locationName: string;
   activityDescription: string;
   transitMethod: TransitMethod;
@@ -92,13 +127,20 @@ export interface ItineraryEntry {
   googleMapsUrl: string;
   placeId?: string;
   isDining: boolean;
-  isFixed?: boolean;   
-  userModified?: boolean; 
-  durationMinutes?: number; 
-  openingHours?: { open: string; close: string }; 
-  timeWarning?: string; 
-  linkedDocumentId?: string; 
+  isFixed?: boolean;
+  userModified?: boolean;
+  durationMinutes?: number;
+  openingHours?: { open: string; close: string };
+  timeWarning?: string;
+  linkedDocumentId?: string;
   conflict?: ScheduleConflict;
+  requiresReschedule?: boolean; // ── Clash Interceptor: item was ejected from timeline due to a fixed event conflict ──
+}
+
+// ── Regenerate Day API Response ───────────────────────────────────────────────
+export interface RegenerateDayResponse {
+  day: DayItinerary;
+  ejectedItems?: MinifiedTimelineItem[]; // Present when pinned items were removed to accommodate a fixed external event
 }
 
 export interface DayItinerary {
@@ -126,16 +168,25 @@ export interface CityEssentials {
   neighbourhoodRecommendations?: { name: string; vibe: string; reason: string; }[];
 }
 
+// ── Day Override (per-day pacing / start-time / fixed events) ────────────────
+export interface DayOverride {
+  pacing?: DailyPacing;
+  startTime?: string;          // e.g. '08:00'
+  hardcodedEvents?: string;    // free-text, e.g. "Dinner at Dishoom at 20:00"
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export interface Itinerary {
   id: string;
   themeVibe?: string;
   days: DayItinerary[];
-  unscheduledOptions?: ItineraryEntry[];  
+  unscheduledOptions?: ItineraryEntry[];
   essentials?: CityEssentials;
   miscExpenses?: MiscExpense[]; // ── NEW FIELD ──
   totalEstimatedCostGBP: number;
   generatedAt: string;
   lockedAccommodations?: LockedAccommodation[];
+  dayOverrides?: Record<number, DayOverride>; // key = dayNumber
 }
 
 // ... (keep the rest of your types exactly as they are)
