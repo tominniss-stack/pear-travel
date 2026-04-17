@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// TripIntakeForm — Pear Travel v2
-// Fixed Hydration Mismatch & Destination Cache Clearing & Debounce
+// TripIntakeForm — Pear Travel v2 → Phase 10 "Concierge" Revamp
+// Luxury Typeform-style animated intake with framer-motion
 // ─────────────────────────────────────────────────────────────────────────────
 
 'use client';
@@ -16,6 +16,7 @@ import { DayPicker } from 'react-day-picker';
 import type { DateRange } from 'react-day-picker';
 import { format, differenceInCalendarDays } from 'date-fns';
 import 'react-day-picker/dist/style.css';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTripStore, useHydratedTripStore } from '@/store/tripStore';
 import type {
   BookingMode,
@@ -26,6 +27,27 @@ import type {
 } from '@/types';
 
 const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY ?? '';
+
+// ── Daily Transport (Phase 10 local-only state) ───────────────────────────────
+type DailyTransport = 'Walk' | 'Public Transit' | 'Taxi/Uber';
+
+const DAILY_TRANSPORT_OPTIONS: { value: DailyTransport; emoji: string; label: string }[] = [
+  { value: 'Walk',           emoji: '🚶', label: 'Walk' },
+  { value: 'Public Transit', emoji: '🚇', label: 'Public Transit' },
+  { value: 'Taxi/Uber',      emoji: '🚕', label: 'Taxi / Uber' },
+];
+
+// ── Animation Variants ────────────────────────────────────────────────────────
+const stepVariants = {
+  initial: { opacity: 0, x: 20 },
+  animate: { opacity: 1, x: 0 },
+  exit:    { opacity: 0, x: -20 },
+};
+
+const revealVariants = {
+  hidden:  { opacity: 0, height: 0, marginTop: 0, overflow: 'hidden' as const },
+  visible: { opacity: 1, height: 'auto', marginTop: 24, overflow: 'visible' as const },
+};
 
 const INTERESTS: { label: Interest; emoji: string }[] = [
   { label: 'History',             emoji: '🏛️' },
@@ -105,14 +127,14 @@ function validateForm(fields: Partial<TripIntake>, bookingMode: BookingMode): Fo
 
 function FieldWrapper({ label, htmlFor, error, hint, children, className = '' }: { label: string; htmlFor?: string; error?: string; hint?: string; children: React.ReactNode; className?: string; }) {
   return (
-    <div className={`flex flex-col gap-1.5 ${className}`}>
-      <label htmlFor={htmlFor} className="text-sm font-semibold text-slate-700 dark:text-slate-200 tracking-wide">
+    <div className={`flex flex-col gap-2 ${className}`}>
+      <label htmlFor={htmlFor} className="text-lg font-semibold tracking-tight text-slate-800 dark:text-slate-100">
         {label}
       </label>
       {children}
-      {hint && !error && <p className="text-xs text-slate-400 dark:text-slate-500">{hint}</p>}
+      {hint && !error && <p className="text-sm text-slate-400 dark:text-slate-500">{hint}</p>}
       {error && (
-        <p className="flex items-center gap-1 text-xs font-medium text-red-500">
+        <p className="flex items-center gap-1.5 text-sm font-medium text-red-500">
           <span aria-hidden="true">⚠</span>{error}
         </p>
       )}
@@ -122,12 +144,11 @@ function FieldWrapper({ label, htmlFor, error, hint, children, className = '' }:
 
 function inputClass(hasError: boolean): string {
   return [
-    'w-full rounded-xl border bg-white dark:bg-slate-800 px-4 py-3.5',
+    'w-full rounded-2xl border-0 bg-slate-50 dark:bg-slate-800/80 px-5 py-4',
     'text-base text-slate-800 dark:text-slate-100',
-    'placeholder-slate-400 shadow-sm transition-all duration-200 outline-none',
-    'focus:ring-2 focus:ring-brand-500 focus:border-brand-500',
-    'dark:border-slate-700 dark:focus:border-brand-400',
-    hasError ? 'border-red-400 focus:ring-red-400' : 'border-slate-200 hover:border-slate-300 dark:hover:border-slate-500',
+    'placeholder-slate-400 shadow-none transition-all duration-200 outline-none',
+    'ring-1 ring-inset focus:ring-2 focus:ring-brand-500',
+    hasError ? 'ring-red-400 focus:ring-red-400' : 'ring-slate-200 dark:ring-slate-700 hover:ring-slate-300 dark:hover:ring-slate-600',
   ].join(' ');
 }
 
@@ -138,20 +159,20 @@ function BookingModeToggle({ value, onChange }: { value: BookingMode; onChange: 
   ];
 
   return (
-    <div role="group" className="flex rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-1 gap-1">
+    <div role="group" className="flex rounded-2xl bg-slate-100 dark:bg-slate-800/60 p-1.5 gap-1.5">
       {options.map(({ mode, label, sub }) => (
         <button
           key={mode}
           type="button"
           onClick={() => onChange(mode)}
-          className={`flex flex-1 flex-col items-center rounded-lg px-3 py-2.5 text-sm font-semibold transition-all duration-150 ${
+          className={`flex flex-1 flex-col items-center rounded-xl px-4 py-3.5 text-sm font-semibold transition-all duration-200 ${
               value === mode
-                ? 'bg-white dark:bg-slate-700 text-brand-700 dark:text-brand-300 shadow-sm'
+                ? 'bg-white dark:bg-slate-700 text-brand-700 dark:text-brand-300 shadow-md'
                 : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
             }`}
         >
           {label}
-          <span className="mt-0.5 text-xs font-normal opacity-70">{sub}</span>
+          <span className="mt-1 text-xs font-normal opacity-60">{sub}</span>
         </button>
       ))}
     </div>
@@ -168,13 +189,13 @@ function DateRangePicker({ range, onChange, error }: { range: DateRange | undefi
       <button
         type="button"
         onClick={() => setIsOpen((v) => !v)}
-        className={`flex w-full items-center justify-between rounded-xl border bg-white dark:bg-slate-800 px-4 py-3.5 text-left shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-slate-700 ${error ? 'border-red-400' : 'border-slate-200 hover:border-slate-300 dark:hover:border-slate-500'}`}
+        className={`flex w-full items-center justify-between rounded-2xl bg-slate-50 dark:bg-slate-800/80 px-5 py-4 text-left transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 ring-1 ring-inset ${error ? 'ring-red-400' : 'ring-slate-200 dark:ring-slate-700 hover:ring-slate-300 dark:hover:ring-slate-600'}`}
       >
-        <div className="flex items-center gap-2">
-          <svg className="h-4 w-4 flex-shrink-0 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" /></svg>
-          <span className={`text-sm ${range?.from ? 'font-medium text-slate-800 dark:text-slate-100' : 'text-slate-400'}`}>{displayText}</span>
+        <div className="flex items-center gap-3">
+          <svg className="h-5 w-5 flex-shrink-0 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" /></svg>
+          <span className={`text-base ${range?.from ? 'font-medium text-slate-800 dark:text-slate-100' : 'text-slate-400'}`}>{displayText}</span>
         </div>
-        {nightCount !== null && <span className="flex-shrink-0 rounded-full bg-brand-100 dark:bg-brand-900 px-2.5 py-0.5 text-xs font-bold text-brand-700 dark:text-brand-300">{nightCount} night{nightCount !== 1 ? 's' : ''}</span>}
+        {nightCount !== null && <span className="flex-shrink-0 rounded-full bg-brand-100 dark:bg-brand-900 px-3 py-1 text-xs font-bold text-brand-700 dark:text-brand-300">{nightCount} night{nightCount !== 1 ? 's' : ''}</span>}
       </button>
 
       {isOpen && (
@@ -220,8 +241,11 @@ export default function TripIntakeForm() {
 
   if (!hydratedIntake) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center rounded-3xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
+          <p className="text-sm text-slate-400 dark:text-slate-500 font-medium">Preparing your concierge…</p>
+        </div>
       </div>
     );
   }
@@ -270,10 +294,16 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
   const [diningProfile, setDiningProfile] = useState<DiningProfile>(initialIntake.diningProfile ?? 'mid-range');
   const [anchorPoints, setAnchorPoints] = useState(initialIntake.anchorPoints ?? '');
 
+  // ── NEW: Daily Transport local state (Phase 10) ──
+  const [dailyTransport, setDailyTransport] = useState<DailyTransport>('Public Transit');
+
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const derivedDuration = dateRange?.from && dateRange?.to ? Math.max(1, differenceInCalendarDays(dateRange.to, dateRange.from)) : duration;
+
+  // Are dates selected? (used for conditional transit reveal in booked mode)
+  const hasDatesSelected = Boolean(dateRange?.from && dateRange?.to);
 
   // ── FIX 4: APPLY 500ms DEBOUNCE EFFECT ──
   useEffect(() => {
@@ -283,8 +313,13 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
     return () => clearTimeout(timer);
   }, [destination]);
 
-  // Update Zustand using the debounced value instead of firing instantly on every keystroke
+  // ── MASSIVE setIntake EFFECT (PRESERVED — with dailyTransport hack) ──
+  // State Hack: Append dailyTransport to anchorPoints so the AI prompt engine reads it
   useEffect(() => {
+    const transportTag = `[Daily Transport Preference: ${dailyTransport}]`;
+    const cleanedAnchors = anchorPoints.replace(/\[Daily Transport Preference:.*?\]/g, '').trim();
+    const finalAnchors = cleanedAnchors ? `${cleanedAnchors}\n${transportTag}` : transportTag;
+
     setIntake({
       destination: debouncedDestination.trim(),
       destinationPlaceId: destPlaceId || undefined,
@@ -301,11 +336,11 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
       interests,
       budgetGBP,
       diningProfile,
-      anchorPoints: anchorPoints.trim(),
+      anchorPoints: finalAnchors,
     });
   }, [
     bookingMode, debouncedDestination, destPlaceId, dateRange, transitMode, outboundTime, outboundRef, returnTime, returnRef,
-    derivedDuration, accommodation, hasAccommodation, interests, budgetGBP, diningProfile, anchorPoints, setIntake
+    derivedDuration, accommodation, hasAccommodation, interests, budgetGBP, diningProfile, anchorPoints, dailyTransport, setIntake
   ]);
 
   const toggleInterest = useCallback((interest: Interest) => {
@@ -391,242 +426,340 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
   const stepLabels = ['Basics & Logistics', 'The Vibe', 'Accommodation & Anchors'];
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-10">
-      
-      {/* Stepper Header */}
-      <div>
-        <div className="mb-2 flex items-center justify-between">
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Step {step} of {maxStep}</p>
-          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">{stepLabels[step - 1]}</p>
-        </div>
-        <div className="relative h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
-          <div className="absolute left-0 top-0 h-2 rounded-full bg-brand-500 transition-all" style={{ width: `${(step / maxStep) * 100}%` }} />
-        </div>
+    <form onSubmit={handleSubmit} noValidate className="flex flex-col min-h-[70vh]">
+
+      {/* ── Minimal Progress Indicator ── */}
+      <div className="flex items-center justify-center gap-3 mb-10">
+        {stepLabels.map((label, i) => {
+          const stepNum = i + 1;
+          const isActive = step === stepNum;
+          const isComplete = step > stepNum;
+          return (
+            <div key={label} className="flex items-center gap-3">
+              {i > 0 && <div className={`h-px w-8 transition-colors duration-300 ${isComplete ? 'bg-brand-500' : 'bg-slate-200 dark:bg-slate-700'}`} />}
+              <button
+                type="button"
+                onClick={() => { if (isComplete) setStep(stepNum); }}
+                disabled={!isComplete}
+                className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-300 ${
+                  isActive
+                    ? 'bg-brand-600 text-white shadow-lg shadow-brand-500/25'
+                    : isComplete
+                    ? 'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 cursor-pointer hover:bg-brand-200 dark:hover:bg-brand-900/60'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-default'
+                }`}
+              >
+                <span className="tabular-nums">{stepNum}</span>
+                <span className="hidden sm:inline">{label}</span>
+              </button>
+            </div>
+          );
+        })}
       </div>
 
-      {/* STEP 1: BASICS & TRANSIT */}
-      {step === 1 && (
-        <div className="flex flex-col gap-8 animate-fade-in">
-          <FieldWrapper label="How are you planning this trip?">
-            <BookingModeToggle value={bookingMode} onChange={handleBookingModeChange} />
-          </FieldWrapper>
+      {/* ── Step Content with AnimatePresence ── */}
+      <div className="flex-1 flex flex-col justify-center max-w-2xl mx-auto w-full">
+        <AnimatePresence mode="wait">
 
-          <div className="grid gap-8 md:grid-cols-2 md:gap-6">
-            <FieldWrapper label="Where are you heading? 📍" error={errors.destination} hint="Start typing a city — select from the suggestions.">
-              <PlacesAutocompleteInput
-                id="destination"
-                value={destination}
-                onPlaceSelected={(address, placeId) => { 
-                  // WIPE MEMORY IF THEY CHANGE CITY
-                  if (placeId && placeId !== destPlaceId) {
-                    setAllPOIs([]);
-                    setItinerary(null);
-                  }
-                  setDestination(address); 
-                  setDestPlaceId(placeId ?? ''); 
-                  setErrors((prev) => ({ ...prev, destination: undefined })); 
-                }}
-                onInputChange={(val) => { setDestination(val); setErrors((prev) => ({ ...prev, destination: undefined })); }}
-                placeholder="e.g. Barcelona, Tokyo, Cape Town…"
-                error={errors.destination}
-              />
-            </FieldWrapper>
+          {/* ═══ STEP 1: BASICS & LOGISTICS ═══ */}
+          {step === 1 && (
+            <motion.div
+              key="step-1"
+              variants={stepVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              className="flex flex-col gap-10"
+            >
+              <div className="text-center">
+                <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
+                  Let&apos;s plan your trip
+                </h2>
+                <p className="mt-2 text-lg text-slate-500 dark:text-slate-400">Tell us the basics and we&apos;ll handle the rest.</p>
+              </div>
 
-            {bookingMode === 'booked' ? (
-              <FieldWrapper label="When are you travelling? 📅" error={errors.dateRange} hint="Select arrival & departure dates.">
-                <DateRangePicker range={dateRange} onChange={(r) => { setDateRange(r); setErrors((prev) => ({ ...prev, dateRange: undefined })); }} error={errors.dateRange} />
-              </FieldWrapper>
-            ) : (
-              <FieldWrapper label="How many days? 📅" htmlFor="duration" error={errors.duration} hint={`Between ${MIN_DURATION} and ${MAX_DURATION} days.`}>
-                <div className="flex items-center gap-4">
-                  <button type="button" onClick={() => setDuration((d) => Math.max(MIN_DURATION, d - 1))} disabled={duration <= MIN_DURATION} className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xl font-bold text-slate-600 dark:text-slate-300 shadow-sm transition-all hover:border-brand-400 hover:text-brand-600 disabled:opacity-30">−</button>
-                  <input id="duration" type="number" value={duration} onChange={(e) => { const val = parseInt(e.target.value, 10); if (!isNaN(val)) { setDuration(Math.min(MAX_DURATION, Math.max(MIN_DURATION, val))); setErrors((prev) => ({ ...prev, duration: undefined })); } }} min={MIN_DURATION} max={MAX_DURATION} className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3.5 text-center text-base font-semibold text-slate-800 dark:text-slate-100 shadow-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-                  <button type="button" onClick={() => setDuration((d) => Math.min(MAX_DURATION, d + 1))} disabled={duration >= MAX_DURATION} className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xl font-bold text-slate-600 dark:text-slate-300 shadow-sm transition-all hover:border-brand-400 hover:text-brand-600 disabled:opacity-30">+</button>
-                </div>
-              </FieldWrapper>
-            )}
-          </div>
-
-          {/* TRANSIT DETAILS (OPTIONAL) */}
-          {bookingMode === 'booked' && (
-            <div className="mt-4 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
-              <FieldWrapper label="How are you getting there? (Optional)" error={errors.transitMode} hint="We'll use this to correctly schedule your first and last day.">
-                <div className="flex gap-2 mb-6">
-                  {(['Flight', 'Train', 'Car / Other', 'Not Sure'] as PrimaryTransitMode[]).map((mode) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      onClick={() => setTransitMode(mode)}
-                      className={`flex-1 py-2 text-sm font-semibold rounded-lg border transition-all ${
-                        transitMode === mode ? 'bg-brand-100 border-brand-300 text-brand-700 dark:bg-brand-900/40 dark:border-brand-600/50 dark:text-brand-300' : 'bg-white border-slate-200 text-slate-600 hover:border-brand-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300'
-                      }`}
-                    >
-                      {mode}
-                    </button>
-                  ))}
-                </div>
+              <FieldWrapper label="How are you planning this trip?">
+                <BookingModeToggle value={bookingMode} onChange={handleBookingModeChange} />
               </FieldWrapper>
 
-              {transitMode === 'Flight' || transitMode === 'Train' ? (
-                 <div className="grid md:grid-cols-2 gap-6 pt-2 border-t border-slate-200 dark:border-slate-700">
-                    <div className="space-y-4">
-                      <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Outbound {transitMode}</h4>
-                      <div className="flex gap-3">
-                        <div className="flex-1">
-                          <label className="block text-xs font-medium text-slate-500 mb-1">Number / Ref</label>
-                          <input type="text" placeholder={transitMode === 'Flight' ? 'e.g. BA314' : 'e.g. 1A2B3C'} value={outboundRef} onChange={(e) => setOutboundRef(e.target.value)} className={inputClass(false) + " py-2 text-sm"} />
-                        </div>
-                        <div className="w-24">
-                          <label className="block text-xs font-medium text-slate-500 mb-1">Arrival Time</label>
-                          <input type="time" value={outboundTime} onChange={(e) => setOutboundTime(e.target.value)} className={inputClass(false) + " py-2 text-sm px-2"} />
-                        </div>
-                      </div>
-                    </div>
+              <FieldWrapper label="Where are you heading? 📍" error={errors.destination} hint="Start typing a city — select from the suggestions.">
+                <PlacesAutocompleteInput
+                  id="destination"
+                  value={destination}
+                  onPlaceSelected={(address, placeId) => {
+                    if (placeId && placeId !== destPlaceId) { setAllPOIs([]); setItinerary(null); }
+                    setDestination(address);
+                    setDestPlaceId(placeId ?? '');
+                    setErrors((prev) => ({ ...prev, destination: undefined }));
+                  }}
+                  onInputChange={(val) => { setDestination(val); setErrors((prev) => ({ ...prev, destination: undefined })); }}
+                  placeholder="e.g. Barcelona, Tokyo, Cape Town…"
+                  error={errors.destination}
+                />
+              </FieldWrapper>
 
-                    <div className="space-y-4">
-                      <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Return {transitMode}</h4>
-                      <div className="flex gap-3">
-                        <div className="flex-1">
-                          <label className="block text-xs font-medium text-slate-500 mb-1">Number / Ref</label>
-                          <input type="text" placeholder={transitMode === 'Flight' ? 'e.g. BA315' : 'e.g. 1A2B3C'} value={returnRef} onChange={(e) => setReturnRef(e.target.value)} className={inputClass(false) + " py-2 text-sm"} />
+              {bookingMode === 'booked' ? (
+                <>
+                  <FieldWrapper label="When are you travelling? 📅" error={errors.dateRange} hint="Select arrival & departure dates.">
+                    <DateRangePicker range={dateRange} onChange={(r) => { setDateRange(r); setErrors((prev) => ({ ...prev, dateRange: undefined })); }} error={errors.dateRange} />
+                  </FieldWrapper>
+
+                  {/* Conditional transit reveal — only after dates selected */}
+                  <AnimatePresence>
+                    {hasDatesSelected && (
+                      <motion.div
+                        key="transit-section"
+                        variants={revealVariants}
+                        initial="hidden"
+                        animate="visible"
+                        exit="hidden"
+                        transition={{ duration: 0.4, ease: 'easeInOut' }}
+                      >
+                        <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/40 p-6">
+                          <FieldWrapper label="How are you getting there?" error={errors.transitMode} hint="We'll schedule your first and last day around this.">
+                            <div className="flex gap-2">
+                              {(['Flight', 'Train', 'Car / Other', 'Not Sure'] as PrimaryTransitMode[]).map((mode) => (
+                                <button key={mode} type="button" onClick={() => setTransitMode(mode)}
+                                  className={`flex-1 py-3 text-sm font-semibold rounded-xl transition-all duration-200 ${
+                                    transitMode === mode
+                                      ? 'bg-brand-600 text-white shadow-md'
+                                      : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 ring-1 ring-inset ring-slate-200 dark:ring-slate-600 hover:ring-brand-300'
+                                  }`}
+                                >{mode}</button>
+                              ))}
+                            </div>
+                          </FieldWrapper>
+
+                          {/* Flight/Train details */}
+                          <AnimatePresence>
+                            {(transitMode === 'Flight' || transitMode === 'Train') && (
+                              <motion.div key="flight-train" variants={revealVariants} initial="hidden" animate="visible" exit="hidden" transition={{ duration: 0.3 }}>
+                                <div className="grid md:grid-cols-2 gap-6 pt-4 mt-4 border-t border-slate-200 dark:border-slate-700">
+                                  <div className="space-y-3">
+                                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Outbound {transitMode}</h4>
+                                    <div className="flex gap-3">
+                                      <div className="flex-1">
+                                        <label className="block text-xs font-medium text-slate-500 mb-1">Number / Ref</label>
+                                        <input type="text" placeholder={transitMode === 'Flight' ? 'e.g. BA314' : 'e.g. 1A2B3C'} value={outboundRef} onChange={(e) => setOutboundRef(e.target.value)} className={inputClass(false) + ' py-2.5 text-sm'} />
+                                      </div>
+                                      <div className="w-28">
+                                        <label className="block text-xs font-medium text-slate-500 mb-1">Arrival Time</label>
+                                        <input type="time" value={outboundTime} onChange={(e) => setOutboundTime(e.target.value)} className={inputClass(false) + ' py-2.5 text-sm px-2'} />
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="space-y-3">
+                                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Return {transitMode}</h4>
+                                    <div className="flex gap-3">
+                                      <div className="flex-1">
+                                        <label className="block text-xs font-medium text-slate-500 mb-1">Number / Ref</label>
+                                        <input type="text" placeholder={transitMode === 'Flight' ? 'e.g. BA315' : 'e.g. 1A2B3C'} value={returnRef} onChange={(e) => setReturnRef(e.target.value)} className={inputClass(false) + ' py-2.5 text-sm'} />
+                                      </div>
+                                      <div className="w-28">
+                                        <label className="block text-xs font-medium text-slate-500 mb-1">Depart Time</label>
+                                        <input type="time" value={returnTime} onChange={(e) => setReturnTime(e.target.value)} className={inputClass(false) + ' py-2.5 text-sm px-2'} />
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                            {transitMode === 'Car / Other' && (
+                              <motion.div key="car-other" variants={revealVariants} initial="hidden" animate="visible" exit="hidden" transition={{ duration: 0.3 }}>
+                                <div className="grid md:grid-cols-2 gap-6 pt-4 mt-4 border-t border-slate-200 dark:border-slate-700">
+                                  <FieldWrapper label="Estimated Arrival Time">
+                                    <input type="time" value={outboundTime} onChange={(e) => setOutboundTime(e.target.value)} className={inputClass(false) + ' py-2.5 w-36'} />
+                                  </FieldWrapper>
+                                  <FieldWrapper label="Estimated Departure Time">
+                                    <input type="time" value={returnTime} onChange={(e) => setReturnTime(e.target.value)} className={inputClass(false) + ' py-2.5 w-36'} />
+                                  </FieldWrapper>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </div>
-                        <div className="w-24">
-                          <label className="block text-xs font-medium text-slate-500 mb-1">Depart Time</label>
-                          <input type="time" value={returnTime} onChange={(e) => setReturnTime(e.target.value)} className={inputClass(false) + " py-2 text-sm px-2"} />
-                        </div>
-                      </div>
-                    </div>
-                 </div>
-              ) : transitMode === 'Car / Other' ? (
-                 <div className="grid md:grid-cols-2 gap-6 pt-2 border-t border-slate-200 dark:border-slate-700">
-                    <FieldWrapper label="Estimated Arrival Time" className="flex-1">
-                      <input type="time" value={outboundTime} onChange={(e) => setOutboundTime(e.target.value)} className={inputClass(false) + " py-2 w-32"} />
-                    </FieldWrapper>
-                    <FieldWrapper label="Estimated Departure Time" className="flex-1">
-                      <input type="time" value={returnTime} onChange={(e) => setReturnTime(e.target.value)} className={inputClass(false) + " py-2 w-32"} />
-                    </FieldWrapper>
-                 </div>
-              ) : null}
-            </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </>
+              ) : (
+                <FieldWrapper label="How many days? 📅" htmlFor="duration" error={errors.duration} hint={`Between ${MIN_DURATION} and ${MAX_DURATION} days.`}>
+                  <div className="flex items-center gap-4">
+                    <button type="button" onClick={() => setDuration((d) => Math.max(MIN_DURATION, d - 1))} disabled={duration <= MIN_DURATION} className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800 text-2xl font-bold text-slate-600 dark:text-slate-300 transition-all hover:bg-brand-100 hover:text-brand-600 dark:hover:bg-brand-900/40 disabled:opacity-30">−</button>
+                    <input id="duration" type="number" value={duration} onChange={(e) => { const val = parseInt(e.target.value, 10); if (!isNaN(val)) { setDuration(Math.min(MAX_DURATION, Math.max(MIN_DURATION, val))); setErrors((prev) => ({ ...prev, duration: undefined })); } }} min={MIN_DURATION} max={MAX_DURATION} className="flex-1 rounded-2xl bg-slate-50 dark:bg-slate-800/80 px-4 py-4 text-center text-2xl font-bold text-slate-800 dark:text-slate-100 ring-1 ring-inset ring-slate-200 dark:ring-slate-700 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+                    <button type="button" onClick={() => setDuration((d) => Math.min(MAX_DURATION, d + 1))} disabled={duration >= MAX_DURATION} className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800 text-2xl font-bold text-slate-600 dark:text-slate-300 transition-all hover:bg-brand-100 hover:text-brand-600 dark:hover:bg-brand-900/40 disabled:opacity-30">+</button>
+                  </div>
+                </FieldWrapper>
+              )}
+            </motion.div>
           )}
-        </div>
-      )}
 
-      {/* STEP 2: THE VIBE */}
-      {step === 2 && (
-        <div className="flex flex-col gap-8 animate-fade-in">
-          <FieldWrapper label="What are your interests? 🎯" error={errors.interests} hint="Select everything that appeals — we'll use this to curate your POIs.">
-            <div id="interests" className="flex flex-wrap gap-2.5 pt-1">
-              {INTERESTS.map(({ label, emoji }) => {
-                const isSelected = interests.includes(label);
-                return (
-                  <button
-                    key={label}
-                    type="button"
-                    onClick={() => toggleInterest(label)}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition-all ${isSelected ? 'border-brand-500 bg-brand-600 text-white shadow-md' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-brand-300 hover:text-brand-700'}`}
-                  >
-                    <span aria-hidden="true">{emoji}</span>{label}
-                  </button>
-                );
-              })}
-            </div>
-          </FieldWrapper>
-
-          <div className="grid gap-8 md:grid-cols-2 md:gap-6">
-            <FieldWrapper label="What's your total budget? 💷" htmlFor="budgetGBP" error={errors.budgetGBP} hint="Excluding flights. We'll keep daily spend within this.">
-              <div className="relative">
-                <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4"><span className="text-base font-semibold text-slate-500 dark:text-slate-400">£</span></div>
-                <input id="budgetGBP" type="text" inputMode="numeric" value={budgetRaw} onChange={handleBudgetChange} className={inputClass(!!errors.budgetGBP) + ' pl-9 pr-28'} aria-invalid={!!errors.budgetGBP} />
-                {budgetGBP > 0 && <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4"><span className="text-xs font-semibold text-slate-400 dark:text-slate-500">{budgetGBP.toLocaleString('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 })}</span></div>}
+          {/* ═══ STEP 2: THE VIBE ═══ */}
+          {step === 2 && (
+            <motion.div
+              key="step-2"
+              variants={stepVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              className="flex flex-col gap-10"
+            >
+              <div className="text-center">
+                <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
+                  Set the vibe
+                </h2>
+                <p className="mt-2 text-lg text-slate-500 dark:text-slate-400">What kind of experience are you after?</p>
               </div>
-            </FieldWrapper>
 
-            <FieldWrapper label="What's your food style? 🍴" hint="Determines dining suggestions injected into your itinerary.">
-              <div className="grid grid-cols-2 gap-2.5">
-                {DINING_PROFILES.map(({ value, label, emoji, description }) => {
-                  const isSelected = diningProfile === value;
-                  return (
-                    <button key={value} type="button" onClick={() => setDiningProfile(value)} className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-all ${isSelected ? 'border-brand-500 bg-brand-50 dark:bg-brand-950 shadow-md ring-2 ring-brand-200 dark:ring-brand-800' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-brand-300'}`}>
-                      <span className="text-xl" aria-hidden="true">{emoji}</span>
-                      <span className={`text-sm font-bold leading-snug ${isSelected ? 'text-brand-700 dark:text-brand-300' : 'text-slate-700 dark:text-slate-200'}`}>{label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </FieldWrapper>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 3: DETAILS */}
-      {step === 3 && (
-        <div className="grid gap-8 md:grid-cols-2 md:gap-6 animate-fade-in">
-          
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900/50">
-              <div>
-                <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                  {derivedDuration === 1 ? 'Do you know your arrival point?' : 'Have you booked accommodation?'}
-                </p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Used as your daily start/end point.</p>
-              </div>
-              
-              <div className="flex rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 p-1 shrink-0 w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => { setHasAccommodation(true); setErrors((prev) => ({ ...prev, accommodation: undefined })); }}
-                  className={`flex-1 sm:flex-none px-6 py-1.5 text-xs font-bold rounded-md transition-all ${
-                    hasAccommodation 
-                      ? 'bg-white dark:bg-slate-700 text-brand-700 dark:text-brand-300 shadow-sm' 
-                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                  }`}
-                >
-                  Yes
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setHasAccommodation(false); setAccommodation(''); setErrors((prev) => ({ ...prev, accommodation: undefined })); }}
-                  className={`flex-1 sm:flex-none px-6 py-1.5 text-xs font-bold rounded-md transition-all ${
-                    !hasAccommodation 
-                      ? 'bg-white dark:bg-slate-700 text-brand-700 dark:text-brand-300 shadow-sm' 
-                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-                  }`}
-                >
-                  No
-                </button>
-              </div>
-            </div>
-
-            {hasAccommodation && (
-              <FieldWrapper label={derivedDuration === 1 ? "Where are you arriving? 🚉" : "Where are you staying? 🏨"} error={errors.accommodation} hint={derivedDuration === 1 ? "Enter your train station, airport, or car park." : "Enter your hotel, apartment, or area."}>
-                <PlacesAutocompleteInput id="accommodation" value={accommodation} onPlaceSelected={(address, placeId) => { setAccommodation(address); setErrors((prev) => ({ ...prev, accommodation: undefined })); }} onInputChange={(val) => { setAccommodation(val); setErrors((prev) => ({ ...prev, accommodation: undefined })); }} placeholder={derivedDuration === 1 ? "e.g. Cambridge Railway Station…" : "e.g. Hotel Arts Barcelona…"} types={derivedDuration === 1 ? ['transit_station', 'geocode'] : ['establishment', 'geocode']} error={errors.accommodation} />
+              <FieldWrapper label="What are your interests? 🎯" error={errors.interests} hint="Select everything that appeals — we'll curate your POIs around these.">
+                <div id="interests" className="flex flex-wrap gap-3 pt-1">
+                  {INTERESTS.map(({ label, emoji }) => {
+                    const isSelected = interests.includes(label);
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => toggleInterest(label)}
+                        className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-all duration-200 ${
+                          isSelected
+                            ? 'bg-brand-600 text-white shadow-lg shadow-brand-500/20 scale-105'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-brand-900/30 dark:hover:text-brand-300'
+                        }`}
+                      >
+                        <span aria-hidden="true" className="text-base">{emoji}</span>{label}
+                      </button>
+                    );
+                  })}
+                </div>
               </FieldWrapper>
-            )}
-          </div>
 
-          <div className="flex flex-col">
-            <FieldWrapper label="Anchor Points & Hard Constraints 📌" htmlFor="anchorPoints" hint="Pre-booked tours or non-negotiable activities.">
-              <textarea id="anchorPoints" value={anchorPoints} onChange={(e) => setAnchorPoints(e.target.value)} placeholder={`e.g.\n• Sagrada Família booked: Day 2, 10:00–12:00\n• Must visit Camp Nou on Day 3`} rows={6} className="w-full resize-none rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-3.5 text-sm leading-relaxed text-slate-800 dark:text-slate-100 placeholder-slate-400 shadow-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500 outline-none transition-all" />
-              <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 px-3.5 py-3">
-                <span className="mt-0.5 flex-shrink-0 text-sm" aria-hidden="true">⚠️</span>
-                <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-400"><strong>Hard constraints:</strong> The AI will never schedule another activity during any blocked time windows you specify above.</p>
+              <div className="grid gap-8 md:grid-cols-2 md:gap-6">
+                <FieldWrapper label="What's your total budget? 💷" htmlFor="budgetGBP" error={errors.budgetGBP} hint="Excluding flights. We'll keep daily spend within this.">
+                  <div className="relative">
+                    <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-5"><span className="text-lg font-semibold text-slate-500 dark:text-slate-400">£</span></div>
+                    <input id="budgetGBP" type="text" inputMode="numeric" value={budgetRaw} onChange={handleBudgetChange} className={inputClass(!!errors.budgetGBP) + ' pl-10 pr-28 text-lg font-semibold'} aria-invalid={!!errors.budgetGBP} />
+                    {budgetGBP > 0 && <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-5"><span className="text-sm font-semibold text-slate-400 dark:text-slate-500">{budgetGBP.toLocaleString('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 })}</span></div>}
+                  </div>
+                </FieldWrapper>
+
+                <FieldWrapper label="What's your food style? 🍴" hint="Determines dining suggestions in your itinerary.">
+                  <div className="grid grid-cols-2 gap-3">
+                    {DINING_PROFILES.map(({ value, label, emoji }) => {
+                      const isSelected = diningProfile === value;
+                      return (
+                        <button key={value} type="button" onClick={() => setDiningProfile(value)} className={`flex flex-col items-start gap-1.5 rounded-2xl p-4 text-left transition-all duration-200 ${isSelected ? 'bg-brand-50 dark:bg-brand-950 shadow-lg ring-2 ring-brand-500' : 'bg-slate-50 dark:bg-slate-800/80 ring-1 ring-inset ring-slate-200 dark:ring-slate-700 hover:ring-brand-300'}`}>
+                          <span className="text-2xl" aria-hidden="true">{emoji}</span>
+                          <span className={`text-sm font-bold leading-snug ${isSelected ? 'text-brand-700 dark:text-brand-300' : 'text-slate-700 dark:text-slate-200'}`}>{label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </FieldWrapper>
               </div>
-            </FieldWrapper>
-          </div>
-        </div>
-      )}
 
-      {/* Navigation Buttons */}
-      <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+              {/* ── NEW: Daily Transport Preference ── */}
+              <FieldWrapper label="How do you prefer to get around daily? 🚶" hint="Helps us plan realistic transit between activities.">
+                <div className="flex gap-3">
+                  {DAILY_TRANSPORT_OPTIONS.map(({ value, emoji, label }) => {
+                    const isSelected = dailyTransport === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setDailyTransport(value)}
+                        className={`flex-1 flex flex-col items-center gap-2 rounded-2xl py-5 transition-all duration-200 ${
+                          isSelected
+                            ? 'bg-brand-600 text-white shadow-lg shadow-brand-500/20'
+                            : 'bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 ring-1 ring-inset ring-slate-200 dark:ring-slate-700 hover:ring-brand-300'
+                        }`}
+                      >
+                        <span className="text-3xl">{emoji}</span>
+                        <span className="text-sm font-semibold">{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </FieldWrapper>
+            </motion.div>
+          )}
+
+          {/* ═══ STEP 3: ACCOMMODATION & ANCHORS ═══ */}
+          {step === 3 && (
+            <motion.div
+              key="step-3"
+              variants={stepVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              className="flex flex-col gap-10"
+            >
+              <div className="text-center">
+                <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
+                  Final details
+                </h2>
+                <p className="mt-2 text-lg text-slate-500 dark:text-slate-400">Where are you staying, and anything we must know?</p>
+              </div>
+
+              {/* Accommodation toggle */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 px-6 py-5">
+                <div>
+                  <p className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                    {derivedDuration === 1 ? 'Do you know your arrival point?' : 'Have you booked accommodation?'}
+                  </p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Used as your daily start/end point.</p>
+                </div>
+                <div className="flex rounded-xl bg-slate-200/60 dark:bg-slate-700/60 p-1 shrink-0 w-full sm:w-auto">
+                  <button type="button" onClick={() => { setHasAccommodation(true); setErrors((prev) => ({ ...prev, accommodation: undefined })); }}
+                    className={`flex-1 sm:flex-none px-8 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${hasAccommodation ? 'bg-white dark:bg-slate-600 text-brand-700 dark:text-brand-300 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                  >Yes</button>
+                  <button type="button" onClick={() => { setHasAccommodation(false); setAccommodation(''); setErrors((prev) => ({ ...prev, accommodation: undefined })); }}
+                    className={`flex-1 sm:flex-none px-8 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${!hasAccommodation ? 'bg-white dark:bg-slate-600 text-brand-700 dark:text-brand-300 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                  >No</button>
+                </div>
+              </div>
+
+              <AnimatePresence>
+                {hasAccommodation && (
+                  <motion.div key="accommodation-input" variants={revealVariants} initial="hidden" animate="visible" exit="hidden" transition={{ duration: 0.3 }}>
+                    <FieldWrapper label={derivedDuration === 1 ? 'Where are you arriving? 🚉' : 'Where are you staying? 🏨'} error={errors.accommodation} hint={derivedDuration === 1 ? 'Enter your train station, airport, or car park.' : 'Enter your hotel, apartment, or area.'}>
+                      <PlacesAutocompleteInput id="accommodation" value={accommodation} onPlaceSelected={(address) => { setAccommodation(address); setErrors((prev) => ({ ...prev, accommodation: undefined })); }} onInputChange={(val) => { setAccommodation(val); setErrors((prev) => ({ ...prev, accommodation: undefined })); }} placeholder={derivedDuration === 1 ? 'e.g. Cambridge Railway Station…' : 'e.g. Hotel Arts Barcelona…'} types={derivedDuration === 1 ? ['transit_station', 'geocode'] : ['establishment', 'geocode']} error={errors.accommodation} />
+                    </FieldWrapper>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <FieldWrapper label="Anchor Points & Hard Constraints 📌" htmlFor="anchorPoints" hint="Pre-booked tours or non-negotiable activities.">
+                <textarea id="anchorPoints" value={anchorPoints} onChange={(e) => setAnchorPoints(e.target.value)} placeholder={'e.g.\n• Sagrada Família booked: Day 2, 10:00–12:00\n• Must visit Camp Nou on Day 3'} rows={5} className="w-full resize-none rounded-2xl bg-slate-50 dark:bg-slate-800/80 px-5 py-4 text-base leading-relaxed text-slate-800 dark:text-slate-100 placeholder-slate-400 ring-1 ring-inset ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-brand-500 outline-none transition-all" />
+                <div className="mt-3 flex items-start gap-2.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 px-4 py-3.5">
+                  <span className="mt-0.5 flex-shrink-0 text-base" aria-hidden="true">⚠️</span>
+                  <p className="text-sm leading-relaxed text-amber-700 dark:text-amber-400"><strong>Hard constraints:</strong> The AI will never schedule another activity during any blocked time windows you specify above.</p>
+                </div>
+              </FieldWrapper>
+            </motion.div>
+          )}
+
+        </AnimatePresence>
+      </div>
+
+      {/* ── Navigation Buttons (massive & satisfying) ── */}
+      <div className="flex items-center justify-between gap-4 pt-8 mt-auto">
         {step > 1 ? (
-          <button type="button" onClick={handleBack} className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500">
+          <button type="button" onClick={handleBack} className="inline-flex items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800 px-8 py-4 text-base font-semibold text-slate-700 dark:text-slate-200 transition-all duration-200 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-brand-500">
             ← Back
           </button>
         ) : <div />}
 
-        <button type="submit" disabled={isSubmitting} className="relative inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-8 py-3 text-sm font-bold text-white shadow-lg transition-all duration-200 hover:bg-brand-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2">
-          {isSubmitting ? 'Starting...' : step === maxStep ? 'Start Planning 🍐' : `Next: ${stepLabels[step]}`}
+        <button type="submit" disabled={isSubmitting} className="relative inline-flex items-center justify-center gap-2.5 rounded-2xl bg-brand-600 px-12 py-4 text-lg font-bold text-white shadow-xl shadow-brand-500/20 transition-all duration-200 hover:bg-brand-700 hover:shadow-2xl hover:shadow-brand-500/30 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2">
+          {isSubmitting ? (
+            <><div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" /> Starting…</>
+          ) : step === maxStep ? (
+            'Start Planning 🍐'
+          ) : (
+            `Next: ${stepLabels[step]} →`
+          )}
         </button>
       </div>
     </form>
