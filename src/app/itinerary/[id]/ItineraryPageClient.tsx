@@ -1,16 +1,23 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import SortableItinerary from '@/components/itinerary/SortableItinerary';
 import ItineraryDisplay from '@/components/itinerary/ItineraryDisplay';
 import ItineraryDisplayV2 from '@/components/itinerary/ItineraryDisplayV2';
 import ItineraryDisplayNotebook from '@/components/itinerary/ItineraryDisplayNotebook';
 import ItineraryDisplayTerminal from '@/components/itinerary/ItineraryDisplayTerminal';
+import CalendarExportModal from '@/components/itinerary/CalendarExportModal';
+import FilingCabinet from '@/components/itinerary/FilingCabinet';
 import ThemeInjector from '@/components/layout/ThemeInjector';
-import type { Itinerary, TripIntake } from '@/types'; 
+import type { Itinerary, TripIntake } from '@/types';
+import type { DocumentInfo } from '@/components/itinerary/PlaceDetailsModal';
 import { useTripStore } from '@/store/tripStore';
+import { useUIStore } from '@/store/uiStore';
+import { parseBriefingSemantics } from '@/lib/briefingParser';
+import { fetchTripDocuments } from '@/app/actions/documents';
 
 export interface ClientTripProps {
   id: string;
@@ -19,7 +26,7 @@ export interface ClientTripProps {
   budgetGBP: number;
   startDate: string | null;
   endDate: string | null;
-  intake: TripIntake; 
+  intake: TripIntake;
 }
 
 interface ItineraryPageClientProps {
@@ -28,24 +35,69 @@ interface ItineraryPageClientProps {
 }
 
 export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPageClientProps) {
+  const router = useRouter();
+
+  // ── Trip Store ──────────────────────────────────────────────────────────────
   const setItinerary = useTripStore((state) => state.setItinerary);
-  const setIntake = useTripStore((state) => state.setIntake); 
+  const setIntake = useTripStore((state) => state.setIntake);
   const setCurrentTripId = useTripStore((state) => state.setCurrentTripId);
   const itinerary = useTripStore((state) => state.itinerary);
-  
   const aestheticPreference = useTripStore((state) => state.aestheticPreference);
 
+  // ── UI Store ────────────────────────────────────────────────────────────────
+  const activeModal = useUIStore((s) => s.activeModal);
+  const openModal = useUIStore((s) => s.openModal);
+  const closeModal = useUIStore((s) => s.closeModal);
+
+  // ── Local State ─────────────────────────────────────────────────────────────
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
   const [isMounted, setIsMounted] = useState(false);
+  const [tripDocuments, setTripDocuments] = useState<DocumentInfo[]>([]);
 
+  // ── Hydration ───────────────────────────────────────────────────────────────
   useEffect(() => {
     setIsMounted(true);
     setItinerary(dbItinerary);
-    setIntake(dbTrip.intake); 
+    setIntake(dbTrip.intake);
     setCurrentTripId(dbTrip.id);
   }, [dbItinerary, dbTrip, setItinerary, setIntake, setCurrentTripId]);
+
+  // ── Document Loader ─────────────────────────────────────────────────────────
+  const loadDocuments = useCallback(() => {
+    if (dbTrip?.id) {
+      fetchTripDocuments(dbTrip.id).then((docs) =>
+        setTripDocuments(docs as DocumentInfo[]),
+      );
+    }
+  }, [dbTrip?.id]);
+
+  useEffect(() => {
+    loadDocuments();
+  }, [loadDocuments]);
+
+  // ── Semantic Engine ─────────────────────────────────────────────────────────
+  const briefing = useMemo(
+    () => parseBriefingSemantics(itinerary?.essentials),
+    [itinerary?.essentials],
+  );
+
+  // ── ThemeProps Callbacks ────────────────────────────────────────────────────
+  const handleOpenLedger = useCallback(() => {
+    router.push(`/itinerary/${dbTrip.id}/ledger`);
+  }, [router, dbTrip.id]);
+
+  const handleOpenDocs = useCallback(() => {
+    openModal('docs');
+  }, [openModal]);
+
+  const handleOpenCalendar = useCallback(() => {
+    openModal('calendar');
+  }, [openModal]);
+
+  const handleEditTrip = useCallback(() => {
+    setIsEditing(true);
+  }, []);
 
   const handleSaveItinerary = async () => {
     if (!itinerary || isSaving) return;
@@ -69,6 +121,19 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
   };
 
   const currentItinerary = itinerary || dbItinerary;
+
+  // ── POI reference list for FilingCabinet ────────────────────────────────────
+  const availablePOIs = useMemo(
+    () =>
+      currentItinerary?.days?.flatMap((d) =>
+        d.entries.map((e) => ({
+          id: e.id,
+          name: e.locationName,
+          dayName: `Day ${d.dayNumber}`,
+        })),
+      ) ?? [],
+    [currentItinerary],
+  );
 
   if (!isMounted) {
     return <div className="min-h-screen bg-slate-50 dark:bg-slate-950 w-full animate-pulse" />;
@@ -132,31 +197,47 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
         <SortableItinerary />
       ) : (
         aestheticPreference === 'TERMINAL' ? (
-          <ItineraryDisplayTerminal
-            itinerary={currentItinerary} 
-            trip={dbTrip} 
-            onEditAction={() => setIsEditing(true)} 
-          />
+          /* Phase 3 will migrate ItineraryDisplayTerminal to ThemeProps */
+          (() => {
+            const C = ItineraryDisplayTerminal as any;
+            return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditAction={handleEditTrip} />;
+          })()
         ) : aestheticPreference === 'NOTEBOOK' ? (
-          <ItineraryDisplayNotebook
-            itinerary={currentItinerary} 
-            trip={dbTrip} 
-            onEditAction={() => setIsEditing(true)} 
-          />
+          /* Phase 3 will migrate ItineraryDisplayNotebook to ThemeProps */
+          (() => {
+            const C = ItineraryDisplayNotebook as any;
+            return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditAction={handleEditTrip} />;
+          })()
         ) : aestheticPreference === 'EDITORIAL' ? (
-          <ItineraryDisplayV2 
-            itinerary={currentItinerary} 
-            trip={dbTrip} 
-            onEditRequest={() => setIsEditing(true)} 
-          />
+          /* Phase 3 will migrate ItineraryDisplayV2 to ThemeProps */
+          (() => {
+            const C = ItineraryDisplayV2 as any;
+            return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditRequest={handleEditTrip} />;
+          })()
         ) : (
-          <ItineraryDisplay 
-            itinerary={currentItinerary} 
-            trip={dbTrip} 
-            onEditRequest={() => setIsEditing(true)} 
-          />
+          /* Phase 3 will migrate ItineraryDisplay to ThemeProps */
+          (() => {
+            const C = ItineraryDisplay as any;
+            return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditRequest={handleEditTrip} />;
+          })()
         )
       )}
+
+      {/* ── ROOT-LEVEL MODALS (owned by the Brain, not by themes) ── */}
+      <FilingCabinet
+        isOpen={activeModal === 'docs'}
+        onClose={closeModal}
+        tripId={dbTrip.id}
+        availablePOIs={availablePOIs}
+        documents={tripDocuments}
+        onUploadSuccess={loadDocuments}
+      />
+      <CalendarExportModal
+        isOpen={activeModal === 'calendar'}
+        onClose={closeModal}
+        itinerary={currentItinerary}
+        trip={dbTrip}
+      />
     </div>
   );
 }

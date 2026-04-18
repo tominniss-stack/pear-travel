@@ -3,23 +3,11 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import QRCode from 'react-qr-code';
-import Link from 'next/link';
-import type { Itinerary, ItineraryEntry } from '@/types';
+import type { Itinerary, ItineraryEntry, DayItinerary } from '@/types';
+import type { ThemeProps, ClientTripProps } from '@/types/theme';
 import PlaceDetailsModal, { DocumentInfo } from './PlaceDetailsModal';
-import FilingCabinet from './FilingCabinet';
 import DayMap from './DayMap';
 import { useTripStore } from '@/store/tripStore';
-import { fetchTripDocuments } from '@/app/actions/documents';
-
-export interface ClientTripProps {
-  id: string;
-  destination: string;
-  duration: number;
-  budgetGBP: number;
-  startDate: string | null;
-  endDate: string | null;
-  intake?: any;
-}
 
 function getGoogleMapsTravelMode(method?: string) {
   if (!method) return 'transit';
@@ -72,7 +60,7 @@ function PrintOnlyBooklet({ trip, itinerary, formatCost, localCurrencyRaw, total
               <>
                 <h3 className="text-xl font-serif border-b border-slate-300 pb-2 mb-4">Survival Phrases</h3>
                 <ul className="text-base space-y-3 font-sans">
-                  {phrases.map((p, i) => (
+                  {phrases.map((p: { phrase: string; translation: string }, i: number) => (
                     <li key={i} className="flex justify-between items-end border-b border-slate-100 pb-1">
                       <span className="text-slate-600">{p.phrase}</span>
                       <span className="font-bold text-black">{p.translation}</span>
@@ -85,14 +73,14 @@ function PrintOnlyBooklet({ trip, itinerary, formatCost, localCurrencyRaw, total
         </div>
       </div>
 
-      {days.map(day => (
+      {days.map((day: DayItinerary) => (
         <div key={day.dayNumber} className="mb-10" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
           <div className="flex justify-between items-end border-b-2 border-black pb-2 mb-4">
             <h2 className="text-3xl font-serif text-black">Day {day.dayNumber}</h2>
           </div>
           <table className="w-full text-base font-sans">
             <tbody>
-              {day.entries.map((entry, idx) => (
+              {day.entries.map((entry: ItineraryEntry, idx: number) => (
                 <tr key={idx} className="border-b border-slate-200" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                   <td className="w-[15%] py-5 align-top font-bold text-xl tabular-nums font-mono">{entry.time || '—'}</td>
                   <td className="w-[65%] py-5 pr-6 align-top">
@@ -215,19 +203,15 @@ function TimelineEntryNotebook({
   );
 }
 
-export default function ItineraryDisplayNotebook({ itinerary, trip, onEditAction }: { itinerary: Itinerary; trip: ClientTripProps; onEditAction?: () => void; }) {
+export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, onOpenLedger, onOpenDocs, onOpenCalendar, onEditTrip }: ThemeProps) {
   const days = itinerary.days ?? [];
   const essentials = itinerary.essentials;
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [selectedPOI, setSelectedPOI] = useState<{placeId: string, poiId: string} | null>(null);
-  const [isFilingCabinetOpen, setIsFilingCabinetOpen] = useState(false);
   const [tripDocuments, setTripDocuments] = useState<DocumentInfo[]>([]);
 
   const { exchangeRate, setExchangeRate, displayCurrency, intake } = useTripStore();
   const accommodationName = intake?.accommodation || trip.intake?.accommodation;
-
-  const loadDocuments = () => { fetchTripDocuments(trip.id).then(docs => setTripDocuments(docs as DocumentInfo[])); };
-  useEffect(() => { loadDocuments(); }, [trip.id]);
 
   const localCurrencyRaw = essentials?.currency || '';
   const localSymbol = localCurrencyRaw.split(' ')[0] || '€';
@@ -288,30 +272,51 @@ export default function ItineraryDisplayNotebook({ itinerary, trip, onEditAction
   const plugType = essentials?.plugType || 'Type C / F (230V)';
   const apps = essentials?.apps && essentials.apps.length > 0 ? essentials.apps : ['Uber', 'Google Maps'];
 
-  const humanizeBriefing = () => {
-    if (!essentials) return null;
-    const transit = essentials.airportTransit.toLowerCase().includes('uber') || essentials.airportTransit.toLowerCase().includes('taxi') ? 'taxis and rideshares' : 'local transit networks';
-    const englishText = essentials.englishProficiency || 'Moderate';
-    const tipping = (essentials.tippingEtiquette || '10%').replace(/\.+$/, '');
-    const water = essentials.tapWater?.toLowerCase().includes('safe') ? 'perfectly safe' : 'best avoided';
+  // ── Journal Engine: reads BriefingSemantics, writes first-person journal prose ──
+  const generateJournalEntry = (): string => {
+    const lines: string[] = [];
 
-    const hlYellow = "bg-[#fef08a]/80 dark:bg-[#b45309]/50 text-slate-900 dark:text-slate-100 px-1.5 py-0.5 mx-1 font-bold rounded-sm inline-block -rotate-1 mix-blend-multiply dark:mix-blend-screen shadow-[1px_1px_2px_rgba(254,240,138,0.5)]";
-    const hlPink = "bg-[#fbcfe8]/80 dark:bg-[#9d174d]/50 text-slate-900 dark:text-slate-100 px-1.5 py-0.5 mx-1 font-bold rounded-sm inline-block rotate-1 mix-blend-multiply dark:mix-blend-screen shadow-[1px_1px_2px_rgba(251,207,232,0.5)]";
-    const hlGreen = "bg-[#bbf7d0]/80 dark:bg-[#166534]/50 text-slate-900 dark:text-slate-100 px-1.5 py-0.5 mx-1 font-bold rounded-sm inline-block -rotate-1 mix-blend-multiply dark:mix-blend-screen shadow-[1px_1px_2px_rgba(187,247,208,0.5)]";
+    if (briefing.languageBarrier === 'HIGH') {
+      lines.push("Gonna need to keep the phrasebook glued to my hand—English isn't widely spoken here.");
+    } else if (briefing.languageBarrier === 'MEDIUM') {
+      lines.push("English gets me by in tourist spots, but I'll brush up on a few local phrases just in case.");
+    } else if (briefing.languageBarrier === 'LOW') {
+      lines.push("Don't really need to sweat the language barrier, English is pretty common.");
+    }
 
-    return (
-      <div className="font-handwriting text-3xl leading-[1.8] text-slate-800 dark:text-slate-200 rotate-[0.5deg]">
-        <p className="mb-6">
-          Looks like getting around <span className="font-bold text-slate-900 dark:text-white border-b-2 border-slate-800/30 dark:border-slate-200/30">{trip.destination}</span> will be mostly done via <span className={hlYellow}>{transit}</span>. 
-          English proficiency here is <span className={hlPink}>{englishText}</span>, so keep the phrasebook handy!
-        </p>
-        <p className="mb-6">
-          When grabbing food or service, the norm is <span className={hlGreen}>{tipping}</span>. 
-          Oh, and we checked—the tap water is <span className={hlYellow}>{water}</span>.
-        </p>
-      </div>
-    );
+    if (briefing.tapWaterStatus === 'SAFE') {
+      lines.push("Good news: tap water is safe, so I'm packing my reusable bottle.");
+    } else if (briefing.tapWaterStatus === 'UNSAFE') {
+      lines.push("Note to self: stick strictly to bottled water.");
+    }
+
+    if (briefing.tippingNorm === 'PERCENTAGE') {
+      lines.push("Looks like tipping a percentage is the norm here—budget accordingly.");
+    } else if (briefing.tippingNorm === 'ROUND_UP') {
+      lines.push("Tipping isn't a big deal here, just round up the bill and you're golden.");
+    } else if (briefing.tippingNorm === 'NONE') {
+      lines.push("No tipping expected—service is included, so I can relax on that front.");
+    }
+
+    if (briefing.primaryTransit === 'PUBLIC') {
+      lines.push("Getting around on public transport—grab a transit card if I can.");
+    } else if (briefing.primaryTransit === 'TAXI') {
+      lines.push("Taxis and rideshares are the way to go here. Download the local app.");
+    } else if (briefing.primaryTransit === 'WALKING') {
+      lines.push("This place is walkable—comfortable shoes are non-negotiable.");
+    }
+
+    if (lines.length === 0) {
+      lines.push(`Can't wait to explore ${trip.destination}. Let the adventure begin.`);
+    }
+
+    return lines.join(' ');
   };
+
+  // ── Pocket Items data ────────────────────────────────────────────────────────
+  const pocketApps = essentials?.apps && essentials.apps.length > 0
+    ? essentials.apps
+    : ['Maps', 'Translate'];
 
   return (
     <div className="w-full min-h-screen font-sans relative notebook-bg-desk flex justify-center py-0 md:py-12 text-slate-900 dark:text-slate-100">
@@ -345,8 +350,7 @@ export default function ItineraryDisplayNotebook({ itinerary, trip, onEditAction
         {/* ── THE PHYSICAL NOTEBOOK CONTAINER ── */}
         <div className="notebook-paper relative w-full max-w-4xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.9)] md:border border-stone-300 dark:border-stone-800 md:rounded-sm z-10 flex flex-col">
           
-          <FilingCabinet isOpen={isFilingCabinetOpen} onClose={() => setIsFilingCabinetOpen(false)} tripId={trip.id} availablePOIs={days.flatMap(d => d.entries.map(e => ({ id: e.id, name: e.locationName, dayName: `Day ${d.dayNumber}` })))} documents={tripDocuments} onUploadSuccess={loadDocuments} />
-          {selectedPOI && <PlaceDetailsModal placeId={selectedPOI.placeId} poiId={selectedPOI.poiId} tripId={trip.id} tripDocuments={tripDocuments} onClose={() => setSelectedPOI(null)} onDocumentUpdate={loadDocuments} />}
+          {selectedPOI && <PlaceDetailsModal placeId={selectedPOI.placeId} poiId={selectedPOI.poiId} tripId={trip.id} tripDocuments={tripDocuments} onClose={() => setSelectedPOI(null)} />}
 
           {/* ── MOBILE TAPE NAVIGATION (Sticky Top) ── */}
           <div className="md:hidden sticky top-0 z-40 bg-[#FDFBF7]/95 dark:bg-[#1a1a1a]/95 backdrop-blur-md border-b border-stone-300 dark:border-stone-700 py-3 shadow-sm w-full">
@@ -386,18 +390,80 @@ export default function ItineraryDisplayNotebook({ itinerary, trip, onEditAction
 
             {/* Overview */}
             {essentials && (
-              <div id="overview-section" className="scroll-mt-[100px] mb-24 relative">
+              <div id="overview-section" className="scroll-mt-[100px] mb-24 relative overflow-hidden">
                 <InkSplodge className="absolute -top-10 -right-4 w-32 h-32 rotate-12" />
-                {humanizeBriefing()}
-                
-                <div className="mt-12 relative w-full max-w-sm p-6 bg-[#f4f0ea] dark:bg-stone-800/80 rounded-sm shadow-md border border-stone-300 dark:border-stone-700 rotate-1">
-                   <div className="absolute top-4 left-4 w-4 h-4 rounded-full bg-stone-800 dark:bg-stone-900 shadow-inner" />
-                   <h4 className="font-handwriting text-2xl text-slate-800 dark:text-slate-200 mb-4 ml-6">The Essentials</h4>
-                   <ul className="ml-6 space-y-3 font-typewriter text-sm tracking-widest uppercase text-slate-600 dark:text-slate-400">
-                      <li>Dates: <span className="font-bold text-slate-900 dark:text-white">{trip.startDate ? format(new Date(trip.startDate), 'dd/MM/yy') : ''}</span></li>
+
+                {/* ── Journal Engine: dynamic semantic prose ── */}
+                <div className="font-handwriting text-3xl leading-[1.8] text-slate-800 dark:text-slate-200">
+                  <span className="inline-block rotate-[0.5deg]">{generateJournalEntry()}</span>
+                </div>
+
+                {/* ── Pocket Items ── */}
+                <div className="mt-12 flex flex-col gap-8 w-full">
+
+                  {/* Row 1: Currency Stamp + Sticky Apps */}
+                  <div className="flex flex-wrap items-start gap-6 w-full">
+
+                    {/* Currency Stamp */}
+                    {localCurrencyRaw && (
+                      <div className="min-w-[120px] max-w-[160px] aspect-square rounded-full border-4 border-slate-800/30 dark:border-slate-200/30 mix-blend-multiply dark:mix-blend-screen flex items-center justify-center text-center p-4 bg-amber-50 dark:bg-amber-900/30 shadow-md -rotate-3 flex-shrink-0">
+                        <div>
+                          <p className="font-typewriter text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1">Currency</p>
+                          <p className="font-handwriting text-2xl leading-tight text-slate-900 dark:text-white font-bold">{localCurrencyRaw.split(' ')[0]}</p>
+                          <p className="font-typewriter text-[9px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mt-1 leading-tight">{localCurrencyRaw.replace(/^[^\s]+\s*/, '').slice(0, 20)}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* "To Download" Sticky */}
+                    <div className="w-full sm:max-w-sm bg-yellow-100 dark:bg-yellow-900/40 p-4 shadow-md rotate-1 flex-shrink-0">
+                      <p className="font-handwriting text-xl text-slate-700 dark:text-yellow-200 mb-3 border-b border-yellow-300 dark:border-yellow-700/50 pb-1">📲 To Download</p>
+                      <ul className="space-y-1">
+                        {pocketApps.map((app, i) => (
+                          <li key={i} className="font-typewriter text-sm text-slate-700 dark:text-yellow-100 flex items-center gap-2">
+                            <span className="w-3 h-3 border border-slate-500 dark:border-yellow-400 rounded-sm inline-block flex-shrink-0" />
+                            {app}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Row 2: Emergency Scrap */}
+                  {essentials.emergencyNumbers && (
+                    <div className="bg-white dark:bg-stone-800 p-3 border-2 border-red-500/50 border-dashed w-max max-w-full -rotate-1 shadow-sm">
+                      <p className="font-typewriter text-[10px] uppercase tracking-widest text-red-500 dark:text-red-400 mb-1">🚨 Emergency</p>
+                      <p className="font-handwriting text-xl text-slate-800 dark:text-slate-200 leading-snug">{essentials.emergencyNumbers}</p>
+                    </div>
+                  )}
+
+                  {/* Row 3: Phrasebook */}
+                  {essentials.usefulPhrases && essentials.usefulPhrases.length > 0 && (
+                    <div className="w-full relative p-6 bg-[#f4f0ea] dark:bg-stone-800/80 rounded-sm shadow-md border border-stone-300 dark:border-stone-700 rotate-[0.5deg]">
+                      <div className="absolute top-4 left-4 w-4 h-4 rounded-full bg-stone-800 dark:bg-stone-900 shadow-inner" />
+                      <h4 className="font-handwriting text-2xl text-slate-800 dark:text-slate-200 mb-4 ml-6">Survival Phrases</h4>
+                      <ul className="ml-6 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2">
+                        {essentials.usefulPhrases.map((p, i) => (
+                          <li key={i} className="flex justify-between items-end border-b border-stone-300 dark:border-stone-600 pb-1 gap-4">
+                            <span className="font-serif italic text-slate-600 dark:text-slate-400 text-sm">{p.phrase}</span>
+                            <span className="font-handwriting text-lg text-slate-900 dark:text-white whitespace-nowrap">{p.translation}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Row 4: Trip Essentials card */}
+                  <div className="relative w-full max-w-sm p-6 bg-[#f4f0ea] dark:bg-stone-800/80 rounded-sm shadow-md border border-stone-300 dark:border-stone-700 rotate-1">
+                    <div className="absolute top-4 left-4 w-4 h-4 rounded-full bg-stone-800 dark:bg-stone-900 shadow-inner" />
+                    <h4 className="font-handwriting text-2xl text-slate-800 dark:text-slate-200 mb-4 ml-6">The Essentials</h4>
+                    <ul className="ml-6 space-y-3 font-typewriter text-sm tracking-widest uppercase text-slate-600 dark:text-slate-400">
+                      <li>Dates: <span className="font-bold text-slate-900 dark:text-white">{trip.startDate ? format(new Date(trip.startDate), 'dd/MM/yy') : '—'}</span></li>
                       <li>Power: <span className="font-bold text-slate-900 dark:text-white">{plugType}</span></li>
                       <li>Budget: <span className="font-bold text-slate-900 dark:text-white">{formatCost(trip.budgetGBP)}</span></li>
-                   </ul>
+                    </ul>
+                  </div>
+
                 </div>
               </div>
             )}
@@ -445,10 +511,28 @@ export default function ItineraryDisplayNotebook({ itinerary, trip, onEditAction
               Day {day.dayNumber}
             </button>
           ))}
-           <Link href={`/itinerary/${trip.id}/ledger`} className="font-typewriter text-[10px] uppercase font-bold px-4 py-3 bg-stone-200 dark:bg-stone-800 border border-l-0 border-stone-300 dark:border-stone-700 shadow-md rounded-r-md text-slate-800 dark:text-white mt-8 hover:translate-x-2 transition-all">
+          <button
+            onClick={onOpenLedger}
+            className="font-typewriter text-[10px] uppercase font-bold px-4 py-3 bg-stone-200 dark:bg-stone-800 border border-l-0 border-stone-300 dark:border-stone-700 shadow-md rounded-r-md text-slate-800 dark:text-white mt-8 hover:translate-x-2 transition-all text-left"
+          >
             Ledger ↗
-          </Link>
-          <button onClick={() => { if (onEditAction) onEditAction(); }} className="font-typewriter text-[10px] uppercase font-bold px-4 py-3 bg-stone-200 dark:bg-stone-800 border border-l-0 border-stone-300 dark:border-stone-700 shadow-md rounded-r-md text-slate-800 dark:text-white hover:translate-x-2 transition-all text-left">
+          </button>
+          <button
+            onClick={onOpenDocs}
+            className="font-typewriter text-[10px] uppercase font-bold px-4 py-3 bg-stone-200 dark:bg-stone-800 border border-l-0 border-stone-300 dark:border-stone-700 shadow-md rounded-r-md text-slate-800 dark:text-white hover:translate-x-2 transition-all text-left"
+          >
+            Docs
+          </button>
+          <button
+            onClick={onOpenCalendar}
+            className="font-typewriter text-[10px] uppercase font-bold px-4 py-3 bg-stone-200 dark:bg-stone-800 border border-l-0 border-stone-300 dark:border-stone-700 shadow-md rounded-r-md text-slate-800 dark:text-white hover:translate-x-2 transition-all text-left"
+          >
+            Calendar
+          </button>
+          <button
+            onClick={onEditTrip}
+            className="font-typewriter text-[10px] uppercase font-bold px-4 py-3 bg-stone-200 dark:bg-stone-800 border border-l-0 border-stone-300 dark:border-stone-700 shadow-md rounded-r-md text-slate-800 dark:text-white hover:translate-x-2 transition-all text-left"
+          >
             Edit
           </button>
         </div>
