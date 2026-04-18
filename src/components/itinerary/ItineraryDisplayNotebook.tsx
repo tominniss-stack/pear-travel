@@ -248,19 +248,6 @@ export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, on
     }
   }, [intake?.destinationPlaceId, trip.id]);
 
-  const dynamicStays = days.reduce((acc: {name: string, startDay: number, placeId?: string, poiId: string}[], day) => {
-    if (day.entries.length > 0) {
-      const stayEntry = day.entries.find(e => (e.type === 'ACCOMMODATION' || /(accommodation|hotel|airbnb|check-in|stay)/i.test(e.activityDescription || '') || /(accommodation|hotel|airbnb)/i.test(e.locationName || '')) && !/(airport|flight|arrival|departure|station|terminal)/i.test(e.locationName + ' ' + e.activityDescription)) || day.entries.find(e => e.transitMethod === 'Start of Day' && !/(airport|flight|arrival|departure|station)/i.test(e.locationName + ' ' + e.activityDescription));
-      if (stayEntry) {
-        const lastStay = acc[acc.length - 1];
-        const isGeneric = /^(accommodation|hotel|airbnb|start of day)/i.test(stayEntry.locationName?.trim() || '');
-        const displayName = (isGeneric && accommodationName) ? accommodationName : (stayEntry.locationName || 'Unknown Stay');
-        if (!lastStay || lastStay.name !== displayName) acc.push({ name: displayName, startDay: day.dayNumber, placeId: stayEntry.placeId, poiId: stayEntry.id });
-      }
-    }
-    return acc;
-  }, []);
-
   const formatCost = (cost?: number) => {
     if (cost === undefined || cost === null) return '—';
     if (cost === 0) return 'Free';
@@ -270,6 +257,32 @@ export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, on
 
   const totalStops = days.reduce((total, day) => total + (day.entries?.filter(e => !(e.type === 'ACCOMMODATION' || e.transitMethod === 'Start of Day' || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(e.activityDescription || '') || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(e.locationName || ''))).length || 0), 0);
   const dynamicTotalCost = days.reduce((sum, day) => sum + day.entries.reduce((dSum, e) => dSum + (e.estimatedCostGBP || 0), 0), 0);
+
+  const dynamicStays = days.reduce((acc: { name: string; startDay: number; placeId?: string; poiId: string }[], day) => {
+    if (day.entries.length > 0) {
+      const stayEntry =
+        day.entries.find(e =>
+          (e.type === 'ACCOMMODATION' ||
+            /(accommodation|hotel|airbnb|check-in|stay)/i.test(e.activityDescription || '') ||
+            /(accommodation|hotel|airbnb)/i.test(e.locationName || '')) &&
+          !/(airport|flight|arrival|departure|station|terminal)/i.test(e.locationName + ' ' + e.activityDescription)
+        ) ||
+        day.entries.find(e =>
+          e.transitMethod === 'Start of Day' &&
+          !/(airport|flight|arrival|departure|station)/i.test(e.locationName + ' ' + e.activityDescription)
+        );
+      if (stayEntry) {
+        const lastStay = acc[acc.length - 1];
+        const isGeneric = /^(accommodation|hotel|airbnb|start of day)/i.test(stayEntry.locationName?.trim() || '');
+        const displayName = isGeneric && accommodationName ? accommodationName : stayEntry.locationName || 'Unknown Stay';
+        if (!lastStay || lastStay.name !== displayName) {
+          acc.push({ name: displayName, startDay: day.dayNumber, placeId: stayEntry.placeId, poiId: stayEntry.id });
+        }
+      }
+    }
+    return acc;
+  }, []);
+
   const plugType = essentials?.plugType || 'Type C / F (230V)';
   const apps = essentials?.apps && essentials.apps.length > 0 ? essentials.apps : ['Uber', 'Google Maps'];
 
@@ -399,11 +412,11 @@ export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, on
                   <span className="inline-block rotate-[0.5deg]">{generateJournalEntry()}</span>
                 </div>
 
-                {/* ── Pocket Items Collage ── padding provides shadow room; no overflow-hidden ── */}
-                <div className="mt-16 mb-8 relative w-full flex flex-col md:flex-row items-start gap-8 md:gap-12 p-4 md:p-8">
+                {/* ── Pocket Items Collage ── CSS Grid; padding provides shadow room; no overflow-hidden ── */}
+                <div className="mt-16 mb-8 relative w-full grid grid-cols-1 md:grid-cols-12 gap-8 items-start p-4 md:p-0">
 
-                  {/* ── LEFT: Essentials Card with Currency Stamp ── */}
-                  <div className="relative z-10 w-full md:max-w-sm mb-8">
+                  {/* ── LEFT: Essentials Card + Torn Receipt (anchor column) ── */}
+                  <div className="md:col-span-5 flex flex-col gap-10 relative z-10 items-start">
 
                     {/* Currency Stamp — decorative, positioned on card corner */}
                     {localCurrencyRaw && (
@@ -435,21 +448,33 @@ export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, on
                         </span>
                       </button>
                     </div>
+                    {/* Torn Receipt — Financial Summary (anchored in left column) */}
+                    <div className="w-full md:w-auto md:max-w-[220px] bg-white dark:bg-stone-300 text-slate-800 p-4 font-typewriter border-t border-b-4 border-b-slate-200 border-dashed shadow-md -rotate-2">
+                      <h4 className="text-center border-b border-slate-400 pb-2 mb-2 font-bold text-xs uppercase tracking-widest">Pear Treasury</h4>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span>Budget:</span>
+                        <span>{formatCost(trip.budgetGBP)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs font-bold">
+                        <span>Est Total:</span>
+                        <span>{formatCost(dynamicTotalCost)}</span>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* ── RIGHT: Emergency Scrap + Apps Sticky (overlapping collage) ── */}
-                  <div className="flex flex-col gap-6 w-full md:max-w-xs relative z-10 pt-4">
+                  {/* ── RIGHT: Scattered notes (flex-wrap collage) ── */}
+                  <div className="md:col-span-7 flex flex-row flex-wrap gap-6 md:gap-10 relative z-10 pt-4 md:pt-12 justify-center md:justify-start items-start">
 
                     {/* Emergency Scrap */}
                     {essentials.emergencyNumbers && (
-                      <div className="bg-white dark:bg-stone-800 p-3 border-2 border-red-500/50 border-dashed w-max max-w-full -rotate-2 shadow-sm">
+                      <div className="w-full md:w-auto md:max-w-[220px] bg-white dark:bg-stone-800 p-3 border-2 border-red-500/50 border-dashed -rotate-2 shadow-sm">
                         <p className="font-typewriter text-[10px] uppercase tracking-widest text-red-500 dark:text-red-400 mb-1">🚨 Emergency</p>
                         <p className="font-handwriting text-xl text-slate-800 dark:text-slate-200 leading-snug">{essentials.emergencyNumbers}</p>
                       </div>
                     )}
 
-                    {/* Apps Sticky — overlaps bottom corner of Emergency scrap */}
-                    <div className="w-full sm:max-w-sm bg-yellow-100 dark:bg-yellow-900/40 p-4 shadow-md rotate-3 -mt-4 flex-shrink-0">
+                    {/* Apps Sticky */}
+                    <div className="w-full md:w-auto md:max-w-[220px] bg-yellow-100 dark:bg-yellow-900/40 p-4 shadow-md rotate-3 flex-shrink-0">
                       <p className="font-handwriting text-xl text-slate-700 dark:text-yellow-200 mb-3 border-b border-yellow-300 dark:border-yellow-700/50 pb-1">📲 To Download</p>
                       <ul className="space-y-1">
                         {pocketApps.map((app, i) => (
@@ -460,6 +485,43 @@ export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, on
                         ))}
                       </ul>
                     </div>
+
+                    {/* Boarding Pass — Transit Details */}
+                    {trip.intake?.transitDetails && (
+                      <div className="w-full md:w-auto md:max-w-[220px] bg-blue-50 dark:bg-blue-900/30 border-2 border-blue-200 dark:border-blue-800 rounded-sm p-3 shadow-sm -rotate-2">
+                        <h4 className="font-typewriter text-xs font-bold uppercase text-blue-800 dark:text-blue-300 mb-2">
+                          Transit: {trip.intake.transitDetails.mode}
+                        </h4>
+                        <div className="grid grid-cols-2 gap-2 font-typewriter text-[10px] uppercase text-slate-700 dark:text-slate-300">
+                          <div>
+                            <span className="opacity-50 block">Outbound</span>
+                            <span className="font-bold text-sm">{trip.intake.transitDetails.outbound?.time || 'TBD'}</span>
+                            <br />
+                            Ref: {trip.intake.transitDetails.outbound?.reference || 'Pending'}
+                          </div>
+                          <div>
+                            <span className="opacity-50 block">Return</span>
+                            <span className="font-bold text-sm">{trip.intake.transitDetails.return?.time || 'TBD'}</span>
+                            <br />
+                            Ref: {trip.intake.transitDetails.return?.reference || 'Pending'}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Hotel Matchbook — Basecamp / Accommodation */}
+                    {dynamicStays.length > 0 && (
+                      <div className="w-full md:w-auto md:max-w-[220px] bg-rose-100 dark:bg-rose-900/40 border border-rose-300 dark:border-rose-700 shadow-sm p-3 rotate-3">
+                        <h4 className="font-handwriting text-xl text-rose-900 dark:text-rose-200 border-b border-rose-300 dark:border-rose-700 mb-2">Basecamp</h4>
+                        {dynamicStays.map((stay, idx) => (
+                          <div key={idx} className="mb-2">
+                            <span className="font-typewriter text-[9px] uppercase opacity-60 text-rose-800 dark:text-rose-300">Day {stay.startDay}</span>
+                            <p className="font-handwriting text-lg leading-tight text-rose-900 dark:text-rose-100">{stay.name}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                   </div>
 
                 </div>

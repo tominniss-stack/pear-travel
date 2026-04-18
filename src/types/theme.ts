@@ -41,6 +41,8 @@ export interface ThemeProps {
   trip: ClientTripProps;
   itinerary: Itinerary;
   briefing: BriefingSemantics;
+  totalCostGBP: number;
+  basecamps: { name: string; startDay: number }[];
   onOpenLedger: () => void;
   onOpenDocs: () => void;
   onOpenCalendar: () => void;
