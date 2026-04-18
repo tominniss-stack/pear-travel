@@ -56,7 +56,7 @@ export default function PlaceDetailsModal({
 
   // ── Self-Healing: derive a text query from the itinerary entry so we can
   //    recover a fresh place_id when Gemini emits an expired/hallucinated one ──
-  const entry = itinerary?.days.flatMap(d => d.entries).find(e => e.placeId === poiId);
+  const entry = itinerary?.days.flatMap(d => d.entries).find((e: any) => e.id === poiId) || itinerary?.unscheduledOptions?.find((e: any) => e.id === poiId);
   const searchQuery = entry ? `${entry.locationName} ${currentTrip?.destination || ''}`.trim() : null;
   const setLockedAccommodation = useTripStore(state => state.setLockedAccommodation);
   const [showBooking, setShowBooking] = useState(false);
