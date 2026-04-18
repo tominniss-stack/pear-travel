@@ -14,6 +14,7 @@ import { recalculateDay } from '@/lib/itinerary/recalc';
 import { minifyItineraryContext, minifyAllDays, minifyCarParkItems } from '@/lib/itinerary/serialization';
 import type { DayItinerary, DayOverride, DailyPacing, ItineraryEntry, TransitMethod, MinifiedTimelineItem, AutoFitResponse, Itinerary } from '@/types';
 import PlaceDetailsModal from './PlaceDetailsModal';
+import { checkIfClosed } from '@/lib/timeUtils';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -598,6 +599,13 @@ function SortableTimelineEntry({
   onOpenActionSheet: (target: NonNullable<ModalTarget>) => void;
 }) {
 
+  // ── Soft Clash: check if the scheduled time falls outside opening hours ──
+  const isClosedClash = !isParkingLot && checkIfClosed(
+    entry.time,
+    entry.openingHours?.open,
+    entry.openingHours?.close,
+  );
+
   const isManualRest = entry.locationName === 'Room Break' || entry.locationName === 'Local Coffee / Cafe Break';
   const isBookend = !isManualRest && (entry.type === 'ACCOMMODATION' || entry.transitMethod === 'Start of Day' || /(accommodation|hotel|airbnb|start of day|return to)/i.test(entry.activityDescription || '') || /(accommodation|hotel|airbnb|start of day|return to)/i.test(entry.locationName || '')) && !entry.isDining;
   const isFlight = /(airport|flight|departure)/i.test(entry.activityDescription || '') || /(airport|flight|departure)/i.test(entry.locationName || '');
@@ -636,6 +644,8 @@ function SortableTimelineEntry({
               ? 'border-amber-400 dark:border-amber-600 bg-amber-50/40 dark:bg-amber-900/10 ring-1 ring-amber-300/50 dark:ring-amber-700/30'
               : entry.isFixed
               ? 'border-brand-300 dark:border-brand-700 bg-brand-50/30 dark:bg-brand-900/10'
+              : isClosedClash
+              ? 'border-red-300 dark:border-red-800 ring-1 ring-red-500/50 hover:border-red-400 dark:hover:border-red-700'
               : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
           }`}
         >
@@ -647,12 +657,17 @@ function SortableTimelineEntry({
                   ⚠️ {entry.timeWarning.includes('Closes') ? 'CLOSES' : 'CLOSED'}
                 </div>
               )}
-              <button 
+              <button
                 onClick={(e) => { e.stopPropagation(); if (!isBookend) onEditTime({ entry, dayNumber }); }}
-                className={`text-sm tabular-nums font-bold mt-1 ${entry.isFixed ? 'text-brand-600' : isBookend ? 'text-slate-400' : 'text-slate-600 dark:text-slate-400'}`}
+                className={`text-sm tabular-nums font-bold mt-1 ${entry.isFixed ? 'text-brand-600' : isBookend ? 'text-slate-400' : isClosedClash ? 'text-red-500 dark:text-red-400' : 'text-slate-600 dark:text-slate-400'}`}
               >
                 {entry.time || '--:--'}
               </button>
+              {isClosedClash && (
+                <span className="mt-0.5 inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[8px] font-black uppercase tracking-wide bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/50 leading-none">
+                  ⚠️ Closed
+                </span>
+              )}
               <button onClick={(e) => { e.stopPropagation(); onToggleFixed(dayNumber, entry.id); }} className="mt-1 p-1 text-xs">
                 {isBookend ? '🔒' : entry.isFixed ? '📌' : '📍'}
               </button>
