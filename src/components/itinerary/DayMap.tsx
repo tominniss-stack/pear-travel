@@ -17,25 +17,47 @@ export default function DayMap({ entries, destination, onMarkerClick }: DayMapPr
   const [map, setMap] = useState<any | null>(null);
   const markersRef = useRef<any[]>([]);
 
-  // 1. Initialise the Map
+  // 1. Initialise the Map — poll for window.google.maps to handle async script loading
   useEffect(() => {
-    if (typeof window === 'undefined' || !(window as any).google || !mapRef.current) return;
-    
-    const googleObj = (window as any).google;
-    const newMap = new googleObj.maps.Map(mapRef.current, {
-      zoom: 12,
-      center: { lat: 0, lng: 0 },
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: true,
-      zoomControl: true,
-      styles: [
-        { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
-        { featureType: "transit", elementType: "labels.icon", stylers: [{ visibility: "off" }] }
-      ]
-    });
-    
-    setMap(newMap);
+    if (typeof window === 'undefined' || !mapRef.current) return;
+
+    let cancelled = false;
+    const MAX_WAIT_MS = 8000;
+    const POLL_INTERVAL_MS = 150;
+    let elapsed = 0;
+
+    const tryInit = () => {
+      if (cancelled || !mapRef.current) return;
+
+      const googleObj = (window as any).google;
+      if (!googleObj?.maps?.Map) {
+        elapsed += POLL_INTERVAL_MS;
+        if (elapsed < MAX_WAIT_MS) {
+          setTimeout(tryInit, POLL_INTERVAL_MS);
+        }
+        // If MAX_WAIT_MS exceeded, give up silently — map stays blank
+        return;
+      }
+
+      const newMap = new googleObj.maps.Map(mapRef.current, {
+        zoom: 12,
+        center: { lat: 0, lng: 0 },
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true,
+        zoomControl: true,
+        styles: [
+          { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
+          { featureType: "transit", elementType: "labels.icon", stylers: [{ visibility: "off" }] }
+        ]
+      });
+
+      if (!cancelled) setMap(newMap);
+    };
+
+    tryInit();
+
+    return () => { cancelled = true; };
   }, []);
 
   // 2. Resolve Coordinates & Draw Markers

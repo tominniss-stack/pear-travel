@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Playfair_Display, Caveat, Special_Elite } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import GlobalNav from "@/components/layout/GlobalNav";
@@ -42,6 +43,10 @@ export default function RootLayout({
             </main>
           </Providers>
         </ThemeProvider>
+        <Script
+          src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}&libraries=places`}
+          strategy="beforeInteractive"
+        />
       </body>
     </html>
   );

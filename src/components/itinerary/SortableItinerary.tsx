@@ -763,7 +763,7 @@ function DayColumn({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-4 w-full">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-brand-600 text-white flex items-center justify-center font-black text-sm shadow-md">{day.dayNumber}</div>
           <h3 className="font-extrabold text-slate-900 dark:text-white text-lg">Day {day.dayNumber}</h3>
@@ -857,9 +857,9 @@ function ParkingLot({
   return (
     <div className="sticky top-24 flex flex-col gap-4">
       {/* ── Header row: title + action buttons ── */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">The Parking Lot</h3>
+      <div className="flex flex-col gap-4 mb-6 w-full">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">The Parking Lot</h3>
           {rescheduleCount > 0 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50 whitespace-nowrap">
               ⚠️ {rescheduleCount}
@@ -953,6 +953,7 @@ export default function SortableItinerary() {
   const [editingAccTarget, setEditingAccTarget] = useState<ModalTarget>(null);
   const [deletingTarget, setDeletingTarget] = useState<ModalTarget>(null);
   const [actionSheetTarget, setActionSheetTarget] = useState<ModalTarget>(null);
+  const [moveToDayTarget, setMoveToDayTarget] = useState<ItineraryEntry | null>(null);
 
   // ── Day Override state ──
   const [daySettingsTarget, setDaySettingsTarget] = useState<number | null>(null);
@@ -1427,7 +1428,7 @@ export default function SortableItinerary() {
                 {/* ── Move to Day (Parking Lot only) ── */}
                 {actionSheetTarget.dayNumber === -1 && (
                   <button
-                    onClick={() => { setActionSheetTarget(null); alert('Move to Day logic coming in Phase 2'); }}
+                    onClick={() => { setMoveToDayTarget(actionSheetTarget.entry); setActionSheetTarget(null); }}
                     className="w-full flex items-center gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-900/30 dark:hover:text-brand-400 text-slate-900 dark:text-white font-bold transition-colors border border-slate-100 dark:border-slate-700"
                   >
                     <span className="text-xl">📥</span> Move to Day…
@@ -1445,6 +1446,78 @@ export default function SortableItinerary() {
               <button
                 onClick={() => setActionSheetTarget(null)}
                 className="w-full mt-4 py-4 rounded-2xl text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              >
+                Cancel
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Move to Day Modal ── */}
+      <AnimatePresence>
+        {moveToDayTarget && itinerary && (
+          <div
+            className="fixed inset-0 z-[600] flex items-end justify-center bg-slate-900/40 backdrop-blur-sm sm:items-center p-4"
+            onClick={() => setMoveToDayTarget(null)}
+          >
+            <motion.div
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-700"
+            >
+              <div className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-5 sm:hidden" />
+              <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-1 text-center">Move to Day</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 text-center mb-5 px-2 line-clamp-1 font-medium">{moveToDayTarget.locationName}</p>
+
+              <div className="flex flex-col gap-2.5">
+                {itinerary.days.map((day) => (
+                  <button
+                    key={day.dayNumber}
+                    onClick={() => {
+                      // 1. Remove from parking lot
+                      const nextParkingLot = (itinerary.unscheduledOptions || []).filter(
+                        (e) => e.id !== moveToDayTarget.id
+                      );
+                      // 2. Find the target day
+                      const nextDays = itinerary.days.map((d) => {
+                        if (d.dayNumber !== day.dayNumber) return d;
+                        const entries = [...d.entries];
+                        // 3. Insert at penultimate position (before final bookend)
+                        const insertIdx = entries.length > 1 ? entries.length - 1 : entries.length;
+                        const movedEntry = { ...moveToDayTarget, time: undefined, isFixed: false };
+                        entries.splice(insertIdx, 0, movedEntry);
+                        // 4. Recalculate transit times locally
+                        return recalculateDay({ ...d, entries });
+                      });
+                      // 5. Commit & close
+                      setItinerary({
+                        ...itinerary,
+                        days: nextDays,
+                        unscheduledOptions: nextParkingLot,
+                        totalEstimatedCostGBP: nextDays.reduce((s, d) => s + recalcSpend(d.entries), 0),
+                      });
+                      setMoveToDayTarget(null);
+                    }}
+                    className="w-full flex items-center gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 hover:bg-brand-50 hover:text-brand-600 dark:hover:bg-brand-900/30 dark:hover:text-brand-400 text-slate-900 dark:text-white font-bold transition-colors border border-slate-100 dark:border-slate-700 text-left"
+                  >
+                    <span className="text-lg">📥</span>
+                    <span>Day {day.dayNumber}</span>
+                    {day.entries.length > 0 && (
+                      <span className="ml-auto text-xs text-slate-400 dark:text-slate-500 font-normal truncate max-w-[120px]">
+                        {day.entries.filter(e => !/(accommodation|hotel|airbnb|start|return)/i.test(e.locationName || '')).length} activities
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setMoveToDayTarget(null)}
+                className="w-full mt-4 py-3.5 rounded-2xl text-slate-500 dark:text-slate-400 font-bold hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-sm"
               >
                 Cancel
               </button>

@@ -12,21 +12,27 @@ export interface DocumentInfo {
   poiId?: string | null;
 }
 
-interface PlaceDetailsModalProps {
-  placeId: string;       
-  poiId: string;         
-  tripId: string;        
-  aiNote?: string;
-  tripDocuments?: DocumentInfo[]; 
-  onClose: () => void;
-  onDocumentUpdate?: () => void;  
+interface StoredOpeningHours {
+  weekdayDescriptions?: string[];
 }
 
-export default function PlaceDetailsModal({ 
-  placeId, 
+interface PlaceDetailsModalProps {
+  placeId: string;
+  poiId: string;
+  tripId: string;
+  aiNote?: string;
+  openingHours?: StoredOpeningHours;
+  tripDocuments?: DocumentInfo[];
+  onClose: () => void;
+  onDocumentUpdate?: () => void;
+}
+
+export default function PlaceDetailsModal({
+  placeId,
   poiId,
   tripId,
-  aiNote, 
+  aiNote,
+  openingHours,
   tripDocuments = [],
   onClose,
   onDocumentUpdate
@@ -34,15 +40,24 @@ export default function PlaceDetailsModal({
   
   const [place, setPlace] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // Document State
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedDocToLink, setSelectedDocToLink] = useState('');
 
-  // ── NEW: V3 Booking Loop State ──
+  // ── Offline POI data from Zustand (fallback when live Places API fails) ──
+  const selectedPOIs = useTripStore(state => state.selectedPOIs);
+  const offlinePoi = selectedPOIs.find(p => p.id === poiId);
+
+  // ── V3 Booking Loop State ──
   const itinerary = useTripStore(state => state.itinerary);
+  const currentTrip = useTripStore(state => state.savedTrips.find(t => t.id === state.currentTripId) ?? null);
+
+  // ── Self-Healing: derive a text query from the itinerary entry so we can
+  //    recover a fresh place_id when Gemini emits an expired/hallucinated one ──
+  const entry = itinerary?.days.flatMap(d => d.entries).find(e => e.placeId === poiId);
+  const searchQuery = entry ? `${entry.locationName} ${currentTrip?.destination || ''}`.trim() : null;
   const setLockedAccommodation = useTripStore(state => state.setLockedAccommodation);
   const [showBooking, setShowBooking] = useState(false);
   const [checkInDay, setCheckInDay] = useState(1);
@@ -55,19 +70,35 @@ export default function PlaceDetailsModal({
     const isValidId = placeId && placeId !== "" && placeId !== "null" && typeof placeId === 'string';
 
     if (!isValidId) {
-      setError("This item isn't linked to a specific Google Maps location.");
+      // No valid placeId — skip live fetch, show offline data only
       setLoading(false);
       return;
     }
 
-    const fetchPlaceDetails = () => {
+    let cancelled = false;
+    // Poll for window.google.maps.places — the SDK loads asynchronously and
+    // may not be ready when the modal first mounts (race condition).
+    const MAX_WAIT_MS = 8000;
+    const POLL_INTERVAL_MS = 150;
+    let elapsed = 0;
+
+    const attemptFetch = () => {
+      if (cancelled) return;
+
       const googleObj = (typeof window !== 'undefined') ? (window as any).google : null;
+
       if (!googleObj?.maps?.places) {
-        setError("Google Maps library not found.");
-        setLoading(false);
+        elapsed += POLL_INTERVAL_MS;
+        if (elapsed >= MAX_WAIT_MS) {
+          // SDK never loaded — quietly fall back to offline data
+          if (!cancelled) setLoading(false);
+          return;
+        }
+        setTimeout(attemptFetch, POLL_INTERVAL_MS);
         return;
       }
 
+      // Library is ready — fetch place details
       try {
         const dummyDiv = document.createElement('div');
         const service = new googleObj.maps.places.PlacesService(dummyDiv);
@@ -76,28 +107,92 @@ export default function PlaceDetailsModal({
           {
             placeId: placeId,
             fields: [
-              'name', 'rating', 'user_ratings_total', 'formatted_address', 
-              'formatted_phone_number', 'opening_hours', 'website', 
+              'name', 'rating', 'user_ratings_total', 'formatted_address',
+              'formatted_phone_number', 'opening_hours', 'website',
               'photos', 'reviews', 'editorial_summary', 'url', 'types'
             ]
           },
           (result: any, status: any) => {
+            if (cancelled) return;
+
             if (status === googleObj.maps.places.PlacesServiceStatus.OK && result) {
+              // ── Happy path ──────────────────────────────────────────────────
               setPlace(result);
+              setLoading(false);
             } else {
-              setError("Live details for this location are currently unavailable.");
+              // ── Self-Healing Place ID fallback ──────────────────────────────
+              // The placeId from Gemini may be expired or hallucinated.
+              // If we have a text query, attempt findPlaceFromQuery to recover
+              // a fresh place_id, then retry getDetails once with that new id.
+              console.warn('[PlaceDetailsModal] getDetails non-OK status:', status, '— attempting self-heal via findPlaceFromQuery');
+
+              if (!searchQuery) {
+                // No query available — soft offline fallback
+                setLoading(false);
+                return;
+              }
+
+              try {
+                service.findPlaceFromQuery(
+                  { query: searchQuery, fields: ['place_id'] },
+                  (searchResults: any[], searchStatus: any) => {
+                    if (cancelled) return;
+
+                    const healedPlaceId = searchResults?.[0]?.place_id;
+
+                    if (
+                      searchStatus !== googleObj.maps.places.PlacesServiceStatus.OK ||
+                      !healedPlaceId
+                    ) {
+                      console.warn('[PlaceDetailsModal] findPlaceFromQuery failed:', searchStatus);
+                      setLoading(false);
+                      return;
+                    }
+
+                    console.info('[PlaceDetailsModal] Self-healed place_id:', healedPlaceId);
+
+                    // Second attempt with the recovered place_id
+                    service.getDetails(
+                      {
+                        placeId: healedPlaceId,
+                        fields: [
+                          'name', 'rating', 'user_ratings_total', 'formatted_address',
+                          'formatted_phone_number', 'opening_hours', 'website',
+                          'photos', 'reviews', 'editorial_summary', 'url', 'types'
+                        ]
+                      },
+                      (healedResult: any, healedStatus: any) => {
+                        if (cancelled) return;
+                        if (healedStatus === googleObj.maps.places.PlacesServiceStatus.OK && healedResult) {
+                          setPlace(healedResult);
+                        } else {
+                          console.warn('[PlaceDetailsModal] Retry getDetails also failed:', healedStatus);
+                        }
+                        setLoading(false);
+                      }
+                    );
+                  }
+                );
+              } catch (healErr) {
+                if (!cancelled) {
+                  console.error('[PlaceDetailsModal] findPlaceFromQuery threw:', healErr);
+                  setLoading(false);
+                }
+              }
             }
-            setLoading(false);
           }
         );
       } catch (err) {
-        console.error("Places API error:", err);
-        setError("An error occurred while connecting to Google Maps.");
-        setLoading(false);
+        if (!cancelled) {
+          console.error("Places API error:", err);
+          setLoading(false);
+        }
       }
     };
 
-    fetchPlaceDetails();
+    attemptFetch();
+
+    return () => { cancelled = true; };
   }, [placeId]);
 
   useEffect(() => {
@@ -173,19 +268,6 @@ export default function PlaceDetailsModal({
             <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mb-4" />
             <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Fetching live data...</p>
           </div>
-        ) : error ? (
-          <div className="p-8 flex flex-col items-center">
-            {aiNote && (
-              <div className="w-full rounded-2xl bg-amber-50 dark:bg-amber-900/20 p-4 border border-amber-200 dark:border-amber-800/50 mb-6">
-                <p className="text-xs font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-1 flex items-center gap-2"><span>💡</span> AI Planning Note</p>
-                <p className="text-sm text-slate-700 dark:text-slate-300 italic leading-relaxed">"{aiNote}"</p>
-              </div>
-            )}
-            <span className="text-4xl mb-4">📍</span>
-            <p className="text-slate-900 dark:text-white font-bold mb-2">Details Unavailable</p>
-            <p className="text-slate-500 dark:text-slate-400 text-sm max-w-xs text-center">{error}</p>
-            <button onClick={onClose} className="mt-6 px-6 py-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-sm font-bold text-slate-900 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-700">Close</button>
-          </div>
         ) : (
           <div className="overflow-y-auto custom-scrollbar flex-1">
             {place?.photos && place.photos.length > 0 ? (
@@ -195,7 +277,7 @@ export default function PlaceDetailsModal({
                 <h2 className="absolute bottom-6 left-6 right-6 text-2xl sm:text-3xl font-black text-white leading-tight">{place.name}</h2>
               </div>
             ) : (
-              <div className="p-8 bg-brand-600 shrink-0"><h2 className="text-3xl font-black text-white">{place?.name || 'Activity Details'}</h2></div>
+              <div className="p-8 bg-brand-600 shrink-0"><h2 className="text-3xl font-black text-white">{place?.name || offlinePoi?.name || 'Activity Details'}</h2></div>
             )}
 
             <div className="p-6 space-y-8">
@@ -220,6 +302,45 @@ export default function PlaceDetailsModal({
                   </div>
                 )}
 
+                {(() => {
+                  // Priority: live Places API weekday_text → prop openingHours → offlinePoi from store
+                  const hoursLines: string[] =
+                    (place?.opening_hours?.weekday_text?.length > 0)
+                      ? place.opening_hours.weekday_text
+                      : (openingHours?.weekdayDescriptions?.length ?? 0) > 0
+                        ? openingHours!.weekdayDescriptions!
+                        : (offlinePoi?.openingHours?.weekdayDescriptions ?? []);
+
+                  if (hoursLines.length === 0) return null;
+
+                  return (
+                    <div className="space-y-2">
+                      <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                        🕒 Opening Hours
+                      </p>
+                      <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/50 overflow-hidden">
+                        {hoursLines.map((line: string, i: number) => {
+                          const [day, ...rest] = line.split(': ');
+                          const hours = rest.join(': ');
+                          return (
+                            <div
+                              key={i}
+                              className={`flex items-baseline justify-between gap-3 px-3 py-2 text-xs ${
+                                i < hoursLines.length - 1
+                                  ? 'border-b border-slate-100 dark:border-slate-700/40'
+                                  : ''
+                              }`}
+                            >
+                              <span className="font-bold text-slate-600 dark:text-slate-300 w-24 flex-shrink-0">{day}</span>
+                              <span className="text-slate-500 dark:text-slate-400 text-right">{hours}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <div className="flex gap-3 pt-2">
                   {place?.url && <a href={place.url} target="_blank" rel="noreferrer" className="flex-1 text-center py-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-sm text-slate-900 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Open in Maps</a>}
                   {place?.website && <a href={place.website} target="_blank" rel="noreferrer" className="flex-1 text-center py-2.5 bg-brand-500 text-white rounded-xl font-bold text-sm hover:bg-brand-600 transition-colors">Visit Website</a>}
@@ -228,7 +349,7 @@ export default function PlaceDetailsModal({
 
               <hr className="border-slate-100 dark:border-slate-800" />
 
-              {/* ── NEW: ACCOMMODATION BOOKING LOOP ── */}
+              {/* ── ACCOMMODATION BOOKING LOOP ── */}
               <div className="bg-brand-50 dark:bg-brand-900/20 rounded-2xl border border-brand-200 dark:border-brand-800/50 p-4">
                 <div className="flex justify-between items-center cursor-pointer" onClick={() => setShowBooking(!showBooking)}>
                   <h3 className="text-sm font-bold text-brand-900 dark:text-brand-100 flex items-center gap-2">
