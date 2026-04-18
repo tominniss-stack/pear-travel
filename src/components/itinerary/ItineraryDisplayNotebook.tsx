@@ -30,30 +30,6 @@ function getGoogleMapsTravelMode(method?: string) {
   return 'transit';
 }
 
-function generateGoogleMapsDayUrl(entries: ItineraryEntry[], destinationCity: string): string | null {
-  const validEntries = entries.filter(e => 
-    e.locationName && 
-    !/(airport|flight|arrival|departure)/i.test(e.locationName + ' ' + (e.activityDescription || '')) &&
-    e.locationName !== 'Room Break' && 
-    e.locationName !== 'Local Coffee / Cafe Break'
-  );
-  if (validEntries.length === 0) return null;
-  if (validEntries.length === 1) {
-     return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(validEntries[0].locationName + ', ' + destinationCity)}`;
-  }
-  const origin = validEntries[0];
-  const dest = validEntries[validEntries.length - 1];
-  const waypoints = validEntries.slice(1, -1);
-  let url = `https://www.google.com/maps/dir/?api=1`;
-  url += `&origin=${encodeURIComponent(origin.locationName + ', ' + destinationCity)}`;
-  url += `&destination=${encodeURIComponent(dest.locationName + ', ' + destinationCity)}`;
-  if (waypoints.length > 0) {
-     const limitedWaypoints = waypoints.slice(0, 9);
-     url += `&waypoints=${limitedWaypoints.map(w => encodeURIComponent(w.locationName + ', ' + destinationCity)).join('|')}`;
-  }
-  return url;
-}
-
 function PrintOnlyBooklet({ trip, itinerary, formatCost, localCurrencyRaw, totalStops }: { trip: ClientTripProps; itinerary: Itinerary; formatCost: (c?: number) => string; localCurrencyRaw: string; totalStops: number; }) {
   const days = itinerary.days ?? [];
   const essentials = itinerary.essentials;
@@ -134,10 +110,37 @@ function PrintOnlyBooklet({ trip, itinerary, formatCost, localCurrencyRaw, total
   );
 }
 
-function TimelineEntryNotebook({ 
-  entry, nextEntry, isLast, isOdd, accommodationName, destination, onPlaceClick, formatCost 
-}: { 
-  entry: ItineraryEntry; nextEntry?: ItineraryEntry; isLast: boolean; isOdd: boolean; accommodationName?: string; destination: string; onPlaceClick: (placeId: string, poiId: string) => void; formatCost: (cost?: number) => string;
+const InkSplodge = ({ className = '' }: { className?: string }) => (
+  <svg
+    viewBox="0 0 120 80"
+    xmlns="http://www.w3.org/2000/svg"
+    className={`pointer-events-none select-none mix-blend-multiply opacity-40 dark:opacity-20 ${className}`}
+    aria-hidden="true"
+  >
+    <path
+      d="M55 10 C30 8, 8 22, 10 42 C12 58, 28 72, 50 70 C68 68, 88 60, 92 44 C97 26, 80 8, 55 10 Z"
+      fill="#5c3d1e"
+    />
+    <path
+      d="M60 18 C72 14, 84 24, 80 36 C76 46, 62 52, 52 48 C40 44, 36 32, 44 24 C48 20, 54 20, 60 18 Z"
+      fill="#3b2008"
+      opacity="0.5"
+    />
+    <path
+      d="M30 38 C26 34, 22 40, 28 44 C32 46, 36 42, 30 38 Z"
+      fill="#5c3d1e"
+    />
+    <path
+      d="M85 50 C82 46, 78 52, 83 55 C87 57, 90 52, 85 50 Z"
+      fill="#5c3d1e"
+    />
+  </svg>
+);
+
+function TimelineEntryNotebook({
+  entry, nextEntry, isLast, isOdd, index, accommodationName, destination, onPlaceClick, formatCost
+}: {
+  entry: ItineraryEntry; nextEntry?: ItineraryEntry; isLast: boolean; isOdd: boolean; index: number; accommodationName?: string; destination: string; onPlaceClick: (placeId: string, poiId: string) => void; formatCost: (cost?: number) => string;
 }) {
   const hasPlaceId = !!(entry.placeId && entry.placeId !== "null" && entry.placeId !== "");
   const isBookend = (entry.type === 'ACCOMMODATION' || entry.transitMethod === 'Start of Day') && !entry.isDining;
@@ -147,21 +150,23 @@ function TimelineEntryNotebook({
     displayTitle = accommodationName;
   }
 
-  // FIXED: Removed strict overlap checks to clear TS Error 2367
+  const cardRotations = ['-rotate-1', 'rotate-1', '-rotate-[0.5deg]', 'rotate-[1.5deg]', '-rotate-[1.5deg]', 'rotate-[0.5deg]'];
+  const cardRotation = cardRotations[index % cardRotations.length];
+
   const getMarginDoodle = () => {
     if (isBookend) return null;
     const isDining = entry.isDining || /lunch|dinner|breakfast|cafe|restaurant|eat/i.test(entry.activityDescription + ' ' + entry.locationName);
     
     if (isDining) {
-      return <span className="font-handwriting text-xs text-slate-500 -rotate-6 inline-block mt-3 opacity-60 dark:opacity-40">(dining)</span>;
+      return <span className="font-handwriting text-xs text-slate-500 dark:text-slate-400 -rotate-6 inline-block mt-3 opacity-60">(dining)</span>;
     }
     
     const isTransit = entry.transitMethod && !entry.transitMethod.toLowerCase().includes('walk') && entry.transitMethod !== 'Start of Day';
     if (isTransit) {
-      return <span className="font-handwriting text-xs text-slate-500 rotate-6 inline-block mt-3 opacity-60 dark:opacity-40">travel →</span>;
+      return <span className="font-handwriting text-xs text-slate-500 dark:text-slate-400 rotate-6 inline-block mt-3 opacity-60">travel →</span>;
     }
     
-    return <span className="font-handwriting text-xs text-slate-500 -rotate-3 inline-block mt-3 opacity-60 dark:opacity-40">explore</span>;
+    return <span className="font-handwriting text-xs text-slate-500 dark:text-slate-400 -rotate-3 inline-block mt-3 opacity-60">explore</span>;
   };
   
   return (
@@ -176,13 +181,16 @@ function TimelineEntryNotebook({
           {getMarginDoodle()}
         </div>
         
-        <div onClick={() => hasPlaceId && onPlaceClick(entry.placeId!, entry.id)} className={`flex-1 group ${hasPlaceId ? 'cursor-pointer' : 'cursor-default'} relative ${isOdd ? 'md:ml-12' : 'md:ml-0'}`}>
-          <div className="absolute inset-0 bg-white/40 dark:bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity -mx-4 px-4 rounded-xl -rotate-1 pointer-events-none" />
+        <div
+          onClick={() => hasPlaceId && onPlaceClick(entry.placeId!, entry.id)}
+          className={`flex-1 group ${hasPlaceId ? 'cursor-pointer' : 'cursor-default'} relative ${isOdd ? 'md:ml-12' : 'md:ml-0'} bg-[#fffcf5] dark:bg-stone-800 p-3 pb-8 shadow-[2px_4px_12px_rgba(0,0,0,0.08)] dark:shadow-[2px_4px_12px_rgba(0,0,0,0.4)] border border-stone-200 dark:border-stone-700 ${cardRotation} transition-transform hover:rotate-0`}
+        >
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-12 h-6 bg-yellow-100/90 dark:bg-yellow-900/60 rotate-3 shadow-[1px_2px_4px_rgba(0,0,0,0.1)] mix-blend-multiply dark:mix-blend-screen" />
 
           <div className="relative z-10">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
-                <h4 className="text-3xl md:text-4xl font-handwriting leading-none text-slate-900 dark:text-slate-100 group-hover:text-blue-700 dark:group-hover:text-amber-300 transition-colors inline-block relative">
+                <h4 className="text-3xl md:text-4xl font-handwriting leading-none text-slate-900 dark:text-slate-100 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors inline-block relative">
                   {displayTitle}
                 </h4>
                 <p className="text-base md:text-lg leading-relaxed text-slate-700 dark:text-slate-300 font-serif italic max-w-2xl mt-3">{entry.activityDescription?.replace(/^\[.*?\]\s*/, '')}</p>
@@ -192,7 +200,7 @@ function TimelineEntryNotebook({
 
             {!isLast && nextEntry && nextEntry.transitNote && (
                <div className="mt-6 w-max">
-                 <a href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(displayTitle + ', ' + destination)}&destination=${encodeURIComponent(nextEntry.locationName + ', ' + destination)}&travelmode=${getGoogleMapsTravelMode(nextEntry.transitMethod)}`} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 text-xs md:text-sm font-typewriter uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all`} title={`Get directions to ${nextEntry.locationName}`}>
+                 <a href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(displayTitle + ', ' + destination)}&destination=${encodeURIComponent(nextEntry.locationName + ', ' + destination)}&travelmode=${getGoogleMapsTravelMode(nextEntry.transitMethod)}`} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-2 text-xs md:text-sm font-typewriter uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all`}>
                    <span className="bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900 px-2 py-0.5 rounded-sm shadow-[1px_1px_2px_rgba(0,0,0,0.3)] rotate-1">
                      {nextEntry.transitMethod.replace('Taxi / Rideshare', 'Taxi').toUpperCase()}
                    </span>
@@ -207,21 +215,15 @@ function TimelineEntryNotebook({
   );
 }
 
-// FIXED: Renamed onEditRequest to onEditAction to clear TS Error 71007
 export default function ItineraryDisplayNotebook({ itinerary, trip, onEditAction }: { itinerary: Itinerary; trip: ClientTripProps; onEditAction?: () => void; }) {
   const days = itinerary.days ?? [];
   const essentials = itinerary.essentials;
-  const [activeTab, setActiveTab] = useState<'overview' | number>('overview');
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
-  
   const [selectedPOI, setSelectedPOI] = useState<{placeId: string, poiId: string} | null>(null);
   const [isFilingCabinetOpen, setIsFilingCabinetOpen] = useState(false);
   const [tripDocuments, setTripDocuments] = useState<DocumentInfo[]>([]);
 
   const { exchangeRate, setExchangeRate, displayCurrency, intake } = useTripStore();
-
-  useEffect(() => { setViewMode('list'); }, [activeTab]);
-
   const accommodationName = intake?.accommodation || trip.intake?.accommodation;
 
   const loadDocuments = () => { fetchTripDocuments(trip.id).then(docs => setTripDocuments(docs as DocumentInfo[])); };
@@ -293,9 +295,9 @@ export default function ItineraryDisplayNotebook({ itinerary, trip, onEditAction
     const tipping = (essentials.tippingEtiquette || '10%').replace(/\.+$/, '');
     const water = essentials.tapWater?.toLowerCase().includes('safe') ? 'perfectly safe' : 'best avoided';
 
-    const hlYellow = "bg-[#fef08a]/80 dark:bg-[#ca8a04]/40 text-slate-900 dark:text-white px-1.5 py-0.5 mx-1 font-bold rounded-sm inline-block -rotate-1 mix-blend-multiply dark:mix-blend-screen shadow-[1px_1px_2px_rgba(254,240,138,0.5)]";
-    const hlPink = "bg-[#fbcfe8]/80 dark:bg-[#be185d]/40 text-slate-900 dark:text-white px-1.5 py-0.5 mx-1 font-bold rounded-sm inline-block rotate-1 mix-blend-multiply dark:mix-blend-screen shadow-[1px_1px_2px_rgba(251,207,232,0.5)]";
-    const hlGreen = "bg-[#bbf7d0]/80 dark:bg-[#15803d]/40 text-slate-900 dark:text-white px-1.5 py-0.5 mx-1 font-bold rounded-sm inline-block -rotate-1 mix-blend-multiply dark:mix-blend-screen shadow-[1px_1px_2px_rgba(187,247,208,0.5)]";
+    const hlYellow = "bg-[#fef08a]/80 dark:bg-[#b45309]/50 text-slate-900 dark:text-slate-100 px-1.5 py-0.5 mx-1 font-bold rounded-sm inline-block -rotate-1 mix-blend-multiply dark:mix-blend-screen shadow-[1px_1px_2px_rgba(254,240,138,0.5)]";
+    const hlPink = "bg-[#fbcfe8]/80 dark:bg-[#9d174d]/50 text-slate-900 dark:text-slate-100 px-1.5 py-0.5 mx-1 font-bold rounded-sm inline-block rotate-1 mix-blend-multiply dark:mix-blend-screen shadow-[1px_1px_2px_rgba(251,207,232,0.5)]";
+    const hlGreen = "bg-[#bbf7d0]/80 dark:bg-[#166534]/50 text-slate-900 dark:text-slate-100 px-1.5 py-0.5 mx-1 font-bold rounded-sm inline-block -rotate-1 mix-blend-multiply dark:mix-blend-screen shadow-[1px_1px_2px_rgba(187,247,208,0.5)]";
 
     return (
       <div className="font-handwriting text-3xl leading-[1.8] text-slate-800 dark:text-slate-200 rotate-[0.5deg]">
@@ -312,251 +314,143 @@ export default function ItineraryDisplayNotebook({ itinerary, trip, onEditAction
   };
 
   return (
-    <div className="w-full min-h-screen font-sans relative overflow-x-hidden text-slate-900 dark:text-white notebook-bg-itinerary">
+    <div className="w-full min-h-screen font-sans relative notebook-bg-desk flex justify-center py-0 md:py-12 text-slate-900 dark:text-slate-100">
       
-      {/* FIXED: Removed the red margin line from the main itinerary background */}
+      {/* Wood Desk Background */}
       <style dangerouslySetInnerHTML={{__html: `
-        .notebook-bg-itinerary {
+        .notebook-bg-desk {
+          background-color: #e5e0d8;
+          background-image: repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(0,0,0,0.02) 40px, rgba(0,0,0,0.02) 80px);
+        }
+        .dark .notebook-bg-desk {
+          background-color: #121212;
+          background-image: none;
+        }
+        .notebook-paper {
           background-color: #Fdfbf7;
           background-image: linear-gradient(#e8e4d9 1px, transparent 1px);
           background-size: 100% 2.5rem;
         }
-        .dark .notebook-bg-itinerary {
-          background-color: #121212;
+        .dark .notebook-paper {
+          background-color: #1a1a1a;
           background-image: linear-gradient(#2a2a2a 1px, transparent 1px);
         }
       `}} />
 
       <PrintOnlyBooklet trip={trip} itinerary={itinerary} formatCost={formatCost} localCurrencyRaw={localCurrencyRaw} totalStops={totalStops} />
 
-      <div className="print:hidden relative z-10 flex flex-col md:flex-row max-w-6xl mx-auto px-4 md:px-8 pb-32">
-        
-        <FilingCabinet isOpen={isFilingCabinetOpen} onClose={() => setIsFilingCabinetOpen(false)} tripId={trip.id} availablePOIs={days.flatMap(d => d.entries.map(e => ({ id: e.id, name: e.locationName, dayName: `Day ${d.dayNumber}` })))} documents={tripDocuments} onUploadSuccess={loadDocuments} />
-        {selectedPOI && <PlaceDetailsModal placeId={selectedPOI.placeId} poiId={selectedPOI.poiId} tripId={trip.id} tripDocuments={tripDocuments} onClose={() => setSelectedPOI(null)} onDocumentUpdate={loadDocuments} />}
+      {/* NEW FLEX WRAPPER TO KEEP TABS NEXT TO PAPER */}
+      <div className="flex items-start justify-center w-full max-w-6xl mx-auto md:px-8">
 
-        {/* ── MOBILE TABS (Paper Index) ── */}
-        <div className="md:hidden sticky top-20 z-30 mb-8 -mx-4 px-4 overflow-x-auto hide-scrollbar flex gap-2 py-4 items-end backdrop-blur-sm">
-          <button onClick={() => setActiveTab('overview')} className={`px-5 py-2 border border-b-0 rounded-t-md transition-all duration-200 ${activeTab === 'overview' ? 'bg-[#Fdfbf7] dark:bg-[#1a1a1a] border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white shadow-md z-10 scale-105' : 'bg-[#e5e0d8] dark:bg-[#2a2a2a] border-slate-300/50 dark:border-slate-700/50 text-slate-600 dark:text-slate-400'}`}>
-            <span className="font-handwriting text-2xl whitespace-nowrap">Briefing</span>
-          </button>
-          {days.map((day) => (
-            <button key={day.dayNumber} onClick={() => setActiveTab(day.dayNumber)} className={`px-5 py-2 border border-b-0 rounded-t-md transition-all duration-200 ${activeTab === day.dayNumber ? 'bg-[#Fdfbf7] dark:bg-[#1a1a1a] border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white shadow-md z-10 scale-105' : 'bg-[#e5e0d8] dark:bg-[#2a2a2a] border-slate-300/50 dark:border-slate-700/50 text-slate-600 dark:text-slate-400'}`}>
-              <span className="font-handwriting text-2xl whitespace-nowrap">Day {day.dayNumber}</span>
-            </button>
-          ))}
-          <button onClick={() => window.print()} className="ml-auto px-3 py-2 bg-slate-200 dark:bg-slate-800 rounded border border-slate-300 dark:border-slate-600 shadow-sm text-slate-700 dark:text-slate-300">
-            🖨️
-          </button>
-        </div>
-
-        {/* ── MAIN CONTENT AREA ── */}
-        <div className="flex-1 w-full pt-4 md:pt-16 max-w-4xl mx-auto relative z-10">
+        {/* ── THE PHYSICAL NOTEBOOK CONTAINER ── */}
+        <div className="notebook-paper relative w-full max-w-4xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.9)] md:border border-stone-300 dark:border-stone-800 md:rounded-sm z-10 flex flex-col">
           
-          {/* THE POLAROID HERO */}
-          <div className="w-full mb-16">
-            <div className="relative mx-auto max-w-xl bg-[#fff] dark:bg-[#1e1e1e] p-4 pb-20 md:p-5 md:pb-24 shadow-[0_10px_30px_rgba(0,0,0,0.15)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.6)] -rotate-1 group border border-slate-200 dark:border-[#333]">
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-32 h-8 bg-[#fdf8f0]/80 dark:bg-[#2d2d2d]/80 backdrop-blur-md rotate-3 shadow-[0_1px_3px_rgba(0,0,0,0.1)] border border-[#e5e0d8]/50 dark:border-[#444] z-10" />
-              <img src={heroImage} alt={trip.destination} className="w-full h-[250px] md:h-[350px] object-cover filter sepia-[0.15] contrast-[0.95] dark:brightness-90" />
-              
-              <div className="absolute bottom-16 left-8 right-8 h-px bg-slate-300/50 dark:bg-slate-700/50 rotate-[0.5deg]" />
-              
-              <div className="absolute bottom-4 left-0 w-full text-center">
-                <h1 className="text-4xl md:text-5xl font-handwriting text-slate-800 dark:text-[#f0f0f0] drop-shadow-sm">{trip.destination}</h1>
-              </div>
+          <FilingCabinet isOpen={isFilingCabinetOpen} onClose={() => setIsFilingCabinetOpen(false)} tripId={trip.id} availablePOIs={days.flatMap(d => d.entries.map(e => ({ id: e.id, name: e.locationName, dayName: `Day ${d.dayNumber}` })))} documents={tripDocuments} onUploadSuccess={loadDocuments} />
+          {selectedPOI && <PlaceDetailsModal placeId={selectedPOI.placeId} poiId={selectedPOI.poiId} tripId={trip.id} tripDocuments={tripDocuments} onClose={() => setSelectedPOI(null)} onDocumentUpdate={loadDocuments} />}
+
+          {/* ── MOBILE TAPE NAVIGATION (Sticky Top) ── */}
+          <div className="md:hidden sticky top-0 z-40 bg-[#FDFBF7]/95 dark:bg-[#1a1a1a]/95 backdrop-blur-md border-b border-stone-300 dark:border-stone-700 py-3 shadow-sm w-full">
+            <div className="flex overflow-x-auto hide-scrollbar gap-4 px-4">
+              <button
+                onClick={() => document.getElementById('overview-section')?.scrollIntoView({ behavior: 'smooth' })}
+                className="font-handwriting text-xl px-4 py-1 bg-yellow-100 dark:bg-yellow-900/60 shadow-sm border border-yellow-200 dark:border-yellow-700/50 -rotate-1 whitespace-nowrap text-slate-800 dark:text-yellow-50"
+              >
+                Overview
+              </button>
+              {days.map((day) => (
+                <button
+                  key={day.dayNumber}
+                  onClick={() => document.getElementById(`day-${day.dayNumber}`)?.scrollIntoView({ behavior: 'smooth' })}
+                  className="font-handwriting text-xl px-4 py-1 bg-yellow-100 dark:bg-yellow-900/60 shadow-sm border border-yellow-200 dark:border-yellow-700/50 whitespace-nowrap text-slate-800 dark:text-yellow-50"
+                  style={{ transform: `rotate(${day.dayNumber % 2 === 0 ? '2deg' : '-2deg'})` }}
+                >
+                  Day {day.dayNumber}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* OVERVIEW / BRIEFING */}
-          {essentials && (
-            <div className={`animate-fade-in ${activeTab === 'overview' ? 'block' : 'hidden'}`}>
-              <div className="flex flex-col gap-16 relative">
-                
-                {/* The Coffee Ring Smudge */}
-                <div className="absolute top-16 right-0 md:-right-8 w-32 h-32 rounded-full border-4 border-amber-800/10 dark:border-amber-200/5 opacity-40 pointer-events-none mix-blend-multiply dark:mix-blend-screen"
-                 style={{ boxShadow: 'inset 0 0 12px rgba(120,80,40,0.1)' }} 
-                />
-                
-                {humanizeBriefing()}
-
-                {/* Stamped Luggage Tag */}
-                <div className="relative w-full max-w-md mx-auto p-6 bg-[#f4f0ea] dark:bg-[#222] rounded-lg shadow-md border border-[#e0d6c8] dark:border-[#333] rotate-[-1deg]">
-                  <div className="absolute -top-8 left-6 w-0.5 h-12 bg-[#8c6b5d] dark:bg-[#111] -rotate-12 z-0" />
-                  <div className="absolute top-4 left-4 w-4 h-4 rounded-full bg-[#Fdfbf7] dark:bg-[#121212] shadow-inner z-10 border border-[#e0d6c8] dark:border-[#333]" />
-                  
-                  <div className="ml-8 grid grid-cols-1 gap-5 border-l-2 border-dashed border-red-400/40 pl-4">
-                    <div>
-                      <h4 className="text-sm font-handwriting text-slate-500 dark:text-slate-400 mb-0.5">Dates</h4>
-                      <p className="font-typewriter text-sm font-bold text-slate-900 dark:text-[#e0e0e0] uppercase tracking-widest">{trip.startDate && trip.endDate ? `${format(new Date(trip.startDate), 'dd/MM/yy')} - ${format(new Date(trip.endDate), 'dd/MM/yy')}` : `${trip.duration} Days`}</p>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-handwriting text-slate-500 dark:text-slate-400 mb-0.5">Power</h4>
-                      <p className="font-typewriter text-sm font-bold text-slate-900 dark:text-[#e0e0e0] uppercase tracking-widest">{plugType}</p>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-handwriting text-slate-500 dark:text-slate-400 mb-0.5">Apps to download</h4>
-                      <p className="font-typewriter text-sm font-bold text-slate-900 dark:text-[#e0e0e0] uppercase tracking-widest">{apps.join(', ')}</p>
-                    </div>
-                  </div>
+          {/* CONTENT PADDING WRAPPER */}
+          <div className="w-full px-4 md:px-12 py-8 relative">
+            
+            {/* Hero Section */}
+            <div className="w-full mb-16 mt-4 md:mt-8">
+              <div className="relative mx-auto max-w-xl bg-white dark:bg-[#252525] p-3 pb-16 md:p-4 md:pb-20 shadow-lg -rotate-1 border border-stone-200 dark:border-stone-800">
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-24 h-6 bg-stone-100/80 dark:bg-stone-800/80 backdrop-blur-md rotate-2 shadow-sm border border-stone-200/50 dark:border-stone-700/50 z-10" />
+                <img src={heroImage} alt={trip.destination} className="w-full h-[250px] object-cover filter sepia-[0.1] dark:brightness-[0.85]" />
+                <div className="absolute bottom-6 left-0 w-full text-center">
+                  <h1 className="text-4xl md:text-5xl font-handwriting text-slate-800 dark:text-slate-100">{trip.destination}</h1>
                 </div>
-
-                <div className="flex flex-col md:flex-row gap-12 items-start mt-4">
-                  {trip.intake?.transitDetails && ['Flight', 'Train'].includes(trip.intake.transitDetails.mode) && (
-                    <div className="relative flex-1 w-full">
-                      <div className="absolute -top-3 left-4 w-16 h-6 bg-[#bbf7d0]/60 dark:bg-[#14532d]/40 backdrop-blur-md -rotate-6 shadow-sm border border-[#bbf7d0]/30 z-10" />
-                      <div className="border-2 border-dashed border-slate-400 dark:border-slate-600 p-6 bg-[#fefce8] dark:bg-[#1e1e1e] rotate-1 shadow-sm">
-                        <h2 className="font-handwriting text-3xl text-slate-900 dark:text-amber-100 mb-4 border-b border-slate-300 dark:border-slate-700 pb-2">Transit: {trip.intake.transitDetails.mode}</h2>
-                        <div className="mb-4">
-                          <p className="font-typewriter text-[10px] text-slate-500 uppercase tracking-widest">Outbound Time</p>
-                          <p className="font-typewriter text-xl font-bold text-slate-900 dark:text-[#e0e0e0]">{trip.intake.transitDetails.outbound?.time || 'TBD'}</p>
-                          <p className="font-handwriting text-lg text-slate-600 dark:text-slate-400 mt-1">Ref: {trip.intake.transitDetails.outbound?.reference || 'Pending'}</p>
-                        </div>
-                        <div>
-                          <p className="font-typewriter text-[10px] text-slate-500 uppercase tracking-widest">Return Time</p>
-                          <p className="font-typewriter text-xl font-bold text-slate-900 dark:text-[#e0e0e0]">{trip.intake.transitDetails.return?.time || 'TBD'}</p>
-                          <p className="font-handwriting text-lg text-slate-600 dark:text-slate-400 mt-1">Ref: {trip.intake.transitDetails.return?.reference || 'Pending'}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="relative flex-1 w-full">
-                    <div className="absolute -top-3 right-4 w-16 h-6 bg-[#fbcfe8]/60 dark:bg-[#831843]/40 backdrop-blur-md rotate-6 shadow-sm border border-[#fbcfe8]/30 z-10" />
-                    <div className="bg-white dark:bg-[#1e1e1e] p-6 shadow-md -rotate-1 border border-slate-200 dark:border-slate-700">
-                      <div className="flex justify-between items-start mb-4">
-                        <h2 className="font-handwriting text-3xl text-slate-900 dark:text-[#f0f0f0] border-b border-slate-300 dark:border-slate-600 pb-2">Our Basecamp</h2>
-                      </div>
-                      {dynamicStays.length > 0 ? (
-                        <div className="flex flex-col gap-6">
-                          {dynamicStays.map((stay, idx) => (
-                            <div key={idx}>
-                              <p className="font-typewriter text-xs text-slate-500 uppercase tracking-widest">Day {stay.startDay}</p>
-                              <h3 className="font-handwriting text-3xl text-slate-900 dark:text-[#e0e0e0] mt-1">{stay.name}</h3>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="font-handwriting text-2xl text-slate-500">Need to book a place!</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {essentials?.usefulPhrases && essentials.usefulPhrases.length > 0 && (
-                  <div className="mt-8">
-                    <h2 className="font-handwriting text-4xl text-slate-900 dark:text-white mb-6 flex items-center gap-4">
-                      <span>Phrasebook</span>
-                      <span className="h-px bg-slate-400 dark:bg-slate-700 flex-1 border-dashed" />
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-12">
-                      {essentials.usefulPhrases.slice(0,8).map((p, i) => (
-                        <div key={i} className="flex flex-col border-b border-slate-300/50 dark:border-slate-700/50 pb-2">
-                          <span className="font-handwriting text-3xl text-slate-900 dark:text-[#e0e0e0]">{p.phrase}</span>
-                          <span className="font-serif italic text-slate-600 dark:text-slate-400 pl-4">{p.translation}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* THE TORN RECEIPT */}
-                <div className="mt-16 mb-8 flex justify-center w-full">
-                  <div className="bg-[#f8f9fa] dark:bg-[#d1d5db] text-slate-800 p-8 shadow-[2px_4px_16px_rgba(0,0,0,0.15)] dark:shadow-[2px_4px_16px_rgba(0,0,0,0.8)] rotate-2 relative w-full sm:w-96 font-typewriter border-x border-slate-200 dark:border-slate-400">
-                    <div className="absolute top-[-8px] left-0 right-0 h-[8px] bg-[radial-gradient(circle,transparent,transparent_4px,#f8f9fa_4px,#f8f9fa_10px)] dark:bg-[radial-gradient(circle,transparent,transparent_4px,#d1d5db_4px,#d1d5db_10px)] bg-[length:16px_16px]" />
-                    
-                    <div className="text-center mb-6 border-b-2 border-dashed border-slate-400 pb-4">
-                      <h2 className="text-xl font-bold uppercase tracking-widest text-slate-900">Pear Treasury</h2>
-                      <p className="text-[10px] mt-1 text-slate-500">{format(new Date(), 'dd/MM/yyyy HH:mm')}</p>
-                    </div>
-                    
-                    <div className="flex justify-between items-end mb-4 text-sm">
-                      <span className="uppercase text-slate-600">Target Budget</span>
-                      <span className="font-bold text-slate-900">{formatCost(trip.budgetGBP)}</span>
-                    </div>
-                    
-                    <div className="flex justify-between items-end mb-6 text-sm">
-                      <span className="uppercase text-slate-600">Est. Total</span>
-                      <span className="font-bold text-lg text-slate-900">{formatCost(dynamicTotalCost)}</span>
-                    </div>
-
-                    <div className="border-t-2 border-slate-800 pt-4 flex flex-col items-center gap-4">
-                      <p className="text-xs font-bold text-center uppercase tracking-widest bg-slate-900 text-white px-2 py-1">Rate: £1 = {localSymbol}{exchangeRate.toFixed(2)}</p>
-                      <Link href={`/itinerary/${trip.id}/ledger`} className="text-[10px] uppercase tracking-widest text-blue-700 hover:text-blue-900 underline decoration-blue-400 mt-2 font-bold">
-                        View Interactive Ledger ↗
-                      </Link>
-                    </div>
-
-                    <div className="absolute bottom-[-8px] left-0 right-0 h-[8px] bg-[radial-gradient(circle,transparent,transparent_4px,#f8f9fa_4px,#f8f9fa_10px)] dark:bg-[radial-gradient(circle,transparent,transparent_4px,#d1d5db_4px,#d1d5db_10px)] bg-[length:16px_16px] rotate-180" />
-                  </div>
-                </div>
-
               </div>
             </div>
-          )}
 
-          {/* DAY VIEWS */}
-          {days.map(activeDay => (
-            <div key={activeDay.dayNumber} className={`${activeTab === activeDay.dayNumber ? 'flex' : 'hidden'} flex-col animate-fade-in`}>
-              <div className="flex justify-between items-end mb-10 border-b-2 border-slate-800/60 dark:border-slate-200/40 pb-4">
-                <h2 className="font-handwriting text-5xl md:text-6xl text-slate-900 dark:text-white -rotate-1 relative inline-block">
-                  <span className="relative z-10">Day {activeDay.dayNumber}</span>
-                  <span className="absolute bottom-2 left-0 w-full h-4 bg-yellow-200/50 dark:bg-amber-500/40 -z-10 mix-blend-multiply dark:mix-blend-screen" />
-                </h2>
-                <button onClick={() => setViewMode(prev => prev === 'list' ? 'map' : 'list')} className="font-typewriter text-[10px] md:text-xs font-bold uppercase tracking-widest border border-slate-400 dark:border-slate-600 px-3 py-1.5 shadow-sm hover:bg-white dark:hover:bg-slate-800 transition-colors bg-white/50 dark:bg-[#1e1e1e]/80 text-slate-800 dark:text-[#e0e0e0]">
-                  {viewMode === 'list' ? 'View Map' : 'View Timeline'}
-                </button>
+            {/* Overview */}
+            {essentials && (
+              <div id="overview-section" className="scroll-mt-[100px] mb-24 relative">
+                <InkSplodge className="absolute -top-10 -right-4 w-32 h-32 rotate-12" />
+                {humanizeBriefing()}
+                
+                <div className="mt-12 relative w-full max-w-sm p-6 bg-[#f4f0ea] dark:bg-stone-800/80 rounded-sm shadow-md border border-stone-300 dark:border-stone-700 rotate-1">
+                   <div className="absolute top-4 left-4 w-4 h-4 rounded-full bg-stone-800 dark:bg-stone-900 shadow-inner" />
+                   <h4 className="font-handwriting text-2xl text-slate-800 dark:text-slate-200 mb-4 ml-6">The Essentials</h4>
+                   <ul className="ml-6 space-y-3 font-typewriter text-sm tracking-widest uppercase text-slate-600 dark:text-slate-400">
+                      <li>Dates: <span className="font-bold text-slate-900 dark:text-white">{trip.startDate ? format(new Date(trip.startDate), 'dd/MM/yy') : ''}</span></li>
+                      <li>Power: <span className="font-bold text-slate-900 dark:text-white">{plugType}</span></li>
+                      <li>Budget: <span className="font-bold text-slate-900 dark:text-white">{formatCost(trip.budgetGBP)}</span></li>
+                   </ul>
+                </div>
               </div>
-              
-              {viewMode === 'list' || typeof window === 'undefined' ? (
-                <div className="flex flex-col">
+            )}
+
+            {/* Days (Stacking on mobile, static on desktop) */}
+            {days.map((activeDay, dayIdx) => (
+              <div key={activeDay.dayNumber} id={`day-${activeDay.dayNumber}`} className="scroll-mt-[80px] md:scroll-mt-[40px] mb-24 relative">
+                
+                {/* The Header (Sticky on Mobile) */}
+                <div className="sticky top-[58px] md:static z-20 bg-[#FDFBF7]/95 dark:bg-[#1a1a1a]/95 md:bg-transparent backdrop-blur-sm md:backdrop-blur-none -mx-4 px-4 md:mx-0 md:px-0 py-4 md:py-0 border-b-2 border-slate-800/40 dark:border-slate-200/20 mb-10 shadow-sm md:shadow-none">
+                  <h2 className="font-handwriting text-5xl md:text-6xl text-slate-900 dark:text-white -rotate-1 relative inline-block">
+                    Day {activeDay.dayNumber}
+                    <span className="absolute bottom-2 left-0 w-full h-4 bg-yellow-200/50 dark:bg-yellow-600/30 -z-10 mix-blend-multiply dark:mix-blend-screen" />
+                  </h2>
+                </div>
+
+                {/* The Entries */}
+                <div className="flex flex-col pl-2 md:pl-8">
                   {(activeDay.entries || []).map((entry, index, arr) => (
-                    <TimelineEntryNotebook key={`${entry.id}-${entry.time}`} entry={entry} nextEntry={arr[index + 1]} isLast={index === arr.length - 1} isOdd={index % 2 !== 0} accommodationName={accommodationName} onPlaceClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })} formatCost={formatCost} destination={trip.destination} />
+                    <TimelineEntryNotebook key={entry.id} entry={entry} nextEntry={arr[index + 1]} isLast={index === arr.length - 1} isOdd={index % 2 !== 0} index={index} accommodationName={accommodationName} onPlaceClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })} formatCost={formatCost} destination={trip.destination} />
                   ))}
                 </div>
-              ) : (
-                <div className="h-[60vh] min-h-[500px] w-full border-4 md:border-8 border-white dark:border-[#333] shadow-xl relative -rotate-1 bg-slate-200">
-                   <DayMap entries={activeDay.entries || []} destination={trip.destination} onMarkerClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })} />
-                </div>
-              )}
 
-              <div className="mt-16 ml-auto w-max text-right">
-                <p className="font-handwriting text-2xl text-slate-600 dark:text-slate-400 mb-1">Spent today:</p>
-                <p className="font-handwriting text-5xl text-slate-900 dark:text-white rotate-2 border-b border-dashed border-slate-400 dark:border-slate-600 pb-1">{formatCost(activeDay.estimatedDailySpendGBP || 0)}</p>
               </div>
-            </div>
-          ))}
+            ))}
 
+          </div>
         </div>
 
-        {/* ── DESKTOP BINDER TABS (Paper Style) ── */}
-        <div className="hidden md:flex flex-col gap-4 sticky top-32 h-max pl-8 pr-2 pt-16 z-0">
-          <button 
-            onClick={() => setActiveTab('overview')} 
-            className={`text-left px-5 py-3 rounded-r-lg transition-all duration-300 relative border border-l-0 ${activeTab === 'overview' ? 'bg-[#Fdfbf7] dark:bg-[#1a1a1a] border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white shadow-[4px_4px_10px_rgba(0,0,0,0.05)] w-[110%] z-10 font-bold' : 'bg-[#e5e0d8] dark:bg-[#2a2a2a] border-slate-300/50 dark:border-slate-700/50 text-slate-600 dark:text-slate-400 hover:w-[105%]'}`}
+        {/* ── DESKTOP PHYSICAL INDEX TABS (Sticky Sidebar) ── */}
+        <div className="hidden md:flex flex-col gap-2 sticky top-32 w-[120px] -ml-[2px] z-0 h-max">
+          <button
+            onClick={() => document.getElementById('overview-section')?.scrollIntoView({ behavior: 'smooth' })}
+            className="font-handwriting text-2xl px-4 py-2 bg-yellow-100 dark:bg-yellow-900 border border-l-0 border-stone-300 dark:border-stone-700 shadow-[4px_4px_10px_rgba(0,0,0,0.1)] rounded-r-md text-slate-800 dark:text-yellow-50 text-left hover:pr-6 hover:-translate-y-0.5 transition-all"
           >
-            <span className="font-handwriting text-3xl whitespace-nowrap">Briefing</span>
+            Briefing
           </button>
-          
           {days.map((day) => (
-            <button 
-              key={day.dayNumber} 
-              onClick={() => setActiveTab(day.dayNumber)} 
-              className={`text-left px-5 py-3 rounded-r-lg transition-all duration-300 relative border border-l-0 ${activeTab === day.dayNumber ? 'bg-[#Fdfbf7] dark:bg-[#1a1a1a] border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white shadow-[4px_4px_10px_rgba(0,0,0,0.05)] w-[110%] z-10 font-bold' : 'bg-[#e5e0d8] dark:bg-[#2a2a2a] border-slate-300/50 dark:border-slate-700/50 text-slate-600 dark:text-slate-400 hover:w-[105%]'}`}
+            <button
+              key={day.dayNumber}
+              onClick={() => document.getElementById(`day-${day.dayNumber}`)?.scrollIntoView({ behavior: 'smooth' })}
+              className="font-handwriting text-2xl px-4 py-2 bg-yellow-100 dark:bg-yellow-900 border border-l-0 border-stone-300 dark:border-stone-700 shadow-[4px_4px_10px_rgba(0,0,0,0.1)] rounded-r-md text-slate-800 dark:text-yellow-50 text-left hover:pr-6 hover:-translate-y-0.5 transition-all"
+              style={{ transform: `rotate(${day.dayNumber % 2 === 0 ? '1deg' : '-1deg'})` }}
             >
-              <span className="font-handwriting text-3xl whitespace-nowrap">Day {day.dayNumber}</span>
+              Day {day.dayNumber}
             </button>
           ))}
-          
-          <div className="mt-12 w-full flex flex-col gap-6 items-start pl-2 z-10">
-             <Link href={`/itinerary/${trip.id}/ledger`} className="font-typewriter text-xs font-bold uppercase tracking-widest text-slate-900 dark:text-[#1a1a1a] bg-[#bbf7d0] dark:bg-[#4ade80] px-4 py-2 border border-slate-800 shadow-[2px_2px_0px_#1e293b] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-[1px_1px_0px_#1e293b] transition-all rotate-2">
-               Open Ledger ↗
-             </Link>
-             <button onClick={() => { if (onEditAction) onEditAction(); else setActiveTab(1); }} className="font-typewriter text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2">
-               ✏️ Edit Trip
-             </button>
-             <button onClick={() => window.print()} className="font-typewriter text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors flex items-center gap-2">
-               🖨️ Print Journal
-             </button>
-          </div>
+           <Link href={`/itinerary/${trip.id}/ledger`} className="font-typewriter text-[10px] uppercase font-bold px-4 py-3 bg-stone-200 dark:bg-stone-800 border border-l-0 border-stone-300 dark:border-stone-700 shadow-md rounded-r-md text-slate-800 dark:text-white mt-8 hover:translate-x-2 transition-all">
+            Ledger ↗
+          </Link>
+          <button onClick={() => { if (onEditAction) onEditAction(); }} className="font-typewriter text-[10px] uppercase font-bold px-4 py-3 bg-stone-200 dark:bg-stone-800 border border-l-0 border-stone-300 dark:border-stone-700 shadow-md rounded-r-md text-slate-800 dark:text-white hover:translate-x-2 transition-all text-left">
+            Edit
+          </button>
         </div>
 
       </div>
