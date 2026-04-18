@@ -99,6 +99,81 @@ export default function PlaceDetailsModal({
       }
 
       // Library is ready — fetch place details
+
+      // ── Self-Healing helper ─────────────────────────────────────────────────
+      // Extracted so it can be called both from the getDetails callback (non-OK
+      // status) AND from the outer catch block (synchronous throw for bad IDs).
+      const runSelfHealing = () => {
+        if (!searchQuery) {
+          // No query available — soft offline fallback
+          if (!cancelled) setLoading(false);
+          return;
+        }
+
+        console.warn('[PlaceDetailsModal] Attempting self-heal via findPlaceFromQuery, query:', searchQuery);
+
+        try {
+          const dummyDiv2 = document.createElement('div');
+          const healService = new googleObj.maps.places.PlacesService(dummyDiv2);
+
+          healService.findPlaceFromQuery(
+            { query: searchQuery, fields: ['place_id'] },
+            (searchResults: any[], searchStatus: any) => {
+              if (cancelled) return;
+
+              const healedPlaceId = searchResults?.[0]?.place_id;
+
+              if (
+                searchStatus !== googleObj.maps.places.PlacesServiceStatus.OK ||
+                !healedPlaceId
+              ) {
+                console.warn('[PlaceDetailsModal] findPlaceFromQuery failed:', searchStatus);
+                setLoading(false);
+                return;
+              }
+
+              console.info('[PlaceDetailsModal] Self-healed place_id:', healedPlaceId);
+
+              // Second attempt with the recovered place_id
+              healService.getDetails(
+                {
+                  placeId: healedPlaceId,
+                  fields: [
+                    'name', 'rating', 'user_ratings_total', 'formatted_address',
+                    'formatted_phone_number', 'opening_hours', 'website',
+                    'photos', 'reviews', 'editorial_summary', 'url', 'types'
+                  ]
+                },
+                (healedResult: any, healedStatus: any) => {
+                  if (cancelled) return;
+                  if (healedStatus === googleObj.maps.places.PlacesServiceStatus.OK && healedResult) {
+                    setPlace(healedResult);
+                  } else {
+                    console.warn('[PlaceDetailsModal] Retry getDetails also failed:', healedStatus);
+                  }
+                  setLoading(false);
+                }
+              );
+            }
+          );
+        } catch (healErr) {
+          if (!cancelled) {
+            console.error('[PlaceDetailsModal] findPlaceFromQuery threw:', healErr);
+            setLoading(false);
+          }
+        }
+      };
+
+      // ── Pre-validate the place ID before calling the API ───────────────────
+      // Google Place IDs are typically 27+ chars. Short strings (hallucinated
+      // by Gemini) cause a synchronous throw that bypasses the callback, which
+      // would trigger the Next.js error overlay. Intercept them here instead.
+      if (!placeId || placeId.length < 20) {
+        console.warn('[PlaceDetailsModal] Suspiciously short placeId — skipping getDetails, running self-heal:', placeId);
+        runSelfHealing();
+        return;
+      }
+
       try {
         const dummyDiv = document.createElement('div');
         const service = new googleObj.maps.places.PlacesService(dummyDiv);
@@ -122,70 +197,15 @@ export default function PlaceDetailsModal({
             } else {
               // ── Self-Healing Place ID fallback ──────────────────────────────
               // The placeId from Gemini may be expired or hallucinated.
-              // If we have a text query, attempt findPlaceFromQuery to recover
-              // a fresh place_id, then retry getDetails once with that new id.
               console.warn('[PlaceDetailsModal] getDetails non-OK status:', status, '— attempting self-heal via findPlaceFromQuery');
-
-              if (!searchQuery) {
-                // No query available — soft offline fallback
-                setLoading(false);
-                return;
-              }
-
-              try {
-                service.findPlaceFromQuery(
-                  { query: searchQuery, fields: ['place_id'] },
-                  (searchResults: any[], searchStatus: any) => {
-                    if (cancelled) return;
-
-                    const healedPlaceId = searchResults?.[0]?.place_id;
-
-                    if (
-                      searchStatus !== googleObj.maps.places.PlacesServiceStatus.OK ||
-                      !healedPlaceId
-                    ) {
-                      console.warn('[PlaceDetailsModal] findPlaceFromQuery failed:', searchStatus);
-                      setLoading(false);
-                      return;
-                    }
-
-                    console.info('[PlaceDetailsModal] Self-healed place_id:', healedPlaceId);
-
-                    // Second attempt with the recovered place_id
-                    service.getDetails(
-                      {
-                        placeId: healedPlaceId,
-                        fields: [
-                          'name', 'rating', 'user_ratings_total', 'formatted_address',
-                          'formatted_phone_number', 'opening_hours', 'website',
-                          'photos', 'reviews', 'editorial_summary', 'url', 'types'
-                        ]
-                      },
-                      (healedResult: any, healedStatus: any) => {
-                        if (cancelled) return;
-                        if (healedStatus === googleObj.maps.places.PlacesServiceStatus.OK && healedResult) {
-                          setPlace(healedResult);
-                        } else {
-                          console.warn('[PlaceDetailsModal] Retry getDetails also failed:', healedStatus);
-                        }
-                        setLoading(false);
-                      }
-                    );
-                  }
-                );
-              } catch (healErr) {
-                if (!cancelled) {
-                  console.error('[PlaceDetailsModal] findPlaceFromQuery threw:', healErr);
-                  setLoading(false);
-                }
-              }
+              runSelfHealing();
             }
           }
         );
       } catch (err) {
         if (!cancelled) {
-          console.error("Places API error:", err);
-          setLoading(false);
+          console.error('[PlaceDetailsModal] getDetails threw synchronously — running self-heal:', err);
+          runSelfHealing();
         }
       }
     };
