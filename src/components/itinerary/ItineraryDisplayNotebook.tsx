@@ -209,8 +209,9 @@ export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, on
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [selectedPOI, setSelectedPOI] = useState<{placeId: string, poiId: string} | null>(null);
   const [tripDocuments, setTripDocuments] = useState<DocumentInfo[]>([]);
+  const [isDialOpen, setIsDialOpen] = useState(false);
 
-  const { exchangeRate, setExchangeRate, displayCurrency, intake } = useTripStore();
+  const { exchangeRate, setExchangeRate, displayCurrency, toggleCurrency, intake } = useTripStore();
   const accommodationName = intake?.accommodation || trip.intake?.accommodation;
 
   const localCurrencyRaw = essentials?.currency || '';
@@ -390,33 +391,65 @@ export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, on
 
             {/* Overview */}
             {essentials && (
-              <div id="overview-section" className="scroll-mt-[100px] mb-24 relative overflow-hidden">
-                <InkSplodge className="absolute -top-10 -right-4 w-32 h-32 rotate-12" />
+              <div id="overview-section" className="scroll-mt-[100px] mb-24 relative">
+                <InkSplodge className="absolute -top-10 -right-4 w-32 h-32 rotate-12 pointer-events-none" />
 
                 {/* ── Journal Engine: dynamic semantic prose ── */}
                 <div className="font-handwriting text-3xl leading-[1.8] text-slate-800 dark:text-slate-200">
                   <span className="inline-block rotate-[0.5deg]">{generateJournalEntry()}</span>
                 </div>
 
-                {/* ── Pocket Items ── */}
-                <div className="mt-12 flex flex-col gap-8 w-full">
+                {/* ── Pocket Items Collage ── padding provides shadow room; no overflow-hidden ── */}
+                <div className="mt-16 mb-8 relative w-full flex flex-col md:flex-row items-start gap-8 md:gap-12 p-4 md:p-8">
 
-                  {/* Row 1: Currency Stamp + Sticky Apps */}
-                  <div className="flex flex-wrap items-start gap-6 w-full">
+                  {/* ── LEFT: Essentials Card with Currency Stamp ── */}
+                  <div className="relative z-10 w-full md:max-w-sm mb-8">
 
-                    {/* Currency Stamp */}
+                    {/* Currency Stamp — decorative, positioned on card corner */}
                     {localCurrencyRaw && (
-                      <div className="min-w-[120px] max-w-[160px] aspect-square rounded-full border-4 border-slate-800/30 dark:border-slate-200/30 mix-blend-multiply dark:mix-blend-screen flex items-center justify-center text-center p-4 bg-amber-50 dark:bg-amber-900/30 shadow-md -rotate-3 flex-shrink-0">
-                        <div>
-                          <p className="font-typewriter text-[10px] uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1">Currency</p>
-                          <p className="font-handwriting text-2xl leading-tight text-slate-900 dark:text-white font-bold">{localCurrencyRaw.split(' ')[0]}</p>
-                          <p className="font-typewriter text-[9px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mt-1 leading-tight">{localCurrencyRaw.replace(/^[^\s]+\s*/, '').slice(0, 20)}</p>
-                        </div>
+                      <div className="absolute -top-8 -right-6 md:-right-10 w-24 h-24 rounded-full border-[3px] border-slate-800/30 dark:border-slate-200/30 mix-blend-multiply dark:mix-blend-screen flex flex-col items-center justify-center rotate-12 z-20 pointer-events-none bg-amber-50 dark:bg-amber-900/30 shadow-md">
+                        <span className="text-[8px] font-bold tracking-widest uppercase opacity-60 text-slate-600 dark:text-slate-400">Currency</span>
+                        <span className="text-3xl font-handwriting mt-1 text-slate-900 dark:text-white">{localCurrencyRaw.match(/[A-Z]{3}/)?.[0] || localSymbol}</span>
                       </div>
                     )}
 
-                    {/* "To Download" Sticky */}
-                    <div className="w-full sm:max-w-sm bg-yellow-100 dark:bg-yellow-900/40 p-4 shadow-md rotate-1 flex-shrink-0">
+                    <div className="relative p-6 bg-[#f4f0ea] dark:bg-stone-800/80 rounded-sm shadow-md border border-stone-300 dark:border-stone-700 rotate-1">
+                      <div className="absolute top-4 left-4 w-4 h-4 rounded-full bg-stone-800 dark:bg-stone-900 shadow-inner" />
+                      <h4 className="font-handwriting text-2xl text-slate-800 dark:text-slate-200 mb-4 ml-6">The Essentials</h4>
+                      <ul className="ml-6 space-y-3 font-typewriter text-sm tracking-widest uppercase text-slate-600 dark:text-slate-400">
+                        <li>Dates: <span className="font-bold text-slate-900 dark:text-white">{trip.startDate ? format(new Date(trip.startDate), 'dd/MM/yy') : '—'}</span></li>
+                        <li>Power: <span className="font-bold text-slate-900 dark:text-white">{plugType}</span></li>
+                        <li>Budget: <span className="font-bold text-slate-900 dark:text-white">{formatCost(trip.budgetGBP)}</span></li>
+                        {!isDomesticTrip && (
+                          <li>Rate: <span className="font-bold text-slate-900 dark:text-white">£1 = {localSymbol}{exchangeRate.toFixed(2)}</span></li>
+                        )}
+                      </ul>
+                      {/* Explicit currency toggle button */}
+                      <button
+                        onClick={toggleCurrency}
+                        className="mt-6 w-full py-3 bg-stone-200 dark:bg-stone-700 font-typewriter text-[10px] font-bold uppercase tracking-widest text-slate-800 dark:text-slate-100 hover:bg-stone-300 dark:hover:bg-stone-600 transition-colors shadow-inner active:translate-y-px flex justify-between px-4 items-center"
+                      >
+                        <span>Showing Prices In:</span>
+                        <span className="bg-white dark:bg-stone-900 px-2 py-1 shadow-sm">
+                          {displayCurrency === 'GBP' ? `GBP (£)` : `LOCAL (${localSymbol})`} ⟲
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* ── RIGHT: Emergency Scrap + Apps Sticky (overlapping collage) ── */}
+                  <div className="flex flex-col gap-6 w-full md:max-w-xs relative z-10 pt-4">
+
+                    {/* Emergency Scrap */}
+                    {essentials.emergencyNumbers && (
+                      <div className="bg-white dark:bg-stone-800 p-3 border-2 border-red-500/50 border-dashed w-max max-w-full -rotate-2 shadow-sm">
+                        <p className="font-typewriter text-[10px] uppercase tracking-widest text-red-500 dark:text-red-400 mb-1">🚨 Emergency</p>
+                        <p className="font-handwriting text-xl text-slate-800 dark:text-slate-200 leading-snug">{essentials.emergencyNumbers}</p>
+                      </div>
+                    )}
+
+                    {/* Apps Sticky — overlaps bottom corner of Emergency scrap */}
+                    <div className="w-full sm:max-w-sm bg-yellow-100 dark:bg-yellow-900/40 p-4 shadow-md rotate-3 -mt-4 flex-shrink-0">
                       <p className="font-handwriting text-xl text-slate-700 dark:text-yellow-200 mb-3 border-b border-yellow-300 dark:border-yellow-700/50 pb-1">📲 To Download</p>
                       <ul className="space-y-1">
                         {pocketApps.map((app, i) => (
@@ -429,42 +462,24 @@ export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, on
                     </div>
                   </div>
 
-                  {/* Row 2: Emergency Scrap */}
-                  {essentials.emergencyNumbers && (
-                    <div className="bg-white dark:bg-stone-800 p-3 border-2 border-red-500/50 border-dashed w-max max-w-full -rotate-1 shadow-sm">
-                      <p className="font-typewriter text-[10px] uppercase tracking-widest text-red-500 dark:text-red-400 mb-1">🚨 Emergency</p>
-                      <p className="font-handwriting text-xl text-slate-800 dark:text-slate-200 leading-snug">{essentials.emergencyNumbers}</p>
-                    </div>
-                  )}
+                </div>
 
-                  {/* Row 3: Phrasebook */}
-                  {essentials.usefulPhrases && essentials.usefulPhrases.length > 0 && (
-                    <div className="w-full relative p-6 bg-[#f4f0ea] dark:bg-stone-800/80 rounded-sm shadow-md border border-stone-300 dark:border-stone-700 rotate-[0.5deg]">
-                      <div className="absolute top-4 left-4 w-4 h-4 rounded-full bg-stone-800 dark:bg-stone-900 shadow-inner" />
-                      <h4 className="font-handwriting text-2xl text-slate-800 dark:text-slate-200 mb-4 ml-6">Survival Phrases</h4>
-                      <ul className="ml-6 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2">
-                        {essentials.usefulPhrases.map((p, i) => (
-                          <li key={i} className="flex justify-between items-end border-b border-stone-300 dark:border-stone-600 pb-1 gap-4">
-                            <span className="font-serif italic text-slate-600 dark:text-slate-400 text-sm">{p.phrase}</span>
-                            <span className="font-handwriting text-lg text-slate-900 dark:text-white whitespace-nowrap">{p.translation}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Row 4: Trip Essentials card */}
-                  <div className="relative w-full max-w-sm p-6 bg-[#f4f0ea] dark:bg-stone-800/80 rounded-sm shadow-md border border-stone-300 dark:border-stone-700 rotate-1">
+                {/* ── Phrasebook (full-width, below the collage) ── */}
+                {essentials.usefulPhrases && essentials.usefulPhrases.length > 0 && (
+                  <div className="w-full relative p-6 bg-[#f4f0ea] dark:bg-stone-800/80 rounded-sm shadow-md border border-stone-300 dark:border-stone-700 rotate-[0.5deg]">
                     <div className="absolute top-4 left-4 w-4 h-4 rounded-full bg-stone-800 dark:bg-stone-900 shadow-inner" />
-                    <h4 className="font-handwriting text-2xl text-slate-800 dark:text-slate-200 mb-4 ml-6">The Essentials</h4>
-                    <ul className="ml-6 space-y-3 font-typewriter text-sm tracking-widest uppercase text-slate-600 dark:text-slate-400">
-                      <li>Dates: <span className="font-bold text-slate-900 dark:text-white">{trip.startDate ? format(new Date(trip.startDate), 'dd/MM/yy') : '—'}</span></li>
-                      <li>Power: <span className="font-bold text-slate-900 dark:text-white">{plugType}</span></li>
-                      <li>Budget: <span className="font-bold text-slate-900 dark:text-white">{formatCost(trip.budgetGBP)}</span></li>
+                    <h4 className="font-handwriting text-2xl text-slate-800 dark:text-slate-200 mb-4 ml-6">Survival Phrases</h4>
+                    <ul className="ml-6 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2">
+                      {essentials.usefulPhrases.map((p, i) => (
+                        <li key={i} className="flex justify-between items-end border-b border-stone-300 dark:border-stone-600 pb-1 gap-4">
+                          <span className="font-serif italic text-slate-600 dark:text-slate-400 text-sm">{p.phrase}</span>
+                          <span className="font-handwriting text-lg text-slate-900 dark:text-white whitespace-nowrap">{p.translation}</span>
+                        </li>
+                      ))}
                     </ul>
                   </div>
+                )}
 
-                </div>
               </div>
             )}
 
@@ -538,6 +553,47 @@ export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, on
         </div>
 
       </div>
+
+      {/* ── MOBILE TACTILE SPEED DIAL ── */}
+      <div className="md:hidden fixed bottom-6 right-4 z-50 flex flex-col items-end gap-3">
+
+        {/* Overlay — first child so it renders behind buttons in the stacking context */}
+        {isDialOpen && (
+          <div className="fixed inset-0 z-40 bg-black/5 dark:bg-black/20 backdrop-blur-[1px]" onClick={() => setIsDialOpen(false)} />
+        )}
+
+        {/* The Expanding Menu Items — relative z-50 keeps them above the z-40 overlay */}
+        <div className={`relative z-50 flex flex-col items-end gap-3 transition-all duration-300 origin-bottom ${isDialOpen ? 'scale-100 opacity-100 pointer-events-auto' : 'scale-75 opacity-0 pointer-events-none'}`}>
+          <button onClick={() => { setIsDialOpen(false); onOpenLedger(); }} className="flex items-center gap-3 group">
+            <span className="font-handwriting text-xl text-slate-800 dark:text-slate-200 bg-white/80 dark:bg-stone-800/80 px-2 py-1 rotate-2 shadow-sm border border-stone-200 dark:border-stone-700">Ledger</span>
+            <div className="w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-900 border-2 border-stone-300 dark:border-stone-600 flex items-center justify-center shadow-md -rotate-3 text-lg">🧮</div>
+          </button>
+          <button onClick={() => { setIsDialOpen(false); onOpenDocs(); }} className="flex items-center gap-3 group">
+            <span className="font-handwriting text-xl text-slate-800 dark:text-slate-200 bg-white/80 dark:bg-stone-800/80 px-2 py-1 -rotate-1 shadow-sm border border-stone-200 dark:border-stone-700">Docs</span>
+            <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 border-2 border-stone-300 dark:border-stone-600 flex items-center justify-center shadow-md rotate-2 text-lg">📎</div>
+          </button>
+          <button onClick={() => { setIsDialOpen(false); onOpenCalendar(); }} className="flex items-center gap-3 group">
+            <span className="font-handwriting text-xl text-slate-800 dark:text-slate-200 bg-white/80 dark:bg-stone-800/80 px-2 py-1 rotate-1 shadow-sm border border-stone-200 dark:border-stone-700">Export</span>
+            <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/50 border-2 border-stone-300 dark:border-stone-600 flex items-center justify-center shadow-md -rotate-2 text-lg">📅</div>
+          </button>
+          <button onClick={() => { setIsDialOpen(false); onEditTrip(); }} className="flex items-center gap-3 group">
+            <span className="font-handwriting text-xl text-slate-800 dark:text-slate-200 bg-white/80 dark:bg-stone-800/80 px-2 py-1 -rotate-2 shadow-sm border border-stone-200 dark:border-stone-700">Edit</span>
+            <div className="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-900/50 border-2 border-stone-300 dark:border-stone-600 flex items-center justify-center shadow-md rotate-3 text-lg">✏️</div>
+          </button>
+        </div>
+
+        {/* The Main Trigger Button — relative z-50 keeps it above the z-40 overlay */}
+        <button
+          onClick={() => setIsDialOpen(!isDialOpen)}
+          className="w-14 h-14 rounded-full bg-stone-800 dark:bg-stone-200 border-4 border-stone-200 dark:border-stone-800 text-white dark:text-stone-900 flex items-center justify-center shadow-lg transition-transform active:scale-95 relative z-50"
+        >
+          <span className={`text-2xl transition-transform duration-300 ${isDialOpen ? 'rotate-45' : 'rotate-0'}`}>
+            {isDialOpen ? '✖' : '🎒'}
+          </span>
+        </button>
+
+      </div>
+
     </div>
   );
 }
