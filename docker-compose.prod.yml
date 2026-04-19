@@ -67,4 +67,5 @@ volumes:
 
 networks:
   pear_network:
-    driver: bridge
+    driver: bridge 
+  
