@@ -149,8 +149,18 @@ const detectScheduleConflicts: RecalcStep = (day) => {
   return { ...day, entries: updated };
 };
 
+const calculateDailySpend: RecalcStep = (day) => {
+  const estimatedDailySpendGBP = day.entries.reduce((total, entry) => {
+    const cost = entry.estimatedCostGBP ?? 0;
+    return total + cost;
+  }, 0);
+  
+  // To avoid float drift, use Number formatting or rounding
+  return { ...day, estimatedDailySpendGBP: Number(estimatedDailySpendGBP.toFixed(2)) };
+};
+
 export const recalculateItinerary = (itinerary: Itinerary, intake: TripIntake): Itinerary => {
-  const pipeline = [injectLogisticalAnchors, calculateTransitDeltas, detectScheduleConflicts];
+  const pipeline = [injectLogisticalAnchors, calculateTransitDeltas, detectScheduleConflicts, calculateDailySpend];
   const nextDays = itinerary.days.map(day => 
     pipeline.reduce((d, step) => step(d, { 
       intake, 

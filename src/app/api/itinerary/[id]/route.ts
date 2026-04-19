@@ -259,3 +259,54 @@ export async function PUT(
     return NextResponse.json({ error: `Regeneration failed: ${message}` }, { status: 500 });
   }
 }
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+  }
+  
+  // Try fetching trip directly since itinerary is on Trip
+  const trip = await prisma.trip.findUnique({
+    where:  { id },
+    select: { ownerId: true, itinerary: true },
+  });
+  
+  if (!trip || trip.ownerId !== session.user.id) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+  
+  return NextResponse.json(trip.itinerary);
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+  }
+  
+  const trip = await prisma.trip.findUnique({
+    where:  { id },
+    select: { ownerId: true },
+  });
+  
+  if (!trip || trip.ownerId !== session.user.id) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+  
+  const body = await request.json();
+  const updatedTrip = await prisma.trip.update({
+    where: { id },
+    data: { itinerary: body.itinerary }
+  });
+  
+  return NextResponse.json(updatedTrip.itinerary);
+}

@@ -18,6 +18,9 @@ export async function createTripAction(data: {
   intakeData: any;
   itinerary: any;
 }) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new Error('Unauthorised');
+
   try {
     const result = await prisma.$transaction(async (tx) => {
       // Create the Master Trip directly using the JSON blobs
@@ -30,7 +33,7 @@ export async function createTripAction(data: {
           startDate: data.startDate,
           endDate: data.endDate,
           bookingMode: data.bookingMode,
-          ownerId: data.ownerId,     // Maps correctly to your schema
+          ownerId: session.user.id,     // Map directly from session
           intake: data.intakeData,   // V3 Schema field
           itinerary: data.itinerary, // V3 Schema field
         },
@@ -49,6 +52,15 @@ export async function createTripAction(data: {
 
 // ── 2. The Re-optimization Engine (V3) ──
 export async function updateTripItineraryAction(tripId: string, itinerary: any) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new Error('Unauthorised');
+
+  const trip = await prisma.trip.findUnique({
+    where: { id: tripId },
+    select: { ownerId: true }
+  });
+  if (!trip || trip.ownerId !== session.user.id) throw new Error('Unauthorised');
+
   try {
     // V3 doesn't require "nuke and pave" of individual POI rows anymore.
     // We simply overwrite the itinerary JSON blob.
@@ -67,6 +79,15 @@ export async function updateTripItineraryAction(tripId: string, itinerary: any) 
 
 // ── 3. ACTION: RENAME TRIP ──
 export async function renameTripAction(tripId: string, newTitle: string) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new Error('Unauthorised');
+
+  const trip = await prisma.trip.findUnique({
+    where: { id: tripId },
+    select: { ownerId: true }
+  });
+  if (!trip || trip.ownerId !== session.user.id) throw new Error('Unauthorised');
+
   try {
     // Note: 'title' is no longer in the V3 schema. If renaming is still needed, 
     // it relies on updating the 'destination' field.
@@ -84,9 +105,13 @@ export async function renameTripAction(tripId: string, newTitle: string) {
 
 // ── 4. ACTION: TOGGLE BOOKING STATUS ──
 export async function toggleTripBookingStatusAction(tripId: string, currentStatus: boolean) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new Error('Unauthorised');
+
   try {
     const trip = await prisma.trip.findUnique({ where: { id: tripId } });
     if (!trip) throw new Error('Trip not found');
+    if (trip.ownerId !== session.user.id) throw new Error('Unauthorised');
 
     const intakeData = typeof trip.intake === 'string' ? JSON.parse(trip.intake) : (trip.intake || {});
     intakeData.bookingMode = !currentStatus ? 'booked' : 'planning';
@@ -110,7 +135,7 @@ export async function toggleTripBookingStatusAction(tripId: string, currentStatu
 
 export async function lockTripDates(tripId: string, startDateIso: string, endDateIso: string) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id) return { error: 'Unauthorized' };
+  if (!session?.user?.id) throw new Error('Unauthorised');
 
   try {
     const trip = await prisma.trip.findUnique({ 
@@ -119,7 +144,7 @@ export async function lockTripDates(tripId: string, startDateIso: string, endDat
     });
     
     if (!trip || trip.ownerId !== session.user.id) {
-      return { error: 'Only the trip owner can lock dates.' };
+      throw new Error('Unauthorised');
     }
 
     await prisma.trip.update({
@@ -134,7 +159,8 @@ export async function lockTripDates(tripId: string, startDateIso: string, endDat
     revalidatePath(`/itinerary/${tripId}`);
     return { success: true };
   } catch (error) {
+    if (error instanceof Error && error.message === 'Unauthorised') throw error;
     console.error("Failed to lock dates", error);
-    return { error: 'Server error while locking dates.' };
+    throw new Error('Server error while locking dates.');
   }
 }

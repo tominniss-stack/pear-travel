@@ -3,10 +3,48 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 
-// Import the Terminal Theme
-import ItineraryDisplayTerminal from '@/components/itinerary/ItineraryDisplayTerminal';
-import ItineraryDisplayNotebook from '@/components/itinerary/ItineraryDisplayNotebook';
+function ItineraryThemeLoadingSkeleton() {
+  return (
+    <div className="w-full animate-pulse space-y-4 pt-6" aria-hidden="true">
+      <span className="sr-only">Loading theme...</span>
+      <div className="h-72 w-full rounded-3xl bg-slate-200 dark:bg-slate-800" />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-24 rounded-2xl bg-slate-200 dark:bg-slate-800" 
+               style={{ animationDelay: `${i * 75}ms` }} />
+        ))}
+      </div>
+      <div className="h-12 w-full rounded-xl bg-slate-200 dark:bg-slate-800" />
+      <div className="h-96 w-full rounded-3xl bg-slate-200 dark:bg-slate-800" />
+    </div>
+  );
+}
+
+const ItineraryDisplayTerminal = dynamic(
+  () => import('@/components/itinerary/ItineraryDisplayTerminal'),
+  { ssr: false, loading: () => <ItineraryThemeLoadingSkeleton /> }
+);
+const ItineraryDisplayNotebook = dynamic(
+  () => import('@/components/itinerary/ItineraryDisplayNotebook'),
+  { ssr: false, loading: () => <ItineraryThemeLoadingSkeleton /> }
+);
+const ItineraryDisplay = dynamic(
+  () => import('@/components/itinerary/ItineraryDisplay'),
+  { ssr: false, loading: () => <ItineraryThemeLoadingSkeleton /> }
+);
+const ItineraryDisplayV2 = dynamic(
+  () => import('@/components/itinerary/ItineraryDisplayV2'),
+  { ssr: false, loading: () => <ItineraryThemeLoadingSkeleton /> }
+);
+
+export const preloadThemes = {
+  editorial: () => import('@/components/itinerary/ItineraryDisplayV2'),
+  default:   () => import('@/components/itinerary/ItineraryDisplay'),
+  notebook:  () => import('@/components/itinerary/ItineraryDisplayNotebook'),
+  terminal:  () => import('@/components/itinerary/ItineraryDisplayTerminal'),
+};
 
 import type { Itinerary, TripIntake } from '@/types';
 import { useTripStore } from '@/store/tripStore';
@@ -34,6 +72,7 @@ export default function ItineraryPageClientV2({ dbTrip, dbItinerary }: Itinerary
   const setIntake = useTripStore((state) => state.setIntake);
   const setCurrentTripId = useTripStore((state) => state.setCurrentTripId);
   const itinerary = useTripStore((state) => state.itinerary);
+  const setDisplayCurrency = useTripStore((state) => state.setDisplayCurrency);
 
   const [isMounted, setIsMounted] = useState(false);
   const [isFilingCabinetOpen, setIsFilingCabinetOpen] = useState(false);
@@ -58,7 +97,11 @@ export default function ItineraryPageClientV2({ dbTrip, dbItinerary }: Itinerary
           setBaseExchangeRate(data.rates[baseCurrencyCode]);
         }
       })
-      .catch((err) => console.warn('Failed to fetch base exchange rate:', err));
+      .catch((err) => {
+        console.warn('[FX] Exchange rate fetch failed, reverting to GBP', err);
+        setDisplayCurrency('GBP');
+        // Do NOT call setExchangeRate(1) — that shows wrong conversions
+      });
   }, [baseCurrencyCode]);
 
   const totalCostBase = useMemo(() => {

@@ -3,12 +3,51 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
+
+function ItineraryThemeLoadingSkeleton() {
+  return (
+    <div className="w-full animate-pulse space-y-4 pt-6" aria-hidden="true">
+      <span className="sr-only">Loading theme...</span>
+      <div className="h-72 w-full rounded-3xl bg-slate-200 dark:bg-slate-800" />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-24 rounded-2xl bg-slate-200 dark:bg-slate-800" 
+               style={{ animationDelay: `${i * 75}ms` }} />
+        ))}
+      </div>
+      <div className="h-12 w-full rounded-xl bg-slate-200 dark:bg-slate-800" />
+      <div className="h-96 w-full rounded-3xl bg-slate-200 dark:bg-slate-800" />
+    </div>
+  );
+}
 
 import SortableItinerary from '@/components/itinerary/SortableItinerary';
-import ItineraryDisplay from '@/components/itinerary/ItineraryDisplay';
-import ItineraryDisplayV2 from '@/components/itinerary/ItineraryDisplayV2';
-import ItineraryDisplayNotebook from '@/components/itinerary/ItineraryDisplayNotebook';
-import ItineraryDisplayTerminal from '@/components/itinerary/ItineraryDisplayTerminal';
+
+const ItineraryDisplay = dynamic(
+  () => import('@/components/itinerary/ItineraryDisplay'),
+  { ssr: false, loading: () => <ItineraryThemeLoadingSkeleton /> }
+);
+const ItineraryDisplayV2 = dynamic(
+  () => import('@/components/itinerary/ItineraryDisplayV2'),
+  { ssr: false, loading: () => <ItineraryThemeLoadingSkeleton /> }
+);
+const ItineraryDisplayNotebook = dynamic(
+  () => import('@/components/itinerary/ItineraryDisplayNotebook'),
+  { ssr: false, loading: () => <ItineraryThemeLoadingSkeleton /> }
+);
+const ItineraryDisplayTerminal = dynamic(
+  () => import('@/components/itinerary/ItineraryDisplayTerminal'),
+  { ssr: false, loading: () => <ItineraryThemeLoadingSkeleton /> }
+);
+
+export const preloadThemes = {
+  editorial: () => import('@/components/itinerary/ItineraryDisplayV2'),
+  default:   () => import('@/components/itinerary/ItineraryDisplay'),
+  notebook:  () => import('@/components/itinerary/ItineraryDisplayNotebook'),
+  terminal:  () => import('@/components/itinerary/ItineraryDisplayTerminal'),
+};
+
 import CalendarExportModal from '@/components/itinerary/CalendarExportModal';
 import FilingCabinet from '@/components/itinerary/FilingCabinet';
 import ThemeInjector from '@/components/layout/ThemeInjector';
@@ -121,7 +160,7 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
   }, [itinerary, dbTrip.intake?.accommodation]);
 
   // ── ThemeProps Callbacks ────────────────────────────────────────────────────
-  const { setExchangeRate } = useTripStore();
+  const { setExchangeRate, setDisplayCurrency } = useTripStore();
   const localCurrencyRaw = itinerary?.essentials?.currency || '';
   const targetCurrency = localCurrencyRaw.match(/[A-Z]{3}/)?.[0] || null;
 
@@ -151,11 +190,14 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
             localStorage.setItem(timeKey, currentTime.toString());
           }
         })
-        .catch((err) => console.warn("Using fallback exchange rate.", err));
+        .catch((err) => {
+          console.warn('[FX] Exchange rate fetch failed, reverting to GBP', err);
+          setDisplayCurrency('GBP');
+        });
     } else if (targetCurrency === baseCurrencyCode) {
        setExchangeRate(1);
     }
-  }, [targetCurrency, baseCurrencyCode, setExchangeRate]);
+  }, [targetCurrency, baseCurrencyCode, setExchangeRate, setDisplayCurrency]);
   const handleOpenLedger = useCallback(() => {
     router.push(`/itinerary/${dbTrip.id}/ledger`);
   }, [router, dbTrip.id]);

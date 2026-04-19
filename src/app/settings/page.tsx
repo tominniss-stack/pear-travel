@@ -12,6 +12,7 @@ import { useProfileStore } from '@/store/profileStore';
 import type { AestheticPreference } from '@/types';
 import type { DailyPacing, TransportPreference, DiningStyle } from '@/store/profileStore';
 import Link from 'next/link';
+import { preloadThemes } from '@/app/itinerary/[id]/ItineraryPageClient';
 
 type Tab = 'account' | 'appearance' | 'files' | 'profile' | 'team';
 
@@ -320,7 +321,17 @@ export default function SettingsPage() {
                     <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Choose how your itineraries are presented.</p>
                     <div className="space-y-2">
                       {themes.map((theme) => (
-                        <button key={theme.id} disabled={theme.status === 'coming_soon'} onClick={() => setAestheticPreference(theme.id)} className={`w-full text-left px-5 py-4 rounded-lg border transition-all duration-200 flex items-center gap-4 ${aestheticPreference === theme.id ? 'border-slate-900 dark:border-slate-100 bg-slate-50 dark:bg-slate-800/50' : theme.status === 'coming_soon' ? 'border-slate-100 dark:border-slate-800/50 opacity-40 cursor-not-allowed' : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'}`}>
+                        <button key={theme.id} disabled={theme.status === 'coming_soon'} onClick={() => setAestheticPreference(theme.id)} onMouseEnter={() => {
+                          const preloadMap: Record<string, () => Promise<any>> = {
+                            CLASSIC: preloadThemes.default,
+                            EDITORIAL: preloadThemes.editorial,
+                            NOTEBOOK: preloadThemes.notebook,
+                            TERMINAL: preloadThemes.terminal,
+                          };
+                          if (preloadMap[theme.id]) {
+                            preloadMap[theme.id]();
+                          }
+                        }} className={`w-full text-left px-5 py-4 rounded-lg border transition-all duration-200 flex items-center gap-4 ${aestheticPreference === theme.id ? 'border-slate-900 dark:border-slate-100 bg-slate-50 dark:bg-slate-800/50' : theme.status === 'coming_soon' ? 'border-slate-100 dark:border-slate-800/50 opacity-40 cursor-not-allowed' : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'}`}>
                           <span className="text-xl shrink-0">{theme.icon}</span>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">

@@ -8,7 +8,7 @@ export async function updateBaseCurrency(currency: string) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.username) {
-      return { success: false, error: 'Not authenticated.' };
+      throw new Error('Unauthorised');
     }
 
     await prisma.user.update({
@@ -18,8 +18,9 @@ export async function updateBaseCurrency(currency: string) {
 
     return { success: true };
   } catch (error) {
+    if (error instanceof Error && error.message === 'Unauthorised') throw error;
     console.error('Update base currency error:', error);
-    return { success: false, error: 'Failed to update base currency.' };
+    throw new Error('Failed to update base currency.');
   }
 }
 

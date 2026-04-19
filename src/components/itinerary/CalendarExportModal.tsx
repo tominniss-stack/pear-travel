@@ -71,16 +71,15 @@ export default function CalendarExportModal({
     const startObj = new Date(startDateStr);
     const endObj = addDays(startObj, trip.duration - 1);
     
-    const result = await lockTripDates(trip.id, startObj.toISOString(), endObj.toISOString());
-
-    if (result.error) {
-      setError(result.error);
-      setIsLoading(false);
-    } else {
+    try {
+      await lockTripDates(trip.id, startObj.toISOString(), endObj.toISOString());
       downloadFile(startObj.toISOString());
       router.refresh(); // Refresh the page to update the UI (Hero Dates, etc)
       setIsLoading(false);
       onClose();
+    } catch (err: any) {
+      setError(err.message || 'An error occurred');
+      setIsLoading(false);
     }
   };
 
