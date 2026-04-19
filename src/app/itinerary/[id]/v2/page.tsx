@@ -1,4 +1,6 @@
 // src/app/itinerary/[id]/v2/page.tsx
+
+
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { deserializeTrip } from "@/lib/itinerary/serialization";
