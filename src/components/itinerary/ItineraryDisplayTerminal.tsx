@@ -3,17 +3,20 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import type { Itinerary } from '@/types';
+import type { ThemeProps } from '@/types/theme';
 import { useTripStore } from '@/store/tripStore';
 
-export default function ItineraryDisplayTerminal({ 
-  itinerary, 
-  trip, 
-  onEditAction 
-}: { 
-  itinerary: Itinerary; 
-  trip: any; 
-  onEditAction?: () => void; 
-}) {
+export default function ItineraryDisplayTerminal({
+  trip,
+  itinerary,
+  briefing,
+  totalCostGBP,
+  basecamps,
+  onOpenLedger,
+  onOpenDocs,
+  onOpenCalendar,
+  onEditTrip
+}: ThemeProps) {
   const days = itinerary.days ?? [];
   const essentials = itinerary.essentials;
   const phrases = essentials?.usefulPhrases && essentials.usefulPhrases.length > 0 ? essentials.usefulPhrases : [];
@@ -111,8 +114,11 @@ export default function ItineraryDisplayTerminal({
             
             <div className="flex flex-wrap gap-4 text-xs tracking-widest">
               <Link href="/dashboard" className={`${c.hoverTextBright}`}>[EXIT]</Link>
-              <Link href={`/itinerary/${trip.id}/ledger`} className={`${c.hoverTextBright}`}>[LEDGER]</Link>
-              <button onClick={toggleCurrency} className={`${c.hoverTextBright}`}>[CURRENCY:{displayCurrency}]</button>
+              <button onClick={onOpenLedger} className={c.hoverTextBright}>[LEDGER]</button>
+              <button onClick={onOpenDocs} className={c.hoverTextBright}>[DOCS]</button>
+              <button onClick={onOpenCalendar} className={c.hoverTextBright}>[EXPORT]</button>
+              <button onClick={onEditTrip} className={c.hoverTextBright}>[EDIT]</button>
+              <button onClick={toggleCurrency} className={c.hoverTextBright}>[CURRENCY:{displayCurrency}] ⟲</button>
               <button onClick={() => window.print()} className={`${c.hoverTextBright}`}>[PRINT]</button>
             </div>
           </div>
@@ -140,6 +146,7 @@ export default function ItineraryDisplayTerminal({
               <div className={`flex flex-col md:flex-row gap-4 md:gap-8 text-xs md:text-sm opacity-80 mt-4 border-t ${c.dim} print:border-black pt-4`}>
                 <div><span className={`${c.accent} print:text-slate-500`}>DURATION:</span> {trip.duration} DAYS</div>
                 <div><span className={`${c.accent} print:text-slate-500`}>BUDGET_LIMIT:</span> {formatCost(trip.budgetGBP)}</div>
+                <div><span className={`${c.accent} print:text-slate-500`}>EST_TOTAL:</span> {formatCost(totalCostGBP)}</div>
                 <div className="flex items-center">
                   <span className={`${c.accent} print:text-slate-500 mr-2`}>STATUS:</span> 
                   <span className="inline-block w-2 h-2 rounded-full bg-current animate-pulse print:animate-none print:bg-black mr-1" />
@@ -147,6 +154,63 @@ export default function ItineraryDisplayTerminal({
                 </div>
               </div>
             </header>
+
+            {/* SYS_DIAGNOSTICS */}
+            <section className="mb-8">
+              <div className={`text-xs uppercase tracking-widest mb-3 border-b ${c.dim} print:border-black pb-1`}>
+                :: SYS_DIAGNOSTICS
+              </div>
+              <div className="flex flex-col gap-2 text-sm">
+                {briefing?.tapWaterStatus && briefing.tapWaterStatus !== 'UNKNOWN' && (
+                  <div><span className={c.accent}>[ WATER_SYS ]</span> STATUS: {briefing?.tapWaterStatus}</div>
+                )}
+                {briefing?.languageBarrier && briefing.languageBarrier !== 'UNKNOWN' && (
+                  <div><span className={c.accent}>[ LANG_BARRIER ]</span> LEVEL: {briefing?.languageBarrier}</div>
+                )}
+                {briefing?.primaryTransit && (
+                  <div><span className={c.accent}>[ PRIMARY_TRANSIT ]</span> MODE: {briefing?.primaryTransit}</div>
+                )}
+                {briefing?.tippingNorm && briefing.tippingNorm !== 'UNKNOWN' && (
+                  <div><span className={c.accent}>[ ECON_PROTOCOL ]</span> TIPPING: {briefing?.tippingNorm}</div>
+                )}
+              </div>
+            </section>
+
+            {/* BASECAMP_MOUNTED */}
+            {basecamps.length > 0 && (
+              <section className="mb-8">
+                <div className={`text-xs uppercase tracking-widest mb-3 border-b ${c.dim} print:border-black pb-1`}>
+                  :: BASECAMP_MOUNTED
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+                  {basecamps.map((camp, i) => (
+                    <div key={i} className="flex justify-between border-b border-dashed border-white/10 print:border-black/20 pb-1">
+                      <span className={`${c.accent} print:text-slate-500`}>DAY_{camp.startDay.toString().padStart(2, '0')}:</span>
+                      <span>{camp.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* TRANSIT_PROTOCOL */}
+            {trip.intake?.transitDetails && (
+              <section className="mb-12">
+                <div className={`text-xs uppercase tracking-widest mb-3 border-b ${c.dim} print:border-black pb-1`}>
+                  :: TRANSIT_PROTOCOL : {trip.intake.transitDetails.mode.toUpperCase()}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+                  <div className="flex justify-between border-b border-dashed border-white/10 print:border-black/20 pb-1">
+                    <span className={`${c.accent} print:text-slate-500`}>OUTBOUND_{trip.intake.transitDetails.outbound?.time || 'TBD'}:</span>
+                    <span>REF:{trip.intake.transitDetails.outbound?.reference || 'PENDING'}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-dashed border-white/10 print:border-black/20 pb-1">
+                    <span className={`${c.accent} print:text-slate-500`}>RETURN_{trip.intake.transitDetails.return?.time || 'TBD'}:</span>
+                    <span>REF:{trip.intake.transitDetails.return?.reference || 'PENDING'}</span>
+                  </div>
+                </div>
+              </section>
+            )}
 
             {/* ESSENTIALS LOG */}
             {essentials && (
@@ -194,13 +258,8 @@ export default function ItineraryDisplayTerminal({
 
             {/* ITINERARY LOOP */}
             <section>
-              <div className={`text-xs uppercase tracking-widest mb-6 border-b ${c.dim} print:border-black pb-1 flex justify-between print:hidden`}>
-                <span>:: SCHEDULE_ROUTINE</span>
-                {onEditAction && (
-                  <button onClick={onEditAction} className={`${c.hoverTextBright} transition-colors`}>
-                    [EDIT_ROUTINE]
-                  </button>
-                )}
+              <div className={`text-xs uppercase tracking-widest mb-6 border-b ${c.dim} print:border-black pb-1`}>
+                :: SCHEDULE_ROUTINE
               </div>
 
               <div className="space-y-12">

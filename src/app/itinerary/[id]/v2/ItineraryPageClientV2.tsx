@@ -1,13 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 // Import the Terminal Theme
 import ItineraryDisplayTerminal from '@/components/itinerary/ItineraryDisplayTerminal';
+import ItineraryDisplayNotebook from '@/components/itinerary/ItineraryDisplayNotebook';
 
-import type { Itinerary, TripIntake } from '@/types'; 
+import type { Itinerary, TripIntake } from '@/types';
 import { useTripStore } from '@/store/tripStore';
+import { parseBriefingSemantics } from '@/lib/briefingParser';
 
 export interface ClientTripProps {
   id: string;
@@ -25,12 +28,35 @@ interface ItineraryPageClientProps {
 }
 
 export default function ItineraryPageClientV2({ dbTrip, dbItinerary }: ItineraryPageClientProps) {
+  const router = useRouter();
   const setItinerary = useTripStore((state) => state.setItinerary);
-  const setIntake = useTripStore((state) => state.setIntake); 
+  const setIntake = useTripStore((state) => state.setIntake);
   const setCurrentTripId = useTripStore((state) => state.setCurrentTripId);
   const itinerary = useTripStore((state) => state.itinerary);
 
   const [isMounted, setIsMounted] = useState(false);
+  const [isFilingCabinetOpen, setIsFilingCabinetOpen] = useState(false);
+  const [isCalendarModalOpen, setIsCalendarModalOpen] = useState(false);
+
+  // Calculate missing ThemeProps
+  const briefing = useMemo(() => parseBriefingSemantics(itinerary?.essentials), [itinerary?.essentials]);
+  
+  const totalCostGBP = useMemo(() =>
+    itinerary?.days?.reduce((sum, day) => sum + day.entries.reduce((dSum, e) => dSum + (e.estimatedCostGBP || 0), 0), 0) || 0,
+    [itinerary]
+  );
+  
+  const basecamps = useMemo(() => {
+    if (!itinerary?.days) return [];
+    const stays: {name: string, startDay: number}[] = [];
+    itinerary.days.forEach(day => {
+      const hasAcc = day.entries.some(e => e.type === 'ACCOMMODATION' || e.locationName.toLowerCase().includes('hotel'));
+      if (hasAcc || day.dayNumber === 1) {
+        stays.push({ name: dbTrip.intake?.accommodation || 'Basecamp', startDay: day.dayNumber });
+      }
+    });
+    return stays;
+  }, [itinerary, dbTrip.intake?.accommodation]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -70,9 +96,16 @@ export default function ItineraryPageClientV2({ dbTrip, dbItinerary }: Itinerary
       </div>
 
       {/* RENDER THE TERMINAL THEME HERE */}
-      <ItineraryDisplayTerminal 
-        itinerary={currentItinerary} 
-        trip={dbTrip} 
+      <ItineraryDisplayTerminal
+        itinerary={currentItinerary}
+        trip={dbTrip}
+        briefing={briefing}
+        totalCostGBP={totalCostGBP}
+        basecamps={basecamps}
+        onOpenLedger={() => router.push(`/itinerary/${dbTrip.id}/ledger`)}
+        onOpenDocs={() => setIsFilingCabinetOpen(true)}
+        onOpenCalendar={() => setIsCalendarModalOpen(true)}
+        onEditTrip={() => { /* V2 handles edit locally */ }}
       />
     </div>
   );

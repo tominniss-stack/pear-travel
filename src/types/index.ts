@@ -180,10 +180,10 @@ export interface CityEssentials {
   usefulPhrases?: { phrase: string; translation: string }[];
   plugType?: string;
   tapWater?: string;
-  apps?: string[];
   contextualRisk?: string;
+  englishProficiency?: string;
+  apps?: string[];
   localCustoms?: string[];
-  englishProficiency?: string; 
   neighbourhoodRecommendations?: { name: string; vibe: string; reason: string; }[];
 }
 
@@ -212,15 +212,17 @@ export interface Itinerary {
 
 export interface TripStore {
   intake: TripIntake;
-  allPOIs: POI[];       
+  allPOIs: POI[];
   selectedPOIs: POI[];
   itinerary: Itinerary | null;
-  savedTrips: any[];       
-  currentTripId: string | null; 
+  savedTrips: any[];
+  currentTripId: string | null;
   displayCurrency: 'GBP' | 'LOCAL';
   exchangeRate: number;
+  setExchangeRate: (rate: number) => void;
+  setDisplayCurrency: (currency: 'GBP' | 'LOCAL') => void;
   weatherForecast: any[];
-  pendingPlaceResolutions: Record<string, Partial<ItineraryEntry>>; 
+  pendingPlaceResolutions: Record<string, Partial<ItineraryEntry>>;
 
   // ── PHASE 8: THEME ENGINE TYPES ──
   aestheticPreference: AestheticPreference;
@@ -242,7 +244,6 @@ export interface TripStore {
   setItinerary: (itinerary: Itinerary | null) => void;
   setCurrentTripId: (id: string | null) => void;
   toggleCurrency: () => void;
-  setExchangeRate: (rate: number) => void;
   setWeatherForecast: (forecast: any[]) => void;
   updateEntryTime: (dayNumber: number, entryId: string, newTime: string) => void;
   toggleEntryFixed: (dayNumber: number, entryId: string) => void;

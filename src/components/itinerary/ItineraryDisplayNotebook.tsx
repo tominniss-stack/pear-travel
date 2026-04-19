@@ -203,7 +203,7 @@ function TimelineEntryNotebook({
   );
 }
 
-export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, onOpenLedger, onOpenDocs, onOpenCalendar, onEditTrip }: ThemeProps) {
+export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, totalCostGBP, basecamps, onOpenLedger, onOpenDocs, onOpenCalendar, onEditTrip }: ThemeProps) {
   const days = itinerary.days ?? [];
   const essentials = itinerary.essentials;
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
@@ -256,32 +256,6 @@ export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, on
   };
 
   const totalStops = days.reduce((total, day) => total + (day.entries?.filter(e => !(e.type === 'ACCOMMODATION' || e.transitMethod === 'Start of Day' || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(e.activityDescription || '') || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(e.locationName || ''))).length || 0), 0);
-  const dynamicTotalCost = days.reduce((sum, day) => sum + day.entries.reduce((dSum, e) => dSum + (e.estimatedCostGBP || 0), 0), 0);
-
-  const dynamicStays = days.reduce((acc: { name: string; startDay: number; placeId?: string; poiId: string }[], day) => {
-    if (day.entries.length > 0) {
-      const stayEntry =
-        day.entries.find(e =>
-          (e.type === 'ACCOMMODATION' ||
-            /(accommodation|hotel|airbnb|check-in|stay)/i.test(e.activityDescription || '') ||
-            /(accommodation|hotel|airbnb)/i.test(e.locationName || '')) &&
-          !/(airport|flight|arrival|departure|station|terminal)/i.test(e.locationName + ' ' + e.activityDescription)
-        ) ||
-        day.entries.find(e =>
-          e.transitMethod === 'Start of Day' &&
-          !/(airport|flight|arrival|departure|station)/i.test(e.locationName + ' ' + e.activityDescription)
-        );
-      if (stayEntry) {
-        const lastStay = acc[acc.length - 1];
-        const isGeneric = /^(accommodation|hotel|airbnb|start of day)/i.test(stayEntry.locationName?.trim() || '');
-        const displayName = isGeneric && accommodationName ? accommodationName : stayEntry.locationName || 'Unknown Stay';
-        if (!lastStay || lastStay.name !== displayName) {
-          acc.push({ name: displayName, startDay: day.dayNumber, placeId: stayEntry.placeId, poiId: stayEntry.id });
-        }
-      }
-    }
-    return acc;
-  }, []);
 
   const plugType = essentials?.plugType || 'Type C / F (230V)';
   const apps = essentials?.apps && essentials.apps.length > 0 ? essentials.apps : ['Uber', 'Google Maps'];
@@ -457,7 +431,7 @@ export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, on
                       </div>
                       <div className="flex justify-between text-xs font-bold">
                         <span>Est Total:</span>
-                        <span>{formatCost(dynamicTotalCost)}</span>
+                        <span>{formatCost(totalCostGBP)}</span>
                       </div>
                     </div>
                   </div>
@@ -510,10 +484,10 @@ export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, on
                     )}
 
                     {/* Hotel Matchbook — Basecamp / Accommodation */}
-                    {dynamicStays.length > 0 && (
+                    {basecamps.length > 0 && (
                       <div className="w-full md:w-auto md:max-w-[220px] bg-rose-100 dark:bg-rose-900/40 border border-rose-300 dark:border-rose-700 shadow-sm p-3 rotate-3">
                         <h4 className="font-handwriting text-xl text-rose-900 dark:text-rose-200 border-b border-rose-300 dark:border-rose-700 mb-2">Basecamp</h4>
-                        {dynamicStays.map((stay, idx) => (
+                        {basecamps.map((stay, idx) => (
                           <div key={idx} className="mb-2">
                             <span className="font-typewriter text-[9px] uppercase opacity-60 text-rose-800 dark:text-rose-300">Day {stay.startDay}</span>
                             <p className="font-handwriting text-lg leading-tight text-rose-900 dark:text-rose-100">{stay.name}</p>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { format } from 'date-fns';
 import QRCode from 'react-qr-code';
 import Link from 'next/link';
@@ -18,7 +18,22 @@ export interface ClientTripProps {
   budgetGBP: number;
   startDate: string | null;
   endDate: string | null;
-  intake?: any;
+  intake?: {
+    accommodation?: string;
+    heroImage?: string;
+    destinationPlaceId?: string;
+    transitDetails?: {
+      mode: string;
+      outbound?: {
+        time?: string;
+        reference?: string;
+      };
+      return?: {
+        time?: string;
+        reference?: string;
+      };
+    };
+  };
 }
 
 function parseTimeToMinutes(time: string | undefined): number | null {
@@ -273,8 +288,11 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
 
   const accommodationName = intake?.accommodation || trip.intake?.accommodation;
 
-  const loadDocuments = () => { fetchTripDocuments(trip.id).then(docs => setTripDocuments(docs as DocumentInfo[])); };
-  useEffect(() => { loadDocuments(); }, [trip.id]);
+  const loadDocuments = useCallback(() => {
+    fetchTripDocuments(trip.id).then(docs => setTripDocuments(docs as DocumentInfo[]));
+  }, [trip.id]);
+  
+  useEffect(() => { loadDocuments(); }, [loadDocuments]);
 
   const localCurrencyRaw = essentials?.currency || '';
   const localSymbol = localCurrencyRaw.split(' ')[0] || '€';

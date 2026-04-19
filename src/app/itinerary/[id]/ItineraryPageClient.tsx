@@ -82,6 +82,41 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
     [itinerary?.essentials],
   );
 
+  // ── Derived Data (calculated once in Brain, passed to all themes) ──────────
+  const totalCostGBP = useMemo(
+    () => itinerary?.days?.reduce((sum, day) => sum + day.entries.reduce((dSum, e) => dSum + (e.estimatedCostGBP || 0), 0), 0) || 0,
+    [itinerary],
+  );
+
+  const basecamps = useMemo(() => {
+    if (!itinerary?.days) return [];
+    const accommodationName = dbTrip.intake?.accommodation;
+    return itinerary.days.reduce((acc: { name: string; startDay: number }[], day) => {
+      if (day.entries.length > 0) {
+        const stayEntry =
+          day.entries.find(e =>
+            (e.type === 'ACCOMMODATION' ||
+              /(accommodation|hotel|airbnb|check-in|stay)/i.test(e.activityDescription || '') ||
+              /(accommodation|hotel|airbnb)/i.test(e.locationName || '')) &&
+            !/(airport|flight|arrival|departure|station|terminal)/i.test(e.locationName + ' ' + e.activityDescription)
+          ) ||
+          day.entries.find(e =>
+            e.transitMethod === 'Start of Day' &&
+            !/(airport|flight|arrival|departure|station)/i.test(e.locationName + ' ' + e.activityDescription)
+          );
+        if (stayEntry) {
+          const lastStay = acc[acc.length - 1];
+          const isGeneric = /^(accommodation|hotel|airbnb|start of day)/i.test(stayEntry.locationName?.trim() || '');
+          const displayName = isGeneric && accommodationName ? accommodationName : stayEntry.locationName || 'Unknown Stay';
+          if (!lastStay || lastStay.name !== displayName) {
+            acc.push({ name: displayName, startDay: day.dayNumber });
+          }
+        }
+      }
+      return acc;
+    }, []);
+  }, [itinerary, dbTrip.intake?.accommodation]);
+
   // ── ThemeProps Callbacks ────────────────────────────────────────────────────
   const handleOpenLedger = useCallback(() => {
     router.push(`/itinerary/${dbTrip.id}/ledger`);
@@ -200,25 +235,25 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
           /* Phase 3 will migrate ItineraryDisplayTerminal to ThemeProps */
           (() => {
             const C = ItineraryDisplayTerminal as any;
-            return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditAction={handleEditTrip} />;
+            return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} totalCostGBP={totalCostGBP} basecamps={basecamps} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditAction={handleEditTrip} />;
           })()
         ) : aestheticPreference === 'NOTEBOOK' ? (
           /* Phase 3 will migrate ItineraryDisplayNotebook to ThemeProps */
           (() => {
             const C = ItineraryDisplayNotebook as any;
-            return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditAction={handleEditTrip} />;
+            return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} totalCostGBP={totalCostGBP} basecamps={basecamps} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditAction={handleEditTrip} />;
           })()
         ) : aestheticPreference === 'EDITORIAL' ? (
           /* Phase 3 will migrate ItineraryDisplayV2 to ThemeProps */
           (() => {
             const C = ItineraryDisplayV2 as any;
-            return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditRequest={handleEditTrip} />;
+            return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} totalCostGBP={totalCostGBP} basecamps={basecamps} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditRequest={handleEditTrip} />;
           })()
         ) : (
           /* Phase 3 will migrate ItineraryDisplay to ThemeProps */
           (() => {
             const C = ItineraryDisplay as any;
-            return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditRequest={handleEditTrip} />;
+            return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} totalCostGBP={totalCostGBP} basecamps={basecamps} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditRequest={handleEditTrip} />;
           })()
         )
       )}

@@ -55,7 +55,7 @@ export const useTripStore = create<TripStore>()(
         
         // ── Currency State ──────────────────────────────────────────────────
         displayCurrency: 'GBP',
-        exchangeRate:    1, // Baseline. Will be overwritten by API or Cache
+        exchangeRate:    1,
 
         // ── Weather & Hydration State ───────────────────────────────────────
         weatherForecast: [],
@@ -129,6 +129,9 @@ export const useTripStore = create<TripStore>()(
 
         setExchangeRate: (rate: number) =>
           set({ exchangeRate: rate }, false, 'setExchangeRate'),
+
+        setDisplayCurrency: (currency: 'GBP' | 'LOCAL') =>
+          set({ displayCurrency: currency }, false, 'setDisplayCurrency'),
 
         // ── Theme Actions ───────────────────────────────────────────────────
         setAestheticPreference: (pref: AestheticPreference) =>
