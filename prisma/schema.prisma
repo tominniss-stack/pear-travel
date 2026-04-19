@@ -26,6 +26,9 @@ model User {
   // THE THEME PREFERENCE
   aestheticPreference AestheticPreference @default(CLASSIC)
   
+  // REGIONAL PREFERENCES
+  baseCurrency        String              @default("GBP")
+  
   ownedTrips          Trip[]              @relation("TripOwner")
   sharedTrips         Trip[]              @relation("TripCollaborators")
 

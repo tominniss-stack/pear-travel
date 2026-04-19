@@ -272,7 +272,7 @@ function TimelineEntry({
 }
 
 // ── Main Component (V2 Premium) ───────────────────────────────────────────────────────
-export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: { itinerary: Itinerary; trip: ClientTripProps; onEditRequest?: () => void; }) {
+export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, baseCurrencyCode, onEditRequest }: { itinerary: Itinerary; trip: ClientTripProps; totalCostBase: number; baseCurrencyCode: string; onEditRequest?: () => void; }) {
   const days = itinerary.days ?? [];
   const essentials = itinerary.essentials;
   const [activeTab, setActiveTab] = useState<'overview' | number>('overview');
@@ -304,21 +304,6 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
     if (!trip.id) return 0;
     return trip.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 3;
   }, [trip.id]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const currencyMatch = localCurrencyRaw.match(/[A-Z]{3}/);
-    const targetCurrency = currencyMatch ? currencyMatch[0] : null;
-
-    if (targetCurrency && targetCurrency !== 'GBP') {
-      fetch(`https://api.frankfurter.app/latest?from=GBP&to=${targetCurrency}`)
-        .then((res) => { if (!res.ok) throw new Error('API down'); return res.json(); })
-        .then((data) => { if (data.rates && data.rates[targetCurrency]) setExchangeRate(data.rates[targetCurrency]); })
-        .catch(() => console.warn("Fallback exchange rate."));
-    } else if (targetCurrency === 'GBP') {
-       setExchangeRate(1);
-    }
-  }, [localCurrencyRaw, setExchangeRate]);
 
   const [heroImage, setHeroImage] = useState<string>(`https://picsum.photos/seed/${trip.id}/1200/600`);
   
@@ -352,11 +337,10 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
     if (cost === undefined || cost === null) return '—';
     if (cost === 0) return 'Free';
     if (displayCurrency === 'LOCAL' && !isDomesticTrip) return `${localSymbol}${symbolSpacer}${(cost * exchangeRate).toLocaleString('en-GB', { maximumFractionDigits: 0 })}`;
-    return `£${cost.toLocaleString('en-GB', { maximumFractionDigits: 0 })}`;
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: baseCurrencyCode, maximumFractionDigits: 0 }).format(cost);
   };
 
   const totalStops = days.reduce((total, day) => total + (day.entries?.filter(e => !(e.type === 'ACCOMMODATION' || e.transitMethod === 'Start of Day' || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(e.activityDescription || '') || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(e.locationName || ''))).length || 0), 0);
-  const dynamicTotalCost = days.reduce((sum, day) => sum + day.entries.reduce((dSum, e) => dSum + (e.estimatedCostGBP || 0), 0), 0);
   const plugType = essentials?.plugType || 'Type C / F (230V)';
   const tapWater = essentials?.tapWater || 'Safe to drink';
   const apps = essentials?.apps && essentials.apps.length > 0 ? essentials.apps : ['Uber', 'Google Maps'];
@@ -613,7 +597,7 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
                         <p className="text-[10px] font-mono uppercase tracking-widest text-slate-500 mb-4">Estimated Exposure</p>
                         <div className="text-7xl font-serif text-slate-900 dark:text-white leading-none mb-6 flex items-start">
                           <span className="text-3xl mt-2 mr-1">{displayCurrency === 'GBP' ? '£' : localSymbol}</span>
-                          <span>{formatCost(dynamicTotalCost).replace(/^[^\d\s]+\s*/, '')}</span>
+                          <span>{formatCost(totalCostBase).replace(/^[^\d\s]+\s*/, '')}</span>
                         </div>
                         <p className="text-sm font-serif italic text-slate-500">
                           of your {formatCost(trip.budgetGBP)} initial budget
@@ -622,7 +606,7 @@ export default function ItineraryDisplayV2({ itinerary, trip, onEditRequest }: {
 
                       <div className="w-full md:w-auto text-left md:text-right">
                         <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 mb-4">Current Exchange</p>
-                        <div className="text-3xl font-serif text-slate-900 dark:text-white mb-2">£1 = {localSymbol}{exchangeRate.toFixed(2)}</div>
+                        <div className="text-3xl font-serif text-slate-900 dark:text-white mb-2">1 {baseCurrencyCode} = {localSymbol}{exchangeRate.toFixed(2)}</div>
                         <p className="text-xs font-mono uppercase tracking-widest text-slate-500">{localCurrencyRaw}</p>
                       </div>
                     </div>

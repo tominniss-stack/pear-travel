@@ -20,6 +20,7 @@ export interface TravelProfile {
   diningStyle: DiningStyle;
   idealStartTime: StartTime;
   hasCompletedOnboarding: boolean;
+  baseCurrency: string;
 }
 
 interface ProfileStore extends TravelProfile {
@@ -34,6 +35,7 @@ const defaultProfile: TravelProfile = {
   diningStyle: 'convenience',
   idealStartTime: '09:30',
   hasCompletedOnboarding: false,
+  baseCurrency: 'GBP',
 };
 
 // ── Store ─────────────────────────────────────────────────────────────────────

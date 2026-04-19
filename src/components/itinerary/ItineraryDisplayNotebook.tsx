@@ -203,7 +203,7 @@ function TimelineEntryNotebook({
   );
 }
 
-export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, totalCostGBP, basecamps, onOpenLedger, onOpenDocs, onOpenCalendar, onEditTrip }: ThemeProps) {
+export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, totalCostBase, baseCurrencyCode, basecamps, onOpenLedger, onOpenDocs, onOpenCalendar, onEditTrip }: ThemeProps) {
   const days = itinerary.days ?? [];
   const essentials = itinerary.essentials;
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
@@ -218,21 +218,6 @@ export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, to
   const localSymbol = localCurrencyRaw.split(' ')[0] || '€';
   const isDomesticTrip = localSymbol === '£' || localCurrencyRaw.includes('GBP');
   const symbolSpacer = localSymbol.length > 1 ? ' ' : '';
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const currencyMatch = localCurrencyRaw.match(/[A-Z]{3}/);
-    const targetCurrency = currencyMatch ? currencyMatch[0] : null;
-
-    if (targetCurrency && targetCurrency !== 'GBP') {
-      fetch(`https://api.frankfurter.app/latest?from=GBP&to=${targetCurrency}`)
-        .then((res) => res.json())
-        .then((data) => { if (data.rates && data.rates[targetCurrency]) setExchangeRate(data.rates[targetCurrency]); })
-        .catch(() => {});
-    } else if (targetCurrency === 'GBP') {
-       setExchangeRate(1);
-    }
-  }, [localCurrencyRaw, setExchangeRate]);
 
   const [heroImage, setHeroImage] = useState<string>(`https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=1200&q=80`);
   useEffect(() => {
@@ -252,7 +237,7 @@ export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, to
     if (cost === undefined || cost === null) return '—';
     if (cost === 0) return 'Free';
     if (displayCurrency === 'LOCAL' && !isDomesticTrip) return `${localSymbol}${symbolSpacer}${(cost * exchangeRate).toLocaleString('en-GB', { maximumFractionDigits: 0 })}`;
-    return `£${cost.toLocaleString('en-GB', { maximumFractionDigits: 0 })}`;
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: baseCurrencyCode, maximumFractionDigits: 0 }).format(cost);
   };
 
   const totalStops = days.reduce((total, day) => total + (day.entries?.filter(e => !(e.type === 'ACCOMMODATION' || e.transitMethod === 'Start of Day' || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(e.activityDescription || '') || /(Accommodation|Hotel|Airbnb|Start of Day|Return to|Airport|Flight)/i.test(e.locationName || ''))).length || 0), 0);
@@ -408,7 +393,7 @@ export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, to
                         <li>Power: <span className="font-bold text-slate-900 dark:text-white">{plugType}</span></li>
                         <li>Budget: <span className="font-bold text-slate-900 dark:text-white">{formatCost(trip.budgetGBP)}</span></li>
                         {!isDomesticTrip && (
-                          <li>Rate: <span className="font-bold text-slate-900 dark:text-white">£1 = {localSymbol}{exchangeRate.toFixed(2)}</span></li>
+                          <li>Rate: <span className="font-bold text-slate-900 dark:text-white">1 {baseCurrencyCode} = {localSymbol}{exchangeRate.toFixed(2)}</span></li>
                         )}
                       </ul>
                       {/* Explicit currency toggle button */}
@@ -418,7 +403,7 @@ export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, to
                       >
                         <span>Showing Prices In:</span>
                         <span className="bg-white dark:bg-stone-900 px-2 py-1 shadow-sm">
-                          {displayCurrency === 'GBP' ? `GBP (£)` : `LOCAL (${localSymbol})`} ⟲
+                          {displayCurrency === 'GBP' ? `${baseCurrencyCode}` : `LOCAL (${localSymbol})`} ⟲
                         </span>
                       </button>
                     </div>
@@ -431,7 +416,7 @@ export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, to
                       </div>
                       <div className="flex justify-between text-xs font-bold">
                         <span>Est Total:</span>
-                        <span>{formatCost(totalCostGBP)}</span>
+                        <span>{formatCost(totalCostBase)}</span>
                       </div>
                     </div>
                   </div>

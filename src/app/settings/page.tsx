@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchAllUserDocuments, deleteDocument } from '@/app/actions/documents';
 import { changePassword } from '@/app/actions/auth';
+import { updateBaseCurrency } from '@/app/actions/profile';
 import { useTripStore } from '@/store/tripStore';
 import { useProfileStore } from '@/store/profileStore';
 import type { AestheticPreference } from '@/types';
@@ -65,7 +66,13 @@ export default function SettingsPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
-  const { dailyPacing, transportPreference, diningStyle, idealStartTime, updateProfile } = useProfileStore();
+  const { dailyPacing, transportPreference, diningStyle, idealStartTime, baseCurrency, updateProfile } = useProfileStore();
+
+  const handleCurrencyChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newCurrency = e.target.value;
+    updateProfile({ baseCurrency: newCurrency });
+    await updateBaseCurrency(newCurrency);
+  };
 
   const themes: { id: AestheticPreference; name: string; desc: string; icon: string; status: 'active' | 'coming_soon' }[] = [
     { id: 'CLASSIC', name: 'The Classic', desc: 'Data-dense, functional card layout.', icon: '📋', status: 'active' },
@@ -275,6 +282,32 @@ export default function SettingsPage() {
                       <option value="11:30">11:30</option>
                       <option value="12:00">12:00</option>
                     </select>
+                  </section>
+                  <Divider />
+
+                  {/* Regional Preferences */}
+                  <section>
+                    <h2 className="text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-0.5">Regional Preferences</h2>
+                    <HelperText>Your home currency for calculating total trip costs.</HelperText>
+                    <div className="relative max-w-[200px]">
+                      <select
+                        value={baseCurrency}
+                        onChange={handleCurrencyChange}
+                        className="w-full bg-transparent text-sm text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-800 rounded-lg px-4 py-3 focus:outline-none focus:border-slate-900 dark:focus:border-slate-100 transition-colors appearance-none cursor-pointer"
+                      >
+                        <option value="GBP">🇬🇧 GBP (£)</option>
+                        <option value="USD">🇺🇸 USD ($)</option>
+                        <option value="EUR">🇪🇺 EUR (€)</option>
+                        <option value="AUD">🇦🇺 AUD (A$)</option>
+                        <option value="CAD">🇨🇦 CAD (C$)</option>
+                        <option value="JPY">🇯🇵 JPY (¥)</option>
+                      </select>
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
                   </section>
                 </motion.div>
               )}

@@ -10,7 +10,8 @@ export default function ItineraryDisplayTerminal({
   trip,
   itinerary,
   briefing,
-  totalCostGBP,
+  totalCostBase,
+  baseCurrencyCode,
   basecamps,
   onOpenLedger,
   onOpenDocs,
@@ -28,13 +29,13 @@ export default function ItineraryDisplayTerminal({
   
   const localCurrencyRaw = essentials?.currency || '';
   const localSymbol = localCurrencyRaw.split(' ')[0] || '€';
-  const isDomesticTrip = localSymbol === '£' || localCurrencyRaw.includes('GBP');
+  const isDomesticTrip = localCurrencyRaw.includes(baseCurrencyCode);
 
   const formatCost = (cost?: number) => {
     if (cost === undefined || cost === null) return 'N/A';
     if (cost === 0) return '0.00';
     if (displayCurrency === 'LOCAL' && !isDomesticTrip) return `${localSymbol}${(cost * exchangeRate).toFixed(2)}`;
-    return `£${cost.toFixed(2)}`;
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: baseCurrencyCode }).format(cost);
   };
 
   useEffect(() => {
@@ -145,8 +146,8 @@ export default function ItineraryDisplayTerminal({
               </h1>
               <div className={`flex flex-col md:flex-row gap-4 md:gap-8 text-xs md:text-sm opacity-80 mt-4 border-t ${c.dim} print:border-black pt-4`}>
                 <div><span className={`${c.accent} print:text-slate-500`}>DURATION:</span> {trip.duration} DAYS</div>
-                <div><span className={`${c.accent} print:text-slate-500`}>BUDGET_LIMIT:</span> {formatCost(trip.budgetGBP)}</div>
-                <div><span className={`${c.accent} print:text-slate-500`}>EST_TOTAL:</span> {formatCost(totalCostGBP)}</div>
+                <div><span className={`${c.accent} print:text-slate-500`}>BUDGET_LIMIT_{baseCurrencyCode}:</span> {formatCost(trip.budgetGBP)}</div>
+                <div><span className={`${c.accent} print:text-slate-500`}>EST_TOTAL_{baseCurrencyCode}:</span> {formatCost(totalCostBase)}</div>
                 <div className="flex items-center">
                   <span className={`${c.accent} print:text-slate-500 mr-2`}>STATUS:</span> 
                   <span className="inline-block w-2 h-2 rounded-full bg-current animate-pulse print:animate-none print:bg-black mr-1" />
@@ -226,14 +227,6 @@ export default function ItineraryDisplayTerminal({
                   <div className="flex justify-between border-b border-dashed border-white/10 print:border-black/20 pb-1">
                     <span className={`${c.accent} print:text-slate-500`}>PLUG_TYPE:</span>
                     <span>{essentials.plugType}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-dashed border-white/10 print:border-black/20 pb-1">
-                    <span className={`${c.accent} print:text-slate-500`}>TAP_WATER:</span>
-                    <span>{essentials.tapWater}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-dashed border-white/10 print:border-black/20 pb-1">
-                    <span className={`${c.accent} print:text-slate-500`}>ENGLISH_PROFICIENCY:</span>
-                    <span>{essentials.englishProficiency}</span>
                   </div>
                 </div>
               </section>

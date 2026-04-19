@@ -10,6 +10,7 @@ import ItineraryDisplayNotebook from '@/components/itinerary/ItineraryDisplayNot
 
 import type { Itinerary, TripIntake } from '@/types';
 import { useTripStore } from '@/store/tripStore';
+import { useHydratedProfileStore } from '@/store/profileStore';
 import { parseBriefingSemantics } from '@/lib/briefingParser';
 
 export interface ClientTripProps {
@@ -41,10 +42,29 @@ export default function ItineraryPageClientV2({ dbTrip, dbItinerary }: Itinerary
   // Calculate missing ThemeProps
   const briefing = useMemo(() => parseBriefingSemantics(itinerary?.essentials), [itinerary?.essentials]);
   
-  const totalCostGBP = useMemo(() =>
-    itinerary?.days?.reduce((sum, day) => sum + day.entries.reduce((dSum, e) => dSum + (e.estimatedCostGBP || 0), 0), 0) || 0,
-    [itinerary]
-  );
+  const baseCurrencyCode = useHydratedProfileStore((s) => s.baseCurrency) || 'GBP';
+  const [baseExchangeRate, setBaseExchangeRate] = useState(1);
+
+  // Fetch exchange rate from GBP to baseCurrencyCode
+  useEffect(() => {
+    if (baseCurrencyCode === 'GBP') {
+      setBaseExchangeRate(1);
+      return;
+    }
+    fetch(`https://api.frankfurter.app/latest?from=GBP&to=${baseCurrencyCode}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.rates && data.rates[baseCurrencyCode]) {
+          setBaseExchangeRate(data.rates[baseCurrencyCode]);
+        }
+      })
+      .catch((err) => console.warn('Failed to fetch base exchange rate:', err));
+  }, [baseCurrencyCode]);
+
+  const totalCostBase = useMemo(() => {
+    const costGBP = itinerary?.days?.reduce((sum, day) => sum + day.entries.reduce((dSum, e) => dSum + (e.estimatedCostGBP || 0), 0), 0) || 0;
+    return costGBP * baseExchangeRate;
+  }, [itinerary, baseExchangeRate]);
   
   const basecamps = useMemo(() => {
     if (!itinerary?.days) return [];
@@ -100,7 +120,7 @@ export default function ItineraryPageClientV2({ dbTrip, dbItinerary }: Itinerary
         itinerary={currentItinerary}
         trip={dbTrip}
         briefing={briefing}
-        totalCostGBP={totalCostGBP}
+        totalCostBase={totalCostBase} baseCurrencyCode={baseCurrencyCode}
         basecamps={basecamps}
         onOpenLedger={() => router.push(`/itinerary/${dbTrip.id}/ledger`)}
         onOpenDocs={() => setIsFilingCabinetOpen(true)}

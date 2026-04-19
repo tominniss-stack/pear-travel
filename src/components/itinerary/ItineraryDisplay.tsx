@@ -492,10 +492,14 @@ function TimelineEntry({
 export default function ItineraryDisplay({ 
   itinerary, 
   trip, 
+  totalCostBase,
+  baseCurrencyCode,
   onEditRequest 
 }: { 
   itinerary: Itinerary; 
   trip: ClientTripProps; 
+  totalCostBase: number;
+  baseCurrencyCode: string;
   onEditRequest?: () => void;
 }) {
   const router = useRouter(); 
@@ -554,42 +558,6 @@ export default function ItineraryDisplay({
   // ── FLAG LOGIC ──
   const targetCurrency = localCurrencyRaw.match(/[A-Z]{3}/)?.[0] || null;
   const currentFlag = displayCurrency === 'GBP' ? '🇬🇧' : getCurrencyFlag(targetCurrency);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    if (targetCurrency && targetCurrency !== 'GBP') {
-      const cacheKey = `pear_fx_${targetCurrency}`;
-      const timeKey = `pear_fx_time_${targetCurrency}`;
-      const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-      
-      const cachedRate = localStorage.getItem(cacheKey);
-      const cachedTime = localStorage.getItem(timeKey);
-      const currentTime = Date.now();
-
-      if (cachedRate && cachedTime && (currentTime - parseInt(cachedTime, 10)) < ONE_DAY_MS) {
-        setExchangeRate(parseFloat(cachedRate));
-        return;
-      }
-
-      fetch(`https://api.frankfurter.app/latest?from=GBP&to=${targetCurrency}`)
-        .then((res) => {
-          if (!res.ok) throw new Error('Currency API unavailable');
-          return res.json();
-        })
-        .then((data) => {
-          if (data.rates && data.rates[targetCurrency]) {
-            const newRate = data.rates[targetCurrency];
-            setExchangeRate(newRate);
-            localStorage.setItem(cacheKey, newRate.toString());
-            localStorage.setItem(timeKey, currentTime.toString());
-          }
-        })
-        .catch((err) => console.warn("Using fallback exchange rate.", err));
-    } else if (targetCurrency === 'GBP') {
-       setExchangeRate(1);
-    }
-  }, [targetCurrency, setExchangeRate]);
 
   // Instantly load the DB image for new trips, fallback to Picsum temporarily for legacy trips
   const [heroImage, setHeroImage] = useState<string>(
@@ -678,7 +646,7 @@ export default function ItineraryDisplay({
     if (displayCurrency === 'LOCAL' && !isDomesticTrip) {
       return `${localSymbol}${symbolSpacer}${(cost * exchangeRate).toLocaleString('en-GB', { maximumFractionDigits: 0 })}`;
     }
-    return `£${cost.toLocaleString('en-GB', { maximumFractionDigits: 0 })}`;
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: baseCurrencyCode, maximumFractionDigits: 0 }).format(cost);
   };
 
   const totalStops = days.reduce((total, day) => {
@@ -688,10 +656,6 @@ export default function ItineraryDisplay({
     });
     return total + (actualPlaces?.length || 0);
   }, 0);
-
-  const dynamicTotalCost = days.reduce((sum, day) => 
-    sum + day.entries.reduce((dSum, e) => dSum + (e.estimatedCostGBP || 0), 0)
-  , 0);
 
   const plugType = essentials?.plugType || 'Type C / F (230V)';
   const tapWater = essentials?.tapWater || 'Safe to drink 🚰';
@@ -805,12 +769,12 @@ export default function ItineraryDisplay({
             <div className="flex items-center gap-2 mb-2">
               <span className="text-xl leading-none shadow-sm rounded-sm">{currentFlag}</span>
               <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                {displayCurrency === 'GBP' ? 'Viewing in GBP' : 'Viewing in Local'}
+                {displayCurrency === 'GBP' ? `Viewing in ${baseCurrencyCode}` : 'Viewing in Local'}
               </span>
             </div>
             
             <span className="text-xl font-black text-slate-900 dark:text-white tabular-nums tracking-tight">
-              £1 = {localSymbol}{exchangeRate.toFixed(2)}
+              1 {baseCurrencyCode} = {localSymbol}{exchangeRate.toFixed(2)}
             </span>
             
             <div className="mt-auto pt-3 flex items-center gap-1">
@@ -829,7 +793,7 @@ export default function ItineraryDisplay({
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Budget</span>
             </div>
             <span className="relative z-10 text-xl font-black text-white tabular-nums tracking-tight">
-              {formatCost(dynamicTotalCost)}
+              {formatCost(totalCostBase)}
             </span>
             <div className="relative z-10 mt-auto pt-3 flex items-center gap-1">
               <span className="text-[10px] font-bold text-brand-400">Open Ledger</span>
@@ -1456,18 +1420,18 @@ export default function ItineraryDisplay({
                       <div>
                         <div className="flex justify-between items-end mb-2">
                           <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Total Itinerary Cost</h4>
-                          <span className="text-[11px] font-bold text-slate-900 dark:text-white">{formatCost(dynamicTotalCost)}</span>
+                          <span className="text-[11px] font-bold text-slate-900 dark:text-white">{formatCost(totalCostBase)}</span>
                         </div>
                         <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
                           <div 
-                            className={`h-full transition-all duration-1000 ${dynamicTotalCost > trip.budgetGBP ? 'bg-red-500' : 'bg-brand-500'}`}
-                            style={{ width: `${Math.min((dynamicTotalCost / trip.budgetGBP) * 100, 100)}%` }}
+                            className={`h-full transition-all duration-1000 ${totalCostBase > trip.budgetGBP ? 'bg-red-500' : 'bg-brand-500'}`}
+                            style={{ width: `${Math.min((totalCostBase / trip.budgetGBP) * 100, 100)}%` }}
                           />
                         </div>
                         <p className="text-[9px] text-slate-400 mt-2 italic">
-                          {dynamicTotalCost > trip.budgetGBP 
+                          {totalCostBase > trip.budgetGBP 
                             ? "Plan is currently over total budget." 
-                            : `Plan uses ${Math.round((dynamicTotalCost / trip.budgetGBP) * 100)}% of total budget.`}
+                            : `Plan uses ${Math.round((totalCostBase / trip.budgetGBP) * 100)}% of total budget.`}
                         </p>
                       </div>
                     </div>

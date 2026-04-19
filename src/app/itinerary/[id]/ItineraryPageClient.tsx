@@ -15,6 +15,7 @@ import ThemeInjector from '@/components/layout/ThemeInjector';
 import type { Itinerary, TripIntake } from '@/types';
 import type { DocumentInfo } from '@/components/itinerary/PlaceDetailsModal';
 import { useTripStore } from '@/store/tripStore';
+import { useHydratedProfileStore } from '@/store/profileStore';
 import { useUIStore } from '@/store/uiStore';
 import { parseBriefingSemantics } from '@/lib/briefingParser';
 import { fetchTripDocuments } from '@/app/actions/documents';
@@ -83,7 +84,9 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
   );
 
   // ── Derived Data (calculated once in Brain, passed to all themes) ──────────
-  const totalCostGBP = useMemo(
+  const baseCurrencyCode = useHydratedProfileStore((s) => s.baseCurrency) || 'GBP';
+
+  const totalCostBase = useMemo(
     () => itinerary?.days?.reduce((sum, day) => sum + day.entries.reduce((dSum, e) => dSum + (e.estimatedCostGBP || 0), 0), 0) || 0,
     [itinerary],
   );
@@ -118,6 +121,41 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
   }, [itinerary, dbTrip.intake?.accommodation]);
 
   // ── ThemeProps Callbacks ────────────────────────────────────────────────────
+  const { setExchangeRate } = useTripStore();
+  const localCurrencyRaw = itinerary?.essentials?.currency || '';
+  const targetCurrency = localCurrencyRaw.match(/[A-Z]{3}/)?.[0] || null;
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (targetCurrency && targetCurrency !== baseCurrencyCode) {
+      const cacheKey = `pear_fx_${baseCurrencyCode}_${targetCurrency}`;
+      const timeKey = `pear_fx_time_${baseCurrencyCode}_${targetCurrency}`;
+      const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+      
+      const cachedRate = localStorage.getItem(cacheKey);
+      const cachedTime = localStorage.getItem(timeKey);
+      const currentTime = Date.now();
+
+      if (cachedRate && cachedTime && (currentTime - parseInt(cachedTime, 10)) < ONE_DAY_MS) {
+        setExchangeRate(parseFloat(cachedRate));
+        return;
+      }
+
+      fetch(`https://api.frankfurter.app/latest?from=${baseCurrencyCode}&to=${targetCurrency}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.rates && data.rates[targetCurrency]) {
+            const newRate = data.rates[targetCurrency];
+            setExchangeRate(newRate);
+            localStorage.setItem(cacheKey, newRate.toString());
+            localStorage.setItem(timeKey, currentTime.toString());
+          }
+        })
+        .catch((err) => console.warn("Using fallback exchange rate.", err));
+    } else if (targetCurrency === baseCurrencyCode) {
+       setExchangeRate(1);
+    }
+  }, [targetCurrency, baseCurrencyCode, setExchangeRate]);
   const handleOpenLedger = useCallback(() => {
     router.push(`/itinerary/${dbTrip.id}/ledger`);
   }, [router, dbTrip.id]);
@@ -235,25 +273,25 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
           /* Phase 3 will migrate ItineraryDisplayTerminal to ThemeProps */
           (() => {
             const C = ItineraryDisplayTerminal as any;
-            return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} totalCostGBP={totalCostGBP} basecamps={basecamps} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditAction={handleEditTrip} />;
+            return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} totalCostBase={totalCostBase} baseCurrencyCode={baseCurrencyCode} basecamps={basecamps} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditAction={handleEditTrip} />;
           })()
         ) : aestheticPreference === 'NOTEBOOK' ? (
           /* Phase 3 will migrate ItineraryDisplayNotebook to ThemeProps */
           (() => {
             const C = ItineraryDisplayNotebook as any;
-            return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} totalCostGBP={totalCostGBP} basecamps={basecamps} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditAction={handleEditTrip} />;
+            return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} totalCostBase={totalCostBase} baseCurrencyCode={baseCurrencyCode} basecamps={basecamps} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditAction={handleEditTrip} />;
           })()
         ) : aestheticPreference === 'EDITORIAL' ? (
           /* Phase 3 will migrate ItineraryDisplayV2 to ThemeProps */
           (() => {
             const C = ItineraryDisplayV2 as any;
-            return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} totalCostGBP={totalCostGBP} basecamps={basecamps} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditRequest={handleEditTrip} />;
+            return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} totalCostBase={totalCostBase} baseCurrencyCode={baseCurrencyCode} basecamps={basecamps} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditRequest={handleEditTrip} />;
           })()
         ) : (
           /* Phase 3 will migrate ItineraryDisplay to ThemeProps */
           (() => {
             const C = ItineraryDisplay as any;
-            return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} totalCostGBP={totalCostGBP} basecamps={basecamps} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditRequest={handleEditTrip} />;
+            return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} totalCostBase={totalCostBase} baseCurrencyCode={baseCurrencyCode} basecamps={basecamps} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditRequest={handleEditTrip} />;
           })()
         )
       )}

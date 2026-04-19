@@ -41,7 +41,8 @@ export interface ThemeProps {
   trip: ClientTripProps;
   itinerary: Itinerary;
   briefing: BriefingSemantics;
-  totalCostGBP: number;
+  totalCostBase: number;
+  baseCurrencyCode: string;
   basecamps: { name: string; startDay: number }[];
   onOpenLedger: () => void;
   onOpenDocs: () => void;
