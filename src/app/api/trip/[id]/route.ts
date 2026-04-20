@@ -15,9 +15,9 @@ export async function GET(
   }
   const trip = await prisma.trip.findUnique({
     where:  { id },
-    select: { ownerId: true },
+    select: { ownerId: true, collaborators: { select: { id: true } } },
   });
-  if (!trip || trip.ownerId !== session.user.id) {
+  if (!trip || (trip.ownerId !== session.user.id && !trip.collaborators.some(c => c.id === session.user.id))) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
   
@@ -44,9 +44,9 @@ export async function PATCH(
     }
     const trip = await prisma.trip.findUnique({
       where:  { id },
-      select: { ownerId: true },
+      select: { ownerId: true, collaborators: { select: { id: true } } },
     });
-    if (!trip || trip.ownerId !== session.user.id) {
+    if (!trip || (trip.ownerId !== session.user.id && !trip.collaborators.some(c => c.id === session.user.id))) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
@@ -81,6 +81,7 @@ export async function DELETE(
       where:  { id },
       select: { ownerId: true },
     });
+    // Owner-only: collaborators cannot delete trips.
     if (!trip || trip.ownerId !== session.user.id) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }

@@ -7,7 +7,59 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ── THE STRUCTURAL THEME ENUM ──
+model User {
+  id                  String              @id @default(cuid())
+  username            String              @unique
+  password            String
+  name                String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  role                Role                @default(USER)
+  aestheticPreference AestheticPreference @default(CLASSIC)
+  baseCurrency        String              @default("GBP")
+  email               String?             @unique
+  onboardingComplete  Boolean             @default(false)
+  ownedTrips          Trip[]              @relation("TripOwner")
+  sharedTrips         Trip[]              @relation("TripCollaborators")
+}
+
+model Trip {
+  id                   String     @id @default(cuid())
+  destination          String
+  destinationPlaceId   String?
+  startDate            DateTime?
+  endDate              DateTime?
+  duration             Int
+  budgetGBP            Int
+  bookingMode          String     @default("planning")
+  defaultOriginCoords  Json?
+  intake               Json?
+  itinerary            Json?
+  lockedAccommodations Json?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  ownerId              String
+  documents            Document[]
+  owner                User       @relation("TripOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  collaborators        User[]     @relation("TripCollaborators")
+
+  @@index([ownerId])
+}
+
+model Document {
+  id         String   @id @default(cuid())
+  tripId     String
+  poiId      String?
+  fileName   String
+  fileUrl    String
+  mimeType   String?
+  sizeBytes  Int?
+  uploadedAt DateTime @default(now())
+  trip       Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+}
+
 enum AestheticPreference {
   CLASSIC
   EDITORIAL
@@ -16,59 +68,7 @@ enum AestheticPreference {
   CONCIERGE
 }
 
-model User {
-  id                  String              @id @default(cuid())
-  username            String              @unique
-  password            String              
-  name                String?
-  role                String              @default("USER") 
-  
-  // THE THEME PREFERENCE
-  aestheticPreference AestheticPreference @default(CLASSIC)
-  
-  // REGIONAL PREFERENCES
-  baseCurrency        String              @default("GBP")
-  
-  ownedTrips          Trip[]              @relation("TripOwner")
-  sharedTrips         Trip[]              @relation("TripCollaborators")
-
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-}
-
-model Trip {
-  id                    String    @id @default(cuid())
-  ownerId               String
-  owner                 User      @relation("TripOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  collaborators         User[]    @relation("TripCollaborators")
-  destination           String
-  destinationPlaceId    String?
-  startDate             DateTime?
-  endDate               DateTime?
-  duration              Int
-  budgetGBP             Int
-  bookingMode           String    @default("planning")
-  defaultOriginCoords   Json?
-  intake                Json?
-  itinerary             Json?
-  lockedAccommodations  Json?
-  documents             Document[]
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
-
-  @@index([ownerId])
-}
-
-model Document {
-  id               String   @id @default(cuid())
-  tripId           String
-  trip             Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  poiId            String?  
-  fileName         String
-  fileUrl          String
-  mimeType         String?
-  sizeBytes        Int?
-  uploadedAt       DateTime @default(now())
-
-  @@index([tripId])
+enum Role {
+  ADMIN
+  USER
 }

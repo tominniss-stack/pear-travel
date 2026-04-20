@@ -57,9 +57,9 @@ export async function updateTripItineraryAction(tripId: string, itinerary: any) 
 
   const trip = await prisma.trip.findUnique({
     where: { id: tripId },
-    select: { ownerId: true }
+    select: { ownerId: true, collaborators: { select: { id: true } } }
   });
-  if (!trip || trip.ownerId !== session.user.id) throw new Error('Unauthorised');
+  if (!trip || (trip.ownerId !== session.user.id && !trip.collaborators.some(c => c.id === session.user.id))) throw new Error('Unauthorised');
 
   try {
     // V3 doesn't require "nuke and pave" of individual POI rows anymore.
@@ -84,9 +84,9 @@ export async function renameTripAction(tripId: string, newTitle: string) {
 
   const trip = await prisma.trip.findUnique({
     where: { id: tripId },
-    select: { ownerId: true }
+    select: { ownerId: true, collaborators: { select: { id: true } } }
   });
-  if (!trip || trip.ownerId !== session.user.id) throw new Error('Unauthorised');
+  if (!trip || (trip.ownerId !== session.user.id && !trip.collaborators.some(c => c.id === session.user.id))) throw new Error('Unauthorised');
 
   try {
     // Note: 'title' is no longer in the V3 schema. If renaming is still needed, 
@@ -109,9 +109,12 @@ export async function toggleTripBookingStatusAction(tripId: string, currentStatu
   if (!session?.user?.id) throw new Error('Unauthorised');
 
   try {
-    const trip = await prisma.trip.findUnique({ where: { id: tripId } });
+    const trip = await prisma.trip.findUnique({ 
+      where: { id: tripId },
+      select: { ownerId: true, intake: true, collaborators: { select: { id: true } } }
+    });
     if (!trip) throw new Error('Trip not found');
-    if (trip.ownerId !== session.user.id) throw new Error('Unauthorised');
+    if (trip.ownerId !== session.user.id && !trip.collaborators.some(c => c.id === session.user.id)) throw new Error('Unauthorised');
 
     const intakeData = typeof trip.intake === 'string' ? JSON.parse(trip.intake) : (trip.intake || {});
     intakeData.bookingMode = !currentStatus ? 'booked' : 'planning';

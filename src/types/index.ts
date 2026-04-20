@@ -130,7 +130,7 @@ export interface ItineraryEntry {
   isFixed?: boolean;
   userModified?: boolean;
   durationMinutes?: number;
-  openingHours?: { open: string; close: string };
+  openingHours?: { open?: string; close?: string; weekdayDescriptions?: string[] };
   timeWarning?: string;
   linkedDocumentId?: string;
   conflict?: ScheduleConflict;

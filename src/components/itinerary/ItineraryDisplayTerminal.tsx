@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import type { Itinerary } from '@/types';
 import type { ThemeProps } from '@/types/theme';
 import { useTripStore } from '@/store/tripStore';
+import { checkIfVenueIsClosed } from '@/lib/time/openingHours';
 
 export default function ItineraryDisplayTerminal({
   trip,
@@ -268,11 +269,36 @@ export default function ItineraryDisplayTerminal({
                         const tm = entry.transitMethod ? String(entry.transitMethod) : '';
                         const showTransit = tm && !tm.toLowerCase().includes('walk') && tm !== 'Start of Day';
 
+                        // Soft clash detection
+                        const tripStartDate = trip.startDate;
+                        const allPOIs = useTripStore.getState().allPOIs;
+                        let isClosedClash = false;
+                        
+                        if (entry.time) {
+                          let descriptions = entry.openingHours?.weekdayDescriptions;
+                          if (!descriptions && entry.placeId) {
+                            const matchingPOI = allPOIs.find((p) => p.placeId === entry.placeId);
+                            descriptions = matchingPOI?.openingHours?.weekdayDescriptions;
+                          }
+                          
+                          if (descriptions) {
+                            const visitDate = tripStartDate
+                              ? new Date(new Date(tripStartDate).getTime() + (day.dayNumber - 1) * 24 * 60 * 60 * 1000)
+                              : new Date();
+                            isClosedClash = checkIfVenueIsClosed(visitDate, entry.time, descriptions);
+                          }
+                        }
+
                         return (
-                          <div key={entry.id} className={`flex flex-col ${c.bgHover} p-2 -mx-2 transition-colors group print:border-b print:border-dashed print:border-black/20 print:p-4 print:mx-0`}>
+                          <div key={entry.id} className={`flex flex-col ${c.bgHover} p-2 -mx-2 transition-colors group print:border-b print:border-dashed print:border-black/20 print:p-4 print:mx-0 ${isClosedClash ? 'border-l-2 border-red-400/60 dark:border-red-500/40' : ''}`}>
                             <div className="flex flex-col md:flex-row w-full">
-                              <div className={`w-24 ${c.accent} print:text-black shrink-0 font-bold`}>
-                                {entry.time || 'XX:XX'}
+                              <div className={`w-24 shrink-0 font-bold flex flex-col ${isClosedClash ? 'text-red-500 dark:text-red-400' : c.accent + ' print:text-black'}`}>
+                                <span>{entry.time || 'XX:XX'}</span>
+                                {isClosedClash && (
+                                  <span className="text-[10px] font-bold text-red-500 dark:text-red-400 uppercase tracking-wider flex items-center gap-1">
+                                    ⚠ Closed
+                                  </span>
+                                )}
                               </div>
                               <div className="flex-1">
                                 <span className={`font-bold ${c.textBright} print:text-black mr-2`}>

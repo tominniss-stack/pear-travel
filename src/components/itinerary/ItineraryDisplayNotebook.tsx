@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import QRCode from 'react-qr-code';
 import type { Itinerary, ItineraryEntry, DayItinerary } from '@/types';
@@ -8,6 +8,7 @@ import type { ThemeProps, ClientTripProps } from '@/types/theme';
 import PlaceDetailsModal, { DocumentInfo } from './PlaceDetailsModal';
 import DayMap from './DayMap';
 import { useTripStore } from '@/store/tripStore';
+import { checkIfVenueIsClosed } from '@/lib/time/openingHours';
 
 function getGoogleMapsTravelMode(method?: string) {
   if (!method) return 'transit';
@@ -126,10 +127,31 @@ const InkSplodge = ({ className = '' }: { className?: string }) => (
 );
 
 function TimelineEntryNotebook({
-  entry, nextEntry, isLast, isOdd, index, accommodationName, destination, onPlaceClick, formatCost
+  entry, nextEntry, isLast, isOdd, index, dayNumber, accommodationName, destination, onPlaceClick, formatCost
 }: {
-  entry: ItineraryEntry; nextEntry?: ItineraryEntry; isLast: boolean; isOdd: boolean; index: number; accommodationName?: string; destination: string; onPlaceClick: (placeId: string, poiId: string) => void; formatCost: (cost?: number) => string;
+  entry: ItineraryEntry; nextEntry?: ItineraryEntry; isLast: boolean; isOdd: boolean; index: number; dayNumber: number; accommodationName?: string; destination: string; onPlaceClick: (placeId: string, poiId: string) => void; formatCost: (cost?: number) => string;
 }) {
+  const tripStartDate = useTripStore((state) => state.intake?.startDate);
+  const allPOIs = useTripStore((state) => state.allPOIs);
+
+  const isClosedClash = useMemo(() => {
+    if (!entry.time) return false;
+
+    let descriptions = entry.openingHours?.weekdayDescriptions;
+    if (!descriptions && entry.placeId) {
+      const matchingPOI = allPOIs.find((p) => p.placeId === entry.placeId);
+      descriptions = matchingPOI?.openingHours?.weekdayDescriptions;
+    }
+
+    if (!descriptions) return false;
+
+    const visitDate = tripStartDate
+      ? new Date(new Date(tripStartDate).getTime() + (dayNumber - 1) * 24 * 60 * 60 * 1000)
+      : new Date();
+
+    return checkIfVenueIsClosed(visitDate, entry.time, descriptions);
+  }, [entry.time, entry.openingHours, entry.placeId, allPOIs, dayNumber, tripStartDate]);
+
   const hasPlaceId = !!(entry.placeId && entry.placeId !== "null" && entry.placeId !== "");
   const isBookend = (entry.type === 'ACCOMMODATION' || entry.transitMethod === 'Start of Day') && !entry.isDining;
   
@@ -163,9 +185,14 @@ function TimelineEntryNotebook({
 
       <div className="flex items-start gap-4 md:gap-8 relative z-10">
         <div className="w-12 md:w-16 pt-2 flex-shrink-0 flex flex-col items-center">
-          <span className="font-typewriter text-red-600 dark:text-red-400 border-2 border-red-600/40 dark:border-red-400/40 rounded-sm shadow-sm px-1 md:px-1.5 py-1 -rotate-3 inline-block font-bold text-sm md:text-base mix-blend-multiply dark:mix-blend-screen bg-red-50/50 dark:bg-red-900/20 backdrop-blur-sm">
+          <span className={`font-typewriter border-2 rounded-sm shadow-sm px-1 md:px-1.5 py-1 -rotate-3 inline-block font-bold text-sm md:text-base mix-blend-multiply dark:mix-blend-screen backdrop-blur-sm ${isClosedClash ? 'text-red-600 dark:text-red-400 border-red-600/60 dark:border-red-500/40 bg-red-50/50 dark:bg-red-900/20' : 'text-red-600 dark:text-red-400 border-red-600/40 dark:border-red-400/40 bg-red-50/50 dark:bg-red-900/20'}`}>
             {entry.time ? entry.time.replace(/^0/, '') : 'TBD'}
           </span>
+          {isClosedClash && (
+            <span className="text-[10px] font-bold text-red-500 dark:text-red-400 uppercase tracking-wider flex items-center gap-1 mt-1">
+              ⚠ Closed
+            </span>
+          )}
           {getMarginDoodle()}
         </div>
         
@@ -519,7 +546,7 @@ export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, to
                 {/* The Entries */}
                 <div className="flex flex-col pl-2 md:pl-8">
                   {(activeDay.entries || []).map((entry, index, arr) => (
-                    <TimelineEntryNotebook key={entry.id} entry={entry} nextEntry={arr[index + 1]} isLast={index === arr.length - 1} isOdd={index % 2 !== 0} index={index} accommodationName={accommodationName} onPlaceClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })} formatCost={formatCost} destination={trip.destination} />
+                    <TimelineEntryNotebook key={entry.id} entry={entry} nextEntry={arr[index + 1]} isLast={index === arr.length - 1} isOdd={index % 2 !== 0} index={index} dayNumber={activeDay.dayNumber} accommodationName={accommodationName} onPlaceClick={(placeId, poiId) => setSelectedPOI({ placeId, poiId })} formatCost={formatCost} destination={trip.destination} />
                   ))}
                 </div>
 

@@ -39,18 +39,33 @@ export async function addCollaborator(tripId: string, username: string) {
     }
 
     // 3. Find the user they are trying to invite
-    const userToAdd = await prisma.user.findUnique({ 
-      where: { username: username.toLowerCase() } 
+    const userToAdd = await prisma.user.findFirst({ 
+      where: {
+        OR: [
+          { username: username.toLowerCase() },
+          { email: username.toLowerCase() }
+        ]
+      }
     });
     
     if (!userToAdd) {
       return { error: 'User not found. Please check the username and try again.' };
     }
 
-    // 4. Validate they aren't adding themselves or an existing collaborator
-    if (trip.ownerId === userToAdd.id) return { error: 'You cannot invite the trip owner.' };
-    if (trip.collaborators.some(c => c.id === userToAdd.id)) {
-      return { error: 'User is already a collaborator on this trip.' };
+    // Guard 1: Prevent self-invitation
+    if (userToAdd.id === session.user.id) {
+      return { success: false, error: 'You cannot invite yourself.' };
+    }
+
+    // Guard 2: Prevent duplicate collaborator
+    const alreadyCollaborator = await prisma.trip.findFirst({
+      where: {
+        id: tripId,
+        collaborators: { some: { id: userToAdd.id } }
+      }
+    });
+    if (alreadyCollaborator) {
+      return { success: false, error: 'This user is already a collaborator.' };
     }
 
     // 5. Connect in the database

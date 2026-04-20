@@ -2,7 +2,11 @@ import withSerwistInit from "@serwist/next";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'standalone', 
+  output: 'standalone',
+  
+  experimental: {
+    memoryBasedWorkersCount: true,
+  },
   
   images: {
     remotePatterns: [

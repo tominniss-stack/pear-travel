@@ -6,7 +6,8 @@ import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchAllUserDocuments, deleteDocument } from '@/app/actions/documents';
 import { changePassword } from '@/app/actions/auth';
-import { updateBaseCurrency } from '@/app/actions/profile';
+import { updateBaseCurrency, updatePersonalDetails } from '@/app/actions/profile';
+import { getAllUsers, adminCreateUser, adminDeleteUser } from '@/app/actions/admin';
 import { useTripStore } from '@/store/tripStore';
 import { useProfileStore } from '@/store/profileStore';
 import type { AestheticPreference } from '@/types';
@@ -47,12 +48,6 @@ function HelperText({ children }: { children: React.ReactNode }) {
   return <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed mt-1 mb-4">{children}</p>;
 }
 
-const MOCK_USERS = [
-  { id: '1', name: 'Alice Morgan', email: 'alice@example.com', role: 'Admin' },
-  { id: '2', name: 'Ben Clarke', email: 'ben@example.com', role: 'Editor' },
-  { id: '3', name: 'Chloe Nguyen', email: 'chloe@example.com', role: 'Viewer' },
-];
-
 export default function SettingsPage() {
   const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState<Tab>('account');
@@ -69,6 +64,54 @@ export default function SettingsPage() {
   const [isSavingPassword, setIsSavingPassword] = useState(false);
   const { dailyPacing, transportPreference, diningStyle, idealStartTime, baseCurrency, updateProfile } = useProfileStore();
 
+  // Team management state
+  const [users, setUsers] = useState<any[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [usersError, setUsersError] = useState<string | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserUsername, setNewUserUsername] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserRole, setNewUserRole] = useState('USER');
+  const [createUserError, setCreateUserError] = useState<string | null>(null);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [createUserSuccess, setCreateUserSuccess] = useState(false);
+
+  // Personal Details State
+  const [personalName, setPersonalName] = useState(session?.user?.name || '');
+  const [personalEmail, setPersonalEmail] = useState(session?.user?.email || '');
+  const [personalError, setPersonalError] = useState<string | null>(null);
+  const [personalSuccess, setPersonalSuccess] = useState<string | null>(null);
+  const [isSavingPersonal, setIsSavingPersonal] = useState(false);
+
+  // Initialize from session when available
+  useEffect(() => {
+    if (session?.user) {
+      setPersonalName(session.user.name || '');
+      setPersonalEmail(session.user.email || '');
+    }
+  }, [session]);
+
+  const handlePersonalDetailsChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPersonalError(null);
+    setPersonalSuccess(null);
+    setIsSavingPersonal(true);
+    
+    try {
+      await updatePersonalDetails({ name: personalName, email: personalEmail });
+      setPersonalSuccess('Personal details updated successfully.');
+      setTimeout(() => setPersonalSuccess(null), 2000);
+    } catch (error: any) {
+      setPersonalError(error.message || 'Failed to update personal details.');
+    } finally {
+      setIsSavingPersonal(false);
+    }
+  };
+
+  const isAdmin = session?.user?.role === 'ADMIN';
+
   const handleCurrencyChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newCurrency = e.target.value;
     updateProfile({ baseCurrency: newCurrency });
@@ -83,13 +126,16 @@ export default function SettingsPage() {
     { id: 'CONCIERGE', name: 'Concierge', desc: 'Minimalist architectural luxury.', icon: '🛎️', status: 'coming_soon' },
   ];
 
-  const tabs: { id: Tab; label: string }[] = [
+  const tabs: { id: Tab; label: string; adminOnly?: boolean }[] = [
     { id: 'account', label: 'Account' },
     { id: 'profile', label: 'Travel Profile' },
     { id: 'appearance', label: 'Appearance' },
     { id: 'files', label: 'Files' },
-    { id: 'team', label: 'Team' },
+    { id: 'team', label: 'Team', adminOnly: true },
   ];
+
+  // Filter tabs based on admin status
+  const visibleTabs = tabs.filter(tab => !tab.adminOnly || isAdmin);
 
   useEffect(() => {
     if (activeTab === 'files' && session?.user?.username) {
@@ -97,6 +143,24 @@ export default function SettingsPage() {
       fetchAllUserDocuments(session.user.username).then(setDocuments).finally(() => setIsLoadingDocs(false));
     }
   }, [activeTab, session?.user?.username]);
+
+  // Load users when Team tab becomes active
+  useEffect(() => {
+    if (activeTab === 'team' && isAdmin) {
+      setIsLoadingUsers(true);
+      setUsersError(null);
+      getAllUsers()
+        .then(setUsers)
+        .catch((error) => {
+          if (error.message === 'Forbidden') {
+            setUsersError('Admin access required');
+          } else {
+            setUsersError(error.message || 'Failed to load users');
+          }
+        })
+        .finally(() => setIsLoadingUsers(false));
+    }
+  }, [activeTab, isAdmin]);
 
   const handleLogout = () => { signOut({ callbackUrl: '/login' }); };
 
@@ -122,6 +186,65 @@ export default function SettingsPage() {
       setCurrentPassword(''); setNewPassword(''); setConfirmPassword('');
       setTimeout(() => { setIsChangingPassword(false); setPasswordSuccess(null); }, 2000);
     } else { setPasswordError(result.error || 'Failed to update password.'); }
+  };
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateUserError(null);
+    setCreateUserSuccess(false);
+
+    if (!newUserName || !newUserUsername || !newUserPassword) {
+      setCreateUserError('All fields are required');
+      return;
+    }
+
+    setIsCreatingUser(true);
+    try {
+      const response = await adminCreateUser({
+        name: newUserName,
+        username: newUserUsername,
+        email: newUserEmail,
+        password: newUserPassword,
+        role: newUserRole,
+      });
+      
+      if (!response.success) {
+        setCreateUserError(response.error || 'Failed to create user');
+        setIsCreatingUser(false);
+        return;
+      }
+      
+      setCreateUserSuccess(true);
+      setNewUserName('');
+      setNewUserUsername('');
+      setNewUserEmail('');
+      setNewUserPassword('');
+      setNewUserRole('USER');
+      
+      // Refresh user list
+      const updatedUsers = await getAllUsers();
+      setUsers(updatedUsers);
+      
+      setTimeout(() => {
+        setShowCreateForm(false);
+        setCreateUserSuccess(false);
+      }, 2000);
+    } catch (error: any) {
+      setCreateUserError(error.message || 'Failed to create user');
+    } finally {
+      setIsCreatingUser(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (!confirm(`Are you sure you want to delete ${userName}? This action cannot be undone.`)) return;
+    
+    try {
+      await adminDeleteUser(userId);
+      setUsers(users.filter(u => u.id !== userId));
+    } catch (error: any) {
+      alert(error.message || 'Failed to delete user');
+    }
   };
 
   const formatSize = (bytes: number) => {
@@ -155,7 +278,7 @@ export default function SettingsPage() {
           <nav className="shrink-0 md:w-64 md:border-r border-b md:border-b-0 border-slate-200 dark:border-slate-800/60">
             {/* Mobile: horizontal scrolling tabs */}
             <div className="flex md:hidden gap-1 overflow-x-auto hide-scrollbar px-6 py-3">
-              {tabs.map((t) => (
+              {visibleTabs.map((t) => (
                 <button
                   key={t.id}
                   onClick={() => setActiveTab(t.id)}
@@ -171,7 +294,7 @@ export default function SettingsPage() {
             </div>
             {/* Desktop: vertical sidebar */}
             <div className="hidden md:flex flex-col gap-0.5 p-4">
-              {tabs.map((t) => (
+              {visibleTabs.map((t) => (
                 <button
                   key={t.id}
                   onClick={() => setActiveTab(t.id)}
@@ -194,7 +317,28 @@ export default function SettingsPage() {
               {activeTab === 'account' && (
                 <motion.div key="account" {...fade} className="space-y-10 max-w-xl">
                   <section>
-                    <h2 className="text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-4">Profile</h2>
+                    <h2 className="text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-4">Personal Details</h2>
+                    <form onSubmit={handlePersonalDetailsChange} className="space-y-5 max-w-sm">
+                      <div>
+                        <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1.5">Name</label>
+                        <input type="text" value={personalName} onChange={(e) => setPersonalName(e.target.value)} className={inputCls} placeholder="Your name" />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1.5">Email</label>
+                        <input type="email" value={personalEmail} onChange={(e) => setPersonalEmail(e.target.value)} className={inputCls} placeholder="your@email.com" />
+                      </div>
+                      {personalError && <p className="text-xs text-red-500 font-medium">{personalError}</p>}
+                      {personalSuccess && <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">{personalSuccess}</p>}
+                      <div className="pt-1">
+                        <button type="submit" disabled={isSavingPersonal} className="text-sm font-medium text-slate-900 dark:text-slate-100 px-5 py-2 rounded-full border border-slate-900 dark:border-slate-100 hover:bg-slate-900 hover:text-white dark:hover:bg-slate-100 dark:hover:text-slate-900 transition-all disabled:opacity-40">
+                          {isSavingPersonal ? 'Saving…' : 'Save Details'}
+                        </button>
+                      </div>
+                    </form>
+                  </section>
+                  <Divider />
+                  <section>
+                    <h2 className="text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-4">Account</h2>
                     <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1.5">Username</label>
                     <div className="text-slate-900 dark:text-slate-100 font-mono text-sm bg-transparent px-0 py-2 border-b border-slate-200 dark:border-slate-800">{session?.user?.username || 'Loading...'}</div>
                   </section>
@@ -416,56 +560,170 @@ export default function SettingsPage() {
               {activeTab === 'team' && (
                 <motion.div key="team" {...fade} className="space-y-8 max-w-2xl">
                   <div>
-                    <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 tracking-tight">User Management (Admin)</h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage user accounts, roles, and access permissions.</p>
+                    <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 tracking-tight">User Management</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage user accounts and access permissions.</p>
                   </div>
 
-                  {/* Action buttons */}
-                  <div className="flex flex-wrap gap-3">
-                    <button className="text-sm font-medium text-slate-900 dark:text-slate-100 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-600 transition-colors">
-                      Create New Account
-                    </button>
-                    <button className="text-sm font-medium text-slate-500 dark:text-slate-400 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-600 transition-colors">
-                      Reset Password
-                    </button>
-                    <button className="text-sm font-medium text-red-500 dark:text-red-400 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-800 hover:border-red-300 dark:hover:border-red-800 transition-colors">
-                      Revoke Access
-                    </button>
-                  </div>
+                  {usersError ? (
+                    <div className="py-12 text-center">
+                      <p className="text-sm text-red-500 dark:text-red-400">{usersError}</p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Create User Form */}
+                      {!showCreateForm ? (
+                        <button
+                          onClick={() => setShowCreateForm(true)}
+                          className="text-sm font-medium text-slate-900 dark:text-slate-100 px-4 py-2 rounded-lg border border-slate-900 dark:border-slate-100 hover:bg-slate-900 hover:text-white dark:hover:bg-slate-100 dark:hover:text-slate-900 transition-all"
+                        >
+                          + Create User
+                        </button>
+                      ) : (
+                        <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-6 space-y-4">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100">Create New User</h3>
+                            <button
+                              onClick={() => {
+                                setShowCreateForm(false);
+                                setCreateUserError(null);
+                                setNewUserName('');
+                                setNewUserUsername('');
+                                setNewUserEmail('');
+                                setNewUserPassword('');
+                                setNewUserRole('USER');
+                              }}
+                              className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                          <form onSubmit={handleCreateUser} className="space-y-4">
+                            <div>
+                              <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1.5">Name</label>
+                              <input
+                                type="text"
+                                value={newUserName}
+                                onChange={(e) => { setNewUserName(e.target.value); setCreateUserError(null); }}
+                                required
+                                className={inputCls}
+                                placeholder="Full name"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1.5">Username</label>
+                              <input
+                                type="text"
+                                value={newUserUsername}
+                                onChange={(e) => { setNewUserUsername(e.target.value); setCreateUserError(null); }}
+                                required
+                                className={inputCls}
+                                placeholder="username"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1.5">Email</label>
+                              <input
+                                type="email"
+                                value={newUserEmail}
+                                onChange={(e) => { setNewUserEmail(e.target.value); setCreateUserError(null); }}
+                                className={inputCls}
+                                placeholder="user@email.com"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1.5">Temporary Password</label>
+                              <input
+                                type="password"
+                                value={newUserPassword}
+                                onChange={(e) => { setNewUserPassword(e.target.value); setCreateUserError(null); }}
+                                required
+                                className={inputCls}
+                                placeholder="••••••••"
+                              />
+                              <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 italic">
+                                Share this temporary password securely — it will not be shown again after you close this form.
+                              </p>
+                            </div>
+                            <div>
+                              <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1.5">Role</label>
+                              <select
+                                value={newUserRole}
+                                onChange={(e) => { setNewUserRole(e.target.value); setCreateUserError(null); }}
+                                className="w-full bg-transparent text-sm text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-800 rounded-lg px-4 py-2 focus:outline-none focus:border-slate-900 dark:focus:border-slate-100 transition-colors appearance-none cursor-pointer"
+                              >
+                                <option value="USER">User</option>
+                                <option value="ADMIN">Admin</option>
+                              </select>
+                            </div>
+                            {createUserError && <p className="text-xs text-red-500 font-medium">{createUserError}</p>}
+                            {createUserSuccess && <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">User created successfully!</p>}
+                            <button
+                              type="submit"
+                              disabled={isCreatingUser}
+                              className="text-sm font-medium text-slate-900 dark:text-slate-100 px-5 py-2 rounded-full border border-slate-900 dark:border-slate-100 hover:bg-slate-900 hover:text-white dark:hover:bg-slate-100 dark:hover:text-slate-900 transition-all disabled:opacity-40"
+                            >
+                              {isCreatingUser ? 'Creating…' : 'Create User'}
+                            </button>
+                          </form>
+                        </div>
+                      )}
 
-                  <Divider />
+                      <Divider />
 
-                  {/* Users table */}
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-slate-200 dark:border-slate-800">
-                          <th className="text-left py-3 pr-6 text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500">Name</th>
-                          <th className="text-left py-3 pr-6 text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500">Email</th>
-                          <th className="text-left py-3 text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500">Role</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                        {MOCK_USERS.map((user) => (
-                          <tr key={user.id} className="group">
-                            <td className="py-3.5 pr-6 text-slate-900 dark:text-slate-100 font-medium">{user.name}</td>
-                            <td className="py-3.5 pr-6 text-slate-500 dark:text-slate-400 font-mono text-xs">{user.email}</td>
-                            <td className="py-3.5">
-                              <span className={`inline-block text-xs font-medium px-2.5 py-1 rounded-full ${
-                                user.role === 'Admin'
-                                  ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900'
-                                  : user.role === 'Editor'
-                                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-                                    : 'bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400'
-                              }`}>
-                                {user.role}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                      {/* Users table */}
+                      {isLoadingUsers ? (
+                        <div className="py-16 text-center text-sm text-slate-400 animate-pulse">Loading users…</div>
+                      ) : users.length === 0 ? (
+                        <div className="py-20 text-center">
+                          <p className="text-sm text-slate-400">No users found.</p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-slate-200 dark:border-slate-800">
+                                <th className="text-left py-3 pr-6 text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500">Name</th>
+                                <th className="text-left py-3 pr-6 text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500">Username</th>
+                                <th className="text-left py-3 pr-6 text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500">Email</th>
+                                <th className="text-left py-3 pr-6 text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500">Role</th>
+                                <th className="text-left py-3 pr-6 text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500">Joined</th>
+                                <th className="text-left py-3 text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                              {users.map((user) => (
+                                <tr key={user.id} className="group">
+                                  <td className="py-3.5 pr-6 text-slate-900 dark:text-slate-100 font-medium">{user.name || 'N/A'}</td>
+                                  <td className="py-3.5 pr-6 text-slate-500 dark:text-slate-400 font-mono text-xs">{user.username}</td>
+                                  <td className="py-3.5 pr-6 text-slate-500 dark:text-slate-400 text-xs">{user.email || 'N/A'}</td>
+                                  <td className="py-3.5 pr-6">
+                                    <span className={`inline-block text-xs font-medium px-2.5 py-1 rounded-full ${
+                                      user.role === 'ADMIN'
+                                        ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900'
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                                    }`}>
+                                      {user.role}
+                                    </span>
+                                  </td>
+                                  <td className="py-3.5 pr-6 text-slate-500 dark:text-slate-400 text-xs tabular-nums">
+                                    {format(new Date(user.createdAt), 'dd MMM yyyy')}
+                                  </td>
+                                  <td className="py-3.5">
+                                    <button
+                                      onClick={() => handleDeleteUser(user.id, user.name || user.username)}
+                                      className="text-xs text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                                    >
+                                      Delete
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>

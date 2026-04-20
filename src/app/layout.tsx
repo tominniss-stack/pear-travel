@@ -5,6 +5,7 @@ import "./globals.css";
 import { Providers } from "@/components/Providers";
 import GlobalNav from "@/components/layout/GlobalNav";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { OnboardingGuard } from "@/components/OnboardingGuard";
 
 const inter = Inter({ subsets: ["latin"], variable: '--font-inter' });
 const playfair = Playfair_Display({ subsets: ["latin"], variable: '--font-playfair' });
@@ -37,10 +38,12 @@ export default function RootLayout({
       <body className="font-sans bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 antialiased selection:bg-brand-500/30 min-h-screen flex flex-col transition-colors duration-300">
         <ThemeProvider>
           <Providers>
-            <GlobalNav />
-            <main className="flex-1 flex flex-col relative z-0">
-              {children}
-            </main>
+            <OnboardingGuard>
+              <GlobalNav />
+              <main className="flex-1 flex flex-col relative z-0">
+                {children}
+              </main>
+            </OnboardingGuard>
           </Providers>
         </ThemeProvider>
         <Script

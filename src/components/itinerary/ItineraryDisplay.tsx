@@ -13,6 +13,8 @@ import DayMap from './DayMap';
 import { useTripStore } from '@/store/tripStore';
 import { fetchTripDocuments } from '@/app/actions/documents';
 import { fetchTripWeather, DailyWeather } from '@/app/actions/weather';
+import { checkIfVenueIsClosed } from '@/lib/time/openingHours';
+import React from 'react';
 
 export interface ClientTripProps {
   id: string;
@@ -370,6 +372,27 @@ function TimelineEntry({
   onPlaceClick: (placeId: string, poiId: string) => void; 
   formatCost: (cost?: number) => string;
 }) {
+  const tripStartDate = useTripStore((state) => state.intake?.startDate);
+  const allPOIs = useTripStore((state) => state.allPOIs);
+
+  const isClosedClash = React.useMemo(() => {
+    if (!entry.time) return false;
+
+    let descriptions = entry.openingHours?.weekdayDescriptions;
+    if (!descriptions && entry.placeId) {
+      const matchingPOI = allPOIs.find((p) => p.placeId === entry.placeId);
+      descriptions = matchingPOI?.openingHours?.weekdayDescriptions;
+    }
+
+    if (!descriptions) return false;
+
+    const visitDate = tripStartDate 
+      ? new Date(new Date(tripStartDate).getTime() + (dayNumber - 1) * 24 * 60 * 60 * 1000)
+      : new Date();
+
+    return checkIfVenueIsClosed(visitDate, entry.time, descriptions);
+  }, [entry.time, entry.openingHours, entry.placeId, allPOIs, dayNumber, tripStartDate]);
+
   const isStartDay = entry.transitMethod === 'Start of Day';
   const hasPlaceId = !!(entry.placeId && entry.placeId !== "" && entry.placeId !== "null");
   
@@ -400,10 +423,15 @@ function TimelineEntry({
     <div className="flex flex-col">
       <div className="flex gap-4 items-start">
         <div className="flex w-16 flex-shrink-0 flex-col items-end pt-1">
-          <span className="text-sm font-bold text-slate-700 dark:text-slate-300 tabular-nums">
+          <span className={`text-sm font-bold tabular-nums ${isClosedClash ? 'text-red-500 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'}`}>
             {entry.time ?? '—'}
             {entry.isFixed && <span className="text-[10px] ml-0.5">📌</span>}
           </span>
+          {isClosedClash && (
+            <span className="text-[10px] font-bold text-red-500 dark:text-red-400 uppercase tracking-wider flex items-center gap-1 mt-1">
+              ⚠ Closed
+            </span>
+          )}
         </div>
 
         <div className="flex flex-col items-center flex-shrink-0 pt-1.5 relative">
