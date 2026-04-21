@@ -40,6 +40,7 @@ model Trip {
   updatedAt            DateTime   @updatedAt
   ownerId              String
   documents            Document[]
+  bookings             Booking[]
   owner                User       @relation("TripOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   collaborators        User[]     @relation("TripCollaborators")
 
@@ -50,14 +51,17 @@ model Document {
   id         String   @id @default(cuid())
   tripId     String
   poiId      String?
+  bookingId  String?
   fileName   String
   fileUrl    String
   mimeType   String?
   sizeBytes  Int?
   uploadedAt DateTime @default(now())
   trip       Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  booking    Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
 
   @@index([tripId])
+  @@index([bookingId])
 }
 
 enum AestheticPreference {
@@ -71,4 +75,50 @@ enum AestheticPreference {
 enum Role {
   ADMIN
   USER
+}
+
+enum BookingType {
+  FLIGHT
+  TRAIN
+  ACCOMMODATION
+  CAR_HIRE
+  TRANSFER
+  OTHER
+}
+
+model Booking {
+  id              String      @id @default(cuid())
+  tripId          String
+  trip            Trip        @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  type            BookingType
+
+  // What
+  title           String      // "British Airways BA456" or "The Hoxton Hotel"
+  confirmationRef String?     // PNR, booking reference
+  notes           String?
+
+  // When
+  startDate       DateTime
+  endDate         DateTime?   // null for single-point events like a flight departure
+
+  // Where (Routing Anchors)
+  placeId         String?     // Google Maps Place ID (crucial for timeline recalc)
+  address         String?
+  lat             Float?      // Explicit floats instead of Json for type safety
+  lng             Float?
+
+  // Specifics
+  originName      String?     // "LHR Terminal 5"
+  destinationName String?     // "JFK Terminal 8"
+  flightNumber    String?
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Attached Documents (Tickets, Confirmations)
+  documents       Document[]
+
+  @@index([tripId])
+  @@map("bookings")
 }

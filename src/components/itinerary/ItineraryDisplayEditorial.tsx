@@ -739,46 +739,6 @@ export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, bas
                     </div>
                   </div>
 
-                  {/* ── THE DOSSIER (FLIGHTS & LODGING) ── */}
-                  <div className="mt-16 md:mt-24 pt-12 border-t border-black dark:border-white">
-                    <h2 className="font-mono text-[10px] tracking-[0.4em] uppercase text-black/60 dark:text-white/60 font-medium mb-12 text-center">
-                      Logistics & Accommodations
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-24">
-                      
-                      {/* Departures / Flights */}
-                      <div>
-                        <h3 className="font-serif text-3xl mb-6 text-black dark:text-white">Transit</h3>
-                        <div className="border-l border-black/20 dark:border-white/20 pl-6 space-y-6">
-                          <div>
-                            <p className="font-mono text-[9px] tracking-widest uppercase text-black/60 dark:text-white/60 font-medium mb-1">Outbound Flight</p>
-                            <p className="font-serif text-xl text-black dark:text-white italic opacity-50">Not yet specified.</p>
-                          </div>
-                          <div>
-                            <p className="font-mono text-[9px] tracking-widest uppercase text-black/60 dark:text-white/60 font-medium mb-1">Return Flight</p>
-                            <p className="font-serif text-xl text-black dark:text-white italic opacity-50">Not yet specified.</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Accommodations */}
-                      <div>
-                        <h3 className="font-serif text-3xl mb-6 text-black dark:text-white">Lodging</h3>
-                        <div className="border-l border-black/20 dark:border-white/20 pl-6 space-y-6">
-                          <div>
-                            <p className="font-mono text-[9px] tracking-widest uppercase text-black/60 dark:text-white/60 font-medium mb-1">Primary Residence</p>
-                            {trip.intake?.accommodation ? (
-                              <p className="font-serif text-xl text-black dark:text-white italic">{trip.intake.accommodation}</p>
-                            ) : (
-                              <p className="font-serif text-xl text-black dark:text-white italic opacity-50">Not yet specified.</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                    </div>
-                  </div>
-
                 </div>
               </div>
             )}
