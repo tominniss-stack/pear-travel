@@ -13,6 +13,7 @@ const config: Config = {
         // App Core & Editorial Theme
         sans: ['var(--font-inter)', 'Inter', 'system-ui', 'sans-serif'],
         serif: ['var(--font-playfair)', 'Georgia', 'serif'],
+        editorial: ['var(--font-editorial)', '"Georgia"', 'serif'],
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
         // Notebook Theme
         handwriting: ['var(--font-caveat)', 'cursive'],

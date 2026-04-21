@@ -8,7 +8,13 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { OnboardingGuard } from "@/components/OnboardingGuard";
 
 const inter = Inter({ subsets: ["latin"], variable: '--font-inter' });
-const playfair = Playfair_Display({ subsets: ["latin"], variable: '--font-playfair' });
+const playfair = Playfair_Display({
+  subsets: ['latin'],
+  variable: '--font-playfair',
+  display: 'swap',
+  weight: ['400', '700', '900'],
+  style: ['normal', 'italic']
+});
 const caveat = Caveat({ subsets: ["latin"], variable: '--font-caveat', display: 'swap' });
 const specialElite = Special_Elite({ weight: "400", subsets: ["latin"], variable: '--font-special-elite', display: 'swap' });
 

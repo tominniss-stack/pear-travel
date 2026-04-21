@@ -28,8 +28,8 @@ const ItineraryDisplay = dynamic(
   () => import('@/components/itinerary/ItineraryDisplay'),
   { ssr: false, loading: () => <ItineraryThemeLoadingSkeleton /> }
 );
-const ItineraryDisplayV2 = dynamic(
-  () => import('@/components/itinerary/ItineraryDisplayV2'),
+const ItineraryDisplayEditorial = dynamic(
+  () => import('@/components/itinerary/ItineraryDisplayEditorial'),
   { ssr: false, loading: () => <ItineraryThemeLoadingSkeleton /> }
 );
 const ItineraryDisplayNotebook = dynamic(
@@ -42,7 +42,7 @@ const ItineraryDisplayTerminal = dynamic(
 );
 
 export const preloadThemes = {
-  editorial: () => import('@/components/itinerary/ItineraryDisplayV2'),
+  editorial: () => import('@/components/itinerary/ItineraryDisplayEditorial'),
   default:   () => import('@/components/itinerary/ItineraryDisplay'),
   notebook:  () => import('@/components/itinerary/ItineraryDisplayNotebook'),
   terminal:  () => import('@/components/itinerary/ItineraryDisplayTerminal'),
@@ -324,9 +324,9 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
             return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} totalCostBase={totalCostBase} baseCurrencyCode={baseCurrencyCode} basecamps={basecamps} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditAction={handleEditTrip} />;
           })()
         ) : aestheticPreference === 'EDITORIAL' ? (
-          /* Phase 3 will migrate ItineraryDisplayV2 to ThemeProps */
+          /* Phase 3 will migrate ItineraryDisplayEditorial to ThemeProps */
           (() => {
-            const C = ItineraryDisplayV2 as any;
+            const C = ItineraryDisplayEditorial as any;
             return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} totalCostBase={totalCostBase} baseCurrencyCode={baseCurrencyCode} basecamps={basecamps} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditRequest={handleEditTrip} />;
           })()
         ) : (

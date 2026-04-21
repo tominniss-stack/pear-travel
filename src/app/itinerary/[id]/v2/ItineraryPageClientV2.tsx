@@ -34,13 +34,13 @@ const ItineraryDisplay = dynamic(
   () => import('@/components/itinerary/ItineraryDisplay'),
   { ssr: false, loading: () => <ItineraryThemeLoadingSkeleton /> }
 );
-const ItineraryDisplayV2 = dynamic(
-  () => import('@/components/itinerary/ItineraryDisplayV2'),
+const ItineraryDisplayEditorial = dynamic(
+  () => import('@/components/itinerary/ItineraryDisplayEditorial'),
   { ssr: false, loading: () => <ItineraryThemeLoadingSkeleton /> }
 );
 
 export const preloadThemes = {
-  editorial: () => import('@/components/itinerary/ItineraryDisplayV2'),
+  editorial: () => import('@/components/itinerary/ItineraryDisplayEditorial'),
   default:   () => import('@/components/itinerary/ItineraryDisplay'),
   notebook:  () => import('@/components/itinerary/ItineraryDisplayNotebook'),
   terminal:  () => import('@/components/itinerary/ItineraryDisplayTerminal'),
@@ -158,17 +158,13 @@ export default function ItineraryPageClientV2({ dbTrip, dbItinerary }: Itinerary
         </div>
       </div>
 
-      {/* RENDER THE TERMINAL THEME HERE */}
-      <ItineraryDisplayTerminal
+      {/* RENDER THE EDITORIAL THEME HERE */}
+      <ItineraryDisplayEditorial
         itinerary={currentItinerary}
         trip={dbTrip}
-        briefing={briefing}
-        totalCostBase={totalCostBase} baseCurrencyCode={baseCurrencyCode}
-        basecamps={basecamps}
-        onOpenLedger={() => router.push(`/itinerary/${dbTrip.id}/ledger`)}
-        onOpenDocs={() => setIsFilingCabinetOpen(true)}
-        onOpenCalendar={() => setIsCalendarModalOpen(true)}
-        onEditTrip={() => { /* V2 handles edit locally */ }}
+        totalCostBase={totalCostBase} 
+        baseCurrencyCode={baseCurrencyCode}
+        onEditRequest={() => { /* V2 handles edit locally */ }}
       />
     </div>
   );

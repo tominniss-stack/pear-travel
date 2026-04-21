@@ -30,3 +30,15 @@ body {
   font-size: 0.95rem !important;
   color: #0f172a !important;
 }
+
+@layer utilities {
+  .dot-leader {
+    background-image: radial-gradient(circle, rgba(0,0,0,0.3) 1px, transparent 1px);
+    background-size: 6px 1px;
+    background-repeat: repeat-x;
+    background-position: bottom;
+  }
+  .dark .dot-leader {
+    background-image: radial-gradient(circle, rgba(255,255,255,0.4) 1px, transparent 1px);
+  }
+}
