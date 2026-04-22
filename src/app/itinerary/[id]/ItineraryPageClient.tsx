@@ -51,7 +51,7 @@ export const preloadThemes = {
 import CalendarExportModal from '@/components/itinerary/CalendarExportModal';
 import FilingCabinet from '@/components/itinerary/FilingCabinet';
 import ThemeInjector from '@/components/layout/ThemeInjector';
-import type { Itinerary, TripIntake } from '@/types';
+import type { Itinerary, TripIntake, ClientBooking } from '@/types';
 import type { DocumentInfo } from '@/components/itinerary/PlaceDetailsModal';
 import { useTripStore } from '@/store/tripStore';
 import { useHydratedProfileStore } from '@/store/profileStore';
@@ -67,6 +67,7 @@ export interface ClientTripProps {
   startDate: string | null;
   endDate: string | null;
   intake: TripIntake;
+  bookings: ClientBooking[];
 }
 
 interface ItineraryPageClientProps {
@@ -81,6 +82,7 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
   const setItinerary = useTripStore((state) => state.setItinerary);
   const setIntake = useTripStore((state) => state.setIntake);
   const setCurrentTripId = useTripStore((state) => state.setCurrentTripId);
+  const setBookings = useTripStore((state) => state.setBookings);
   const itinerary = useTripStore((state) => state.itinerary);
   const aestheticPreference = useTripStore((state) => state.aestheticPreference);
 
@@ -101,7 +103,8 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
     setItinerary(dbItinerary);
     setIntake(dbTrip.intake);
     setCurrentTripId(dbTrip.id);
-  }, [dbItinerary, dbTrip, setItinerary, setIntake, setCurrentTripId]);
+    setBookings(dbTrip.bookings);
+  }, [dbItinerary, dbTrip, setItinerary, setIntake, setCurrentTripId, setBookings]);
 
   // ── Document Loader ─────────────────────────────────────────────────────────
   const loadDocuments = useCallback(() => {

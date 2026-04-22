@@ -46,7 +46,7 @@ export const preloadThemes = {
   terminal:  () => import('@/components/itinerary/ItineraryDisplayTerminal'),
 };
 
-import type { Itinerary, TripIntake } from '@/types';
+import type { Itinerary, TripIntake, ClientBooking } from '@/types';
 import { useTripStore } from '@/store/tripStore';
 import { useHydratedProfileStore } from '@/store/profileStore';
 import { parseBriefingSemantics } from '@/lib/briefingParser';
@@ -58,7 +58,8 @@ export interface ClientTripProps {
   budgetGBP: number;
   startDate: string | null;
   endDate: string | null;
-  intake: TripIntake; 
+  intake: TripIntake;
+  bookings: ClientBooking[];
 }
 
 interface ItineraryPageClientProps {
@@ -71,6 +72,7 @@ export default function ItineraryPageClientV2({ dbTrip, dbItinerary }: Itinerary
   const setItinerary = useTripStore((state) => state.setItinerary);
   const setIntake = useTripStore((state) => state.setIntake);
   const setCurrentTripId = useTripStore((state) => state.setCurrentTripId);
+  const setBookings = useTripStore((state) => state.setBookings);
   const itinerary = useTripStore((state) => state.itinerary);
   const setDisplayCurrency = useTripStore((state) => state.setDisplayCurrency);
 
@@ -124,9 +126,10 @@ export default function ItineraryPageClientV2({ dbTrip, dbItinerary }: Itinerary
   useEffect(() => {
     setIsMounted(true);
     setItinerary(dbItinerary);
-    setIntake(dbTrip.intake); 
+    setIntake(dbTrip.intake);
     setCurrentTripId(dbTrip.id);
-  }, [dbItinerary, dbTrip, setItinerary, setIntake, setCurrentTripId]);
+    setBookings(dbTrip.bookings);
+  }, [dbItinerary, dbTrip, setItinerary, setIntake, setCurrentTripId, setBookings]);
 
   const currentItinerary = itinerary || dbItinerary;
 

@@ -10,7 +10,10 @@ export default async function PlaygroundPage({ params }: { params: Promise<{ id:
   const { id } = await params; // 👈 THIS LINE WAS MISSING
 
   const dbTrip = await prisma.trip.findUnique({
-    where: { id }, // 👈 was { id: id } which errored because id wasn't defined yet
+    where: { id },
+    include: {
+      bookings: true,
+    },
   });
 
   if (!dbTrip) {
@@ -31,6 +34,13 @@ export default async function PlaygroundPage({ params }: { params: Promise<{ id:
     startDate: trip.startDate?.toISOString() || null,
     endDate: trip.endDate?.toISOString() || null,
     intake: trip.intake,
+    bookings: dbTrip.bookings.map(b => ({
+      ...b,
+      startDate: b.startDate.toISOString(),
+      endDate: b.endDate?.toISOString() ?? null,
+      createdAt: b.createdAt.toISOString(),
+      updatedAt: b.updatedAt.toISOString(),
+    })),
   };
 
   return (

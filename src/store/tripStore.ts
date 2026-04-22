@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import { persist, devtools, createJSONStorage } from 'zustand/middleware';
 import { useEffect, useState } from 'react';
-import type { TripIntake, Itinerary, POI, ItineraryEntry, TripStore, LockedAccommodation, MiscExpense, AestheticPreference } from '@/types';
+import type { TripIntake, Itinerary, POI, ItineraryEntry, TripStore, LockedAccommodation, MiscExpense, AestheticPreference, ClientBooking } from '@/types';
 import { recalculateItinerary } from '@/lib/itinerary/recalc';
 
 // ── SavedTrip type ────────────────────────────────────────────────────────────
@@ -60,6 +60,9 @@ export const useTripStore = create<TripStore>()(
         // ── Weather & Hydration State ───────────────────────────────────────
         weatherForecast: [],
         pendingPlaceResolutions: {},
+
+        // ── Logistics State ────────────────────────────────────────────────
+        bookings: [],
 
         // ── Phase 8 Theme State ─────────────────────────────────────────────
         aestheticPreference: 'CLASSIC' as AestheticPreference,
@@ -132,6 +135,10 @@ export const useTripStore = create<TripStore>()(
 
         setDisplayCurrency: (currency: 'GBP' | 'LOCAL') =>
           set({ displayCurrency: currency }, false, 'setDisplayCurrency'),
+
+        // ── Logistics Actions ──────────────────────────────────────────────
+        setBookings: (bookings) =>
+          set({ bookings }, false, 'setBookings'),
 
         // ── Theme Actions ───────────────────────────────────────────────────
         setAestheticPreference: (pref: AestheticPreference) =>
@@ -449,7 +456,8 @@ export const useTripStore = create<TripStore>()(
               itinerary:               null,
               currentTripId:           null,
               weatherForecast:         [],
-              pendingPlaceResolutions: {}, 
+              pendingPlaceResolutions: {},
+              bookings:                [],
             },
             false,
             'resetStore',

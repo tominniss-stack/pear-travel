@@ -6,6 +6,14 @@ import { authOptions } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { BookingType } from '@prisma/client';
 
+/*
+ * ARCHITECTURE NOTES FOR FUTURE IMPLEMENTATION (LOGISTICS ENGINE):
+ * 1. Waypoints: When building the UI, `ItineraryEntry` needs a `bookingRef` string and `isWaypoint` boolean to support mid-day bag drops at hotels.
+ * 2. Dangling Refs: The deleteBooking action must eventually nullify any bookingRef inside the itinerary JSON. This requires a raw PostgreSQL update (prisma.$executeRaw) or an in-memory mutation, since Prisma cannot do nested JSON field updates natively. Plan for this before shipping the Logistics UI.
+ * 3. Day Boundary Logic: In `recalc.ts`, transit bookings belong to a day strictly based on their `startDate` (even if an overnight flight lands on the next day).
+ * 4. Locked UX: Bookend entries in `SortableItinerary` must be locked (no drag handle) and should have a "Managed" badge to afford clickability to the Logistics Modal.
+ */
+
 export type CreateBookingInput = {
   tripId: string;
   type: BookingType;
@@ -21,6 +29,10 @@ export type CreateBookingInput = {
   originName?: string | null;
   destinationName?: string | null;
   flightNumber?: string | null;
+  destinationPlaceId?: string | null;
+  destinationAddress?: string | null;
+  destinationLat?: number | null;
+  destinationLng?: number | null;
 };
 
 // Helper to check trip access
@@ -67,6 +79,10 @@ export async function createBooking(data: CreateBookingInput) {
       originName: data.originName || null,
       destinationName: data.destinationName || null,
       flightNumber: data.flightNumber || null,
+      destinationPlaceId: data.destinationPlaceId || null,
+      destinationAddress: data.destinationAddress || null,
+      destinationLat: data.destinationLat || null,
+      destinationLng: data.destinationLng || null,
     }
   });
 
@@ -97,6 +113,10 @@ export async function updateBooking(
       originName: data.originName ?? undefined,
       destinationName: data.destinationName ?? undefined,
       flightNumber: data.flightNumber ?? undefined,
+      destinationPlaceId: data.destinationPlaceId ?? undefined,
+      destinationAddress: data.destinationAddress ?? undefined,
+      destinationLat: data.destinationLat ?? undefined,
+      destinationLng: data.destinationLng ?? undefined,
     }
   });
 

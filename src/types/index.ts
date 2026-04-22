@@ -114,6 +114,34 @@ export interface MiscExpense {
 }
 // ─────────────────────────────────
 
+// ── NEW: Logistics Engine Types ──
+export type BookingType = 'FLIGHT' | 'TRAIN' | 'ACCOMMODATION' | 'CAR_HIRE' | 'TRANSFER' | 'OTHER';
+
+export interface ClientBooking {
+  id:                 string;
+  tripId:             string;
+  type:               BookingType;
+  title:              string;
+  confirmationRef:    string | null;
+  notes:              string | null;
+  startDate:          string;   // ISO string
+  endDate:            string | null; // ISO string
+  placeId:            string | null;
+  address:            string | null;
+  lat:                number | null;
+  lng:                number | null;
+  originName:         string | null;
+  destinationPlaceId: string | null;
+  destinationAddress: string | null;
+  destinationLat:     number | null;
+  destinationLng:     number | null;
+  destinationName:    string | null;
+  flightNumber:       string | null;
+  createdAt:          string;
+  updatedAt:          string;
+}
+// ─────────────────────────────────
+
 export interface ItineraryEntry {
   id: string;
   type: EntryType;
@@ -135,6 +163,10 @@ export interface ItineraryEntry {
   linkedDocumentId?: string;
   conflict?: ScheduleConflict;
   requiresReschedule?: boolean; // ── Clash Interceptor: item was ejected from timeline due to a fixed event conflict ──
+
+  // ── NEW: Logistics Integration ──
+  bookingRef?: string;       // References a ClientBooking.id (e.g. for mid-day bag drops)
+  isWaypoint?: boolean;      // True if this is a routing waypoint linked to a booking
 }
 
 // ── Regenerate Day API Response ───────────────────────────────────────────────
@@ -223,6 +255,10 @@ export interface TripStore {
   setDisplayCurrency: (currency: 'GBP' | 'LOCAL') => void;
   weatherForecast: any[];
   pendingPlaceResolutions: Record<string, Partial<ItineraryEntry>>;
+
+  // ── NEW: Logistics State ──
+  bookings: ClientBooking[];
+  setBookings: (bookings: ClientBooking[]) => void;
 
   // ── PHASE 8: THEME ENGINE TYPES ──
   aestheticPreference: AestheticPreference;

@@ -108,6 +108,12 @@ model Booking {
   lat             Float?      // Explicit floats instead of Json for type safety
   lng             Float?
 
+  // Destination Routing Anchors (Crucial for Flights/Trains crossing cities)
+  destinationPlaceId String?
+  destinationAddress String?
+  destinationLat     Float?
+  destinationLng     Float?
+
   // Specifics
   originName      String?     // "LHR Terminal 5"
   destinationName String?     // "JFK Terminal 8"
