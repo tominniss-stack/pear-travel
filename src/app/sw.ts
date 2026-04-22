@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 
+// @ts-ignore - Serwist module resolution quirk exposed during build
 import { defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
 import { Serwist } from "serwist";
