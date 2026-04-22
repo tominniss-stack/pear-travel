@@ -1,8 +1,12 @@
 /// <reference lib="webworker" />
 
-// @ts-ignore - Serwist module resolution quirk exposed during build
+// @ts-ignore - Serwist module resolution quirk: resolves in 
+// local TS server but fails during next build's service worker 
+// compilation context.
 import { defaultCache } from "@serwist/next/worker";
+// @ts-ignore - Same Serwist resolution quirk as above
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
+// @ts-ignore - Same Serwist resolution quirk as above
 import { Serwist } from "serwist";
 
 declare global {

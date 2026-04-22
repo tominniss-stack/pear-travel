@@ -38,6 +38,7 @@ RUN npx prisma generate
 # for the build stage — the real value is injected at runtime.
 ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder"
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
 
 # ── ADDED: Expose the Google Places key to the build step ──
 ARG NEXT_PUBLIC_GOOGLE_PLACES_API_KEY
