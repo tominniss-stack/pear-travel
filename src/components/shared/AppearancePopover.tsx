@@ -36,6 +36,7 @@ export function AppearancePopover() {
       <Popover.Portal>
         <Popover.Content
           sideOffset={8}
+          collisionPadding={16}
           className="bg-panel-surface dark:bg-panel-surface-dark border border-panel-border dark:border-panel-border-dark rounded-xl shadow-2xl p-4 w-72 z-50"
         >
           <div className="space-y-4">
@@ -80,7 +81,7 @@ export function AppearancePopover() {
                   <button
                     onClick={() => setTheme("light")}
                     disabled={isTerminalTheme}
-                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
                       theme === "light" && !isTerminalTheme
                         ? "bg-panel-surface dark:bg-panel-surface-dark text-panel-text-primary dark:text-panel-text-inverse shadow-sm"
                         : "text-panel-text-secondary dark:text-panel-text-secondary"
@@ -95,7 +96,7 @@ export function AppearancePopover() {
                   </button>
                   <button
                     onClick={() => setTheme("dark")}
-                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
                       theme === "dark" || isTerminalTheme
                         ? "bg-panel-surface dark:bg-panel-surface-dark text-panel-text-primary dark:text-panel-text-inverse shadow-sm"
                         : "text-panel-text-secondary dark:text-panel-text-secondary"
@@ -107,7 +108,7 @@ export function AppearancePopover() {
                   <button
                     onClick={() => setTheme("system")}
                     disabled={isTerminalTheme}
-                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
                       theme === "system" && !isTerminalTheme
                         ? "bg-panel-surface dark:bg-panel-surface-dark text-panel-text-primary dark:text-panel-text-inverse shadow-sm"
                         : "text-panel-text-secondary dark:text-panel-text-secondary"

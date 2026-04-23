@@ -2,7 +2,6 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import ThemeToggle from './ThemeToggle';
 import { AppearancePopover } from "@/components/shared/AppearancePopover";
 
 export default function GlobalNav() {
@@ -44,7 +43,7 @@ export default function GlobalNav() {
           </div>
           <div className="pl-2 border-l border-slate-200 dark:border-slate-800 ml-2">
             <AppearancePopover />
-            <ThemeToggle />
+
           </div>
         </div>
       </div>
