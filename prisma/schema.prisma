@@ -16,6 +16,7 @@ model User {
   updatedAt           DateTime            @updatedAt
   role                Role                @default(USER)
   aestheticPreference AestheticPreference @default(CLASSIC)
+  displayMode         DisplayMode         @default(SYSTEM)
   baseCurrency        String              @default("GBP")
   email               String?             @unique
   onboardingComplete  Boolean             @default(false)
@@ -43,6 +44,8 @@ model Trip {
   bookings             Booking[]
   owner                User       @relation("TripOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   collaborators        User[]     @relation("TripCollaborators")
+  themeOverride        AestheticPreference?
+  displayModeOverride  DisplayMode?
 
   @@index([ownerId])
 }
@@ -69,7 +72,12 @@ enum AestheticPreference {
   EDITORIAL
   NOTEBOOK
   TERMINAL
-  CONCIERGE
+}
+
+enum DisplayMode {
+  LIGHT
+  DARK
+  SYSTEM
 }
 
 enum Role {

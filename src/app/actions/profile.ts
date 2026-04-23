@@ -24,7 +24,7 @@ export async function updateBaseCurrency(currency: string) {
   }
 }
 
-export async function updatePersonalDetails(data: { name?: string, email?: string }) {
+export async function updatePersonalDetails(data: { name?: string, email?: string, displayMode?: string }) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.username) {
@@ -36,6 +36,7 @@ export async function updatePersonalDetails(data: { name?: string, email?: strin
       data: {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.email !== undefined && { email: data.email }),
+        ...(data.displayMode !== undefined && { displayMode: data.displayMode as any }),
       }
     });
 
@@ -60,6 +61,7 @@ export async function getUserProfile() {
       select: {
         baseCurrency: true,
         aestheticPreference: true,
+        displayMode: true,
       }
     });
 

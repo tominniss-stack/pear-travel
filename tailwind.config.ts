@@ -33,6 +33,31 @@ const config: Config = {
           900: '#064e3b',
           950: '#022c22',
         },
+
+        // Control Panel Design System
+        panel: {
+          surface: {
+            DEFAULT: '#FFFFFF',
+            dark: '#1C1C1E',
+          },
+          elevated: {
+            DEFAULT: '#FFFFFF',
+            dark: '#2C2C2E',
+          },
+          border: {
+            DEFAULT: '#E5E5EA',
+            dark: '#38383A',
+          },
+          brand: {
+            DEFAULT: '#4A7C59',
+            hover: '#3D6B4A',
+          },
+          text: {
+            primary: '#1C1C1E',   // Dark charcoal for light mode body text
+            secondary: '#6E6E73', // Muted grey for labels and hints
+            inverse: '#FFFFFF',   // White text on dark surfaces
+          }
+        },
       },
       animation: {
         'fade-in': 'fadeIn 0.4s ease-in-out',
