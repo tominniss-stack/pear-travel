@@ -3,17 +3,28 @@
 import * as Popover from "@radix-ui/react-popover";
 import { useTheme } from "next-themes";
 import { Palette, Sun, Moon, Monitor, RotateCcw } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition } from "react";
+import { useTripStore } from "@/store/tripStore";
+import { updateTripThemeAction } from "@/app/actions/trip";
 
 export function AppearancePopover() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const [activeCanvas, setActiveCanvas] = useState<
-    "CLASSIC" | "EDITORIAL" | "NOTEBOOK" | "TERMINAL"
-  >("CLASSIC");
-  // TODO: Read from Zustand store once themeOverride is wired into ClientTripProps
+  const activeCanvas = useTripStore((state) => state.themeOverride) || "CLASSIC";
+  const setThemeOverride = useTripStore((state) => state.setThemeOverride);
+  const tripId = useTripStore((state) => state.currentTripId);
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => setMounted(true), []);
+
+  const handleThemeChange = (theme: 'CLASSIC' | 'EDITORIAL' | 'NOTEBOOK' | 'TERMINAL') => {
+    setThemeOverride(theme); // Instant optimistic UI update
+    if (tripId) {
+      startTransition(() => {
+        updateTripThemeAction(tripId, theme as any);
+      });
+    }
+  };
 
   const isTerminalTheme = activeCanvas === "TERMINAL";
 
@@ -27,7 +38,8 @@ export function AppearancePopover() {
     <Popover.Root>
       <Popover.Trigger asChild>
         <button
-          aria-label="Appearance"
+          aria-label="Change trip appearance"
+          title="Change trip appearance"
           className="p-2 rounded-full bg-panel-elevated dark:bg-panel-elevated-dark hover:bg-panel-border dark:hover:bg-panel-border-dark transition-colors"
         >
           <Palette className="h-5 w-5 text-panel-text-primary dark:text-panel-text-inverse" />
@@ -47,7 +59,7 @@ export function AppearancePopover() {
               <p className="text-xs text-panel-text-secondary dark:text-panel-text-secondary">
                 Visual theme for your itinerary
               </p>
-              <div className="grid grid-cols-2 gap-2 mt-2">
+              <div className="grid grid-cols-2 gap-3 w-full">
                 {(
                   [
                     "CLASSIC",
@@ -58,15 +70,16 @@ export function AppearancePopover() {
                 ).map((canvas) => (
                   <button
                     key={canvas}
-                    onClick={() => setActiveCanvas(canvas)}
-                    className={`px-3 py-2 text-sm rounded-md font-medium transition-colors ${
+                    onClick={() => handleThemeChange(canvas)}
+                    className={`group relative flex flex-col items-center justify-center h-16 w-full min-w-0 rounded-xl border-2 transition-all hover:scale-[1.02] active:scale-95 ${
                       activeCanvas === canvas
-                        ? "bg-panel-brand dark:bg-panel-brand text-panel-text-inverse dark:text-panel-text-inverse"
-                        : "bg-panel-elevated dark:bg-panel-elevated-dark text-panel-text-primary dark:text-panel-text-inverse hover:bg-panel-border dark:hover:bg-panel-border-dark"
+                        ? "bg-panel-brand dark:bg-panel-brand text-panel-text-inverse dark:text-panel-text-inverse border-panel-brand"
+                        : "bg-panel-elevated dark:bg-panel-elevated-dark text-panel-text-primary dark:text-panel-text-inverse hover:bg-panel-border dark:hover:bg-panel-border-dark border-transparent"
                     }`}
                   >
-                    {canvas.charAt(0) +
-                      canvas.slice(1).toLowerCase()}
+                    <span className="text-[9px] font-black uppercase tracking-widest truncate w-full px-1">
+                      {canvas}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -137,7 +150,9 @@ export function AppearancePopover() {
             <p className="text-xs text-panel-text-secondary dark:text-panel-text-secondary">
               Trip override active.
             </p>
-            <button className="flex items-center gap-1.5 text-xs font-semibold text-panel-text-secondary dark:text-panel-text-secondary hover:text-panel-brand dark:hover:text-panel-brand transition-colors">
+            <button 
+              onClick={() => handleThemeChange("CLASSIC")}
+              className="flex items-center gap-1.5 text-xs font-semibold text-panel-text-secondary dark:text-panel-text-secondary hover:text-panel-brand dark:hover:text-panel-brand transition-colors">
               <RotateCcw className="h-3 w-3" />
               Reset to Default
             </button>

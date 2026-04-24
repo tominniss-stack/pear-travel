@@ -31,6 +31,7 @@ export default async function ItineraryPage({ params }: { params: Promise<{ id: 
     startDate: trip.startDate?.toISOString() || null,
     endDate: trip.endDate?.toISOString() || null,
     intake: trip.intake,
+    themeOverride: dbTrip.themeOverride,
     bookings: dbTrip.bookings.map(b => ({
       ...b,
       startDate: b.startDate.toISOString(),

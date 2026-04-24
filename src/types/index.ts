@@ -263,8 +263,10 @@ export interface TripStore {
   // ── PHASE 8: THEME ENGINE TYPES ──
   aestheticPreference: AestheticPreference;
   useDynamicColors: boolean;
+  themeOverride?: 'CLASSIC' | 'EDITORIAL' | 'NOTEBOOK' | 'TERMINAL' | null;
   setAestheticPreference: (pref: AestheticPreference) => void;
   toggleDynamicColors: () => void;
+  setThemeOverride: (theme: 'CLASSIC' | 'EDITORIAL' | 'NOTEBOOK' | 'TERMINAL') => void;
   // ─────────────────────────────────
 
   applyPendingHydration: () => void;

@@ -68,6 +68,7 @@ export interface ClientTripProps {
   endDate: string | null;
   intake: TripIntake;
   bookings: ClientBooking[];
+  themeOverride?: 'CLASSIC' | 'EDITORIAL' | 'NOTEBOOK' | 'TERMINAL' | null;
 }
 
 interface ItineraryPageClientProps {
@@ -83,8 +84,10 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
   const setIntake = useTripStore((state) => state.setIntake);
   const setCurrentTripId = useTripStore((state) => state.setCurrentTripId);
   const setBookings = useTripStore((state) => state.setBookings);
+  const setThemeOverride = useTripStore((state) => state.setThemeOverride);
   const itinerary = useTripStore((state) => state.itinerary);
   const aestheticPreference = useTripStore((state) => state.aestheticPreference);
+  const activeTheme = useTripStore((state) => state.themeOverride) || 'CLASSIC';
 
   // ── UI Store ────────────────────────────────────────────────────────────────
   const activeModal = useUIStore((s) => s.activeModal);
@@ -105,6 +108,15 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
     setCurrentTripId(dbTrip.id);
     setBookings(dbTrip.bookings);
   }, [dbItinerary, dbTrip, setItinerary, setIntake, setCurrentTripId, setBookings]);
+
+  useEffect(() => {
+    console.log("HYDRATING FROM SERVER:", dbTrip?.themeOverride);
+    if (dbTrip?.themeOverride) {
+      setThemeOverride(dbTrip.themeOverride);
+    } else {
+      setThemeOverride('CLASSIC');
+    }
+  }, [dbTrip?.id, dbTrip?.themeOverride, setThemeOverride]);
 
   // ── Document Loader ─────────────────────────────────────────────────────────
   const loadDocuments = useCallback(() => {
@@ -284,7 +296,7 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
         </div>
       ) : (
         // STATE 2: VIEWING MODE (Hide entirely for Terminal so it stays immersive)
-        aestheticPreference !== 'TERMINAL' && (
+        activeTheme !== 'TERMINAL' && (
           <div className="print:hidden mb-6 max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
             <Link
               href="/dashboard"
@@ -295,7 +307,7 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
             </Link>
 
             {/* Hide the standard Edit button for Notebook since it provides its own native UI tab */}
-            {aestheticPreference !== 'NOTEBOOK' && (
+            {activeTheme !== 'NOTEBOOK' && (
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -314,19 +326,19 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
       {isEditing ? (
         <SortableItinerary />
       ) : (
-        aestheticPreference === 'TERMINAL' ? (
+        activeTheme === 'TERMINAL' ? (
           /* Phase 3 will migrate ItineraryDisplayTerminal to ThemeProps */
           (() => {
             const C = ItineraryDisplayTerminal as any;
             return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} totalCostBase={totalCostBase} baseCurrencyCode={baseCurrencyCode} basecamps={basecamps} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditAction={handleEditTrip} />;
           })()
-        ) : aestheticPreference === 'NOTEBOOK' ? (
+        ) : activeTheme === 'NOTEBOOK' ? (
           /* Phase 3 will migrate ItineraryDisplayNotebook to ThemeProps */
           (() => {
             const C = ItineraryDisplayNotebook as any;
             return <C itinerary={currentItinerary} trip={dbTrip} briefing={briefing} totalCostBase={totalCostBase} baseCurrencyCode={baseCurrencyCode} basecamps={basecamps} onOpenLedger={handleOpenLedger} onOpenDocs={handleOpenDocs} onOpenCalendar={handleOpenCalendar} onEditTrip={handleEditTrip} onEditAction={handleEditTrip} />;
           })()
-        ) : aestheticPreference === 'EDITORIAL' ? (
+        ) : activeTheme === 'EDITORIAL' ? (
           /* Phase 3 will migrate ItineraryDisplayEditorial to ThemeProps */
           (() => {
             const C = ItineraryDisplayEditorial as any;

@@ -293,7 +293,7 @@ export default function DashboardPage() {
           <p className="mt-2 sm:mt-3 text-sm sm:text-base text-slate-500 dark:text-slate-400 font-medium">Manage your saved Pear Travel itineraries.</p>
         </div>
         <Link 
-          href="/generate" 
+          href="/" 
           className="inline-flex items-center justify-center gap-2 bg-brand-600 px-6 py-3.5 sm:py-3 rounded-2xl text-sm font-bold text-white shadow-lg hover:bg-brand-700 hover:-translate-y-0.5 transition-all w-full sm:w-auto"
         >
           <span className="text-lg leading-none pb-0.5">+</span> New Trip
@@ -307,7 +307,7 @@ export default function DashboardPage() {
           <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">Your passport is empty</h3>
           <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 mt-2 mb-8">Ready to plan your next adventure?</p>
           <Link 
-            href="/generate" 
+            href="/" 
             className="inline-block bg-white dark:bg-slate-800 px-8 py-3.5 sm:py-3 rounded-xl border border-slate-200 dark:border-slate-700 font-bold text-brand-600 dark:text-brand-400 shadow-sm hover:shadow-md hover:border-brand-300 dark:hover:border-brand-700 transition-all"
           >
             Start Planning →

@@ -23,6 +23,12 @@ services:
       - ./src:/app/src
       - ./prisma:/app/prisma
       - ./public:/app/public
+      - ./tailwind.config.ts:/app/tailwind.config.ts
+      - ./next.config.ts:/app/next.config.ts
+      - ./postcss.config.js:/app/postcss.config.js
+      - ./postcss.config.mjs:/app/postcss.config.mjs
+      - ./package.json:/app/package.json 
+      - ./package-lock.json:/app/package-lock.json
       - ${HOST_UPLOAD_PATH}:/app/public/uploads
     depends_on:
       db:

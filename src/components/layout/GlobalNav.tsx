@@ -6,6 +6,7 @@ import { AppearancePopover } from "@/components/shared/AppearancePopover";
 
 export default function GlobalNav() {
   const pathname = usePathname();
+  const isItineraryPage = pathname?.startsWith('/itinerary/');
 
   if (pathname === '/login') return null;
 
@@ -42,8 +43,7 @@ export default function GlobalNav() {
             </Link>
           </div>
           <div className="pl-2 border-l border-slate-200 dark:border-slate-800 ml-2">
-            <AppearancePopover />
-
+            {isItineraryPage && <AppearancePopover />}
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { AestheticPreference } from '@prisma/client';
 
 // ── 1. The Creation Engine (V3) ──
 export async function createTripAction(data: {
@@ -165,5 +166,33 @@ export async function lockTripDates(tripId: string, startDateIso: string, endDat
     if (error instanceof Error && error.message === 'Unauthorised') throw error;
     console.error("Failed to lock dates", error);
     throw new Error('Server error while locking dates.');
+  }
+}
+
+export async function updateTripThemeAction(tripId: string, theme: AestheticPreference) {
+  console.log("ACTUAL THEME SAVING:", theme, "FOR TRIP:", tripId);
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    const trip = await prisma.trip.findUnique({
+      where: { id: tripId },
+      select: { ownerId: true, collaborators: { select: { id: true } } }
+    });
+    
+    if (!trip || (trip.ownerId !== session.user.id && !trip.collaborators.some(c => c.id === session.user.id))) {
+      throw new Error('Unauthorised');
+    }
+
+    await prisma.trip.update({
+      where: { id: tripId },
+      data: { themeOverride: theme }
+    });
+
+    revalidatePath(`/itinerary/${tripId}`);
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to update trip theme:", error);
+    return { success: false, error: "Failed to update theme" };
   }
 }

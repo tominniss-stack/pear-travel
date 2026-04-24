@@ -67,6 +67,7 @@ export const useTripStore = create<TripStore>()(
         // ── Phase 8 Theme State ─────────────────────────────────────────────
         aestheticPreference: 'CLASSIC' as AestheticPreference,
         useDynamicColors: true,
+        themeOverride: null,
 
         // ── V3 Architecture: Optimistic Hydration ───────────────────────────
         applyPendingHydration: () => set(state => {
@@ -146,6 +147,9 @@ export const useTripStore = create<TripStore>()(
 
         toggleDynamicColors: () =>
           set((state) => ({ useDynamicColors: !state.useDynamicColors }), false, 'toggleDynamicColors'),
+
+        setThemeOverride: (theme: 'CLASSIC' | 'EDITORIAL' | 'NOTEBOOK' | 'TERMINAL') =>
+          set({ themeOverride: theme }, false, 'setThemeOverride'),
 
         // ── Weather Actions ─────────────────────────────────────────────────
         setWeatherForecast: (forecast: any[]) =>
