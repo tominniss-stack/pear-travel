@@ -68,6 +68,7 @@ export const useTripStore = create<TripStore>()(
         aestheticPreference: 'CLASSIC' as AestheticPreference,
         useDynamicColors: true,
         themeOverride: null,
+        terminalColor: null,
 
         // ── V3 Architecture: Optimistic Hydration ───────────────────────────
         applyPendingHydration: () => set(state => {
@@ -150,6 +151,9 @@ export const useTripStore = create<TripStore>()(
 
         setThemeOverride: (theme: 'CLASSIC' | 'EDITORIAL' | 'NOTEBOOK' | 'TERMINAL') =>
           set({ themeOverride: theme }, false, 'setThemeOverride'),
+
+        setTerminalColor: (color: string) =>
+          set({ terminalColor: color }, false, 'setTerminalColor'),
 
         // ── Weather Actions ─────────────────────────────────────────────────
         setWeatherForecast: (forecast: any[]) =>

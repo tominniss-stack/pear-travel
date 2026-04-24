@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import Link from 'next/link';
 import type { Itinerary } from '@/types';
 import type { ThemeProps } from '@/types/theme';
 import { useTripStore } from '@/store/tripStore';
 import { checkIfVenueIsClosed } from '@/lib/time/openingHours';
+import { updateTripTerminalColorAction } from '@/app/actions/trip';
 
 export default function ItineraryDisplayTerminal({
   trip,
@@ -26,7 +27,19 @@ export default function ItineraryDisplayTerminal({
   const { displayCurrency, exchangeRate, toggleCurrency } = useTripStore();
   const [bootLog, setBootLog] = useState<string[]>([]);
   const [isBooted, setIsBooted] = useState(false);
-  const [colorTheme, setColorTheme] = useState<'emerald' | 'red' | 'white'>('emerald');
+  const terminalColor = (useTripStore((state) => state.terminalColor) as 'emerald' | 'red' | 'white') || 'emerald';
+  const setTerminalColor = useTripStore((state) => state.setTerminalColor);
+  const tripId = useTripStore((state) => state.currentTripId);
+  const [isPending, startTransition] = useTransition();
+
+  const handleColorChange = (color: 'emerald' | 'red' | 'white') => {
+    setTerminalColor(color);
+    if (tripId) {
+      startTransition(() => {
+        updateTripTerminalColorAction(tripId, color);
+      });
+    }
+  };
   
   const localCurrencyRaw = essentials?.currency || '';
   const localSymbol = localCurrencyRaw.split(' ')[0] || '€';
@@ -86,7 +99,7 @@ export default function ItineraryDisplayTerminal({
     }
   };
 
-  const c = themeClasses[colorTheme];
+  const c = themeClasses[terminalColor] || themeClasses['emerald'];
 
   return (
     <div className={`w-full min-h-screen bg-black print:bg-white ${c.text} print:text-black font-mono p-4 md:p-8 ${c.selection} overflow-x-hidden transition-colors duration-300`}>
@@ -109,9 +122,9 @@ export default function ItineraryDisplayTerminal({
           <div className="flex flex-wrap justify-between items-center mb-8 border-b border-dashed print:hidden pb-4 gap-4">
             <div className="flex gap-3 text-xs tracking-widest">
               <span className="opacity-50">COLOR:</span>
-              <button onClick={() => setColorTheme('emerald')} className={`${c.hoverTextBright} ${colorTheme === 'emerald' ? c.textBright : c.accent}`}>[GRN]</button>
-              <button onClick={() => setColorTheme('red')} className={`${c.hoverTextBright} ${colorTheme === 'red' ? c.textBright : c.accent}`}>[RED]</button>
-              <button onClick={() => setColorTheme('white')} className={`${c.hoverTextBright} ${colorTheme === 'white' ? c.textBright : c.accent}`}>[WHT]</button>
+              <button onClick={() => handleColorChange('emerald')} className={`${c.hoverTextBright} ${terminalColor === 'emerald' ? c.textBright : c.accent}`}>[GRN]</button>
+              <button onClick={() => handleColorChange('red')} className={`${c.hoverTextBright} ${terminalColor === 'red' ? c.textBright : c.accent}`}>[RED]</button>
+              <button onClick={() => handleColorChange('white')} className={`${c.hoverTextBright} ${terminalColor === 'white' ? c.textBright : c.accent}`}>[WHT]</button>
             </div>
             
             <div className="flex flex-wrap gap-4 text-xs tracking-widest">

@@ -264,9 +264,11 @@ export interface TripStore {
   aestheticPreference: AestheticPreference;
   useDynamicColors: boolean;
   themeOverride?: 'CLASSIC' | 'EDITORIAL' | 'NOTEBOOK' | 'TERMINAL' | null;
+  terminalColor?: string | null;
   setAestheticPreference: (pref: AestheticPreference) => void;
   toggleDynamicColors: () => void;
   setThemeOverride: (theme: 'CLASSIC' | 'EDITORIAL' | 'NOTEBOOK' | 'TERMINAL') => void;
+  setTerminalColor: (color: string) => void;
   // ─────────────────────────────────
 
   applyPendingHydration: () => void;

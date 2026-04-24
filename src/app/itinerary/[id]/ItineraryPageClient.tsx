@@ -69,6 +69,7 @@ export interface ClientTripProps {
   intake: TripIntake;
   bookings: ClientBooking[];
   themeOverride?: 'CLASSIC' | 'EDITORIAL' | 'NOTEBOOK' | 'TERMINAL' | null;
+  terminalColor?: string | null;
 }
 
 interface ItineraryPageClientProps {
@@ -85,6 +86,7 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
   const setCurrentTripId = useTripStore((state) => state.setCurrentTripId);
   const setBookings = useTripStore((state) => state.setBookings);
   const setThemeOverride = useTripStore((state) => state.setThemeOverride);
+  const setTerminalColor = useTripStore((state) => state.setTerminalColor);
   const itinerary = useTripStore((state) => state.itinerary);
   const aestheticPreference = useTripStore((state) => state.aestheticPreference);
   const activeTheme = useTripStore((state) => state.themeOverride) || 'CLASSIC';
@@ -116,7 +118,8 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
     } else {
       setThemeOverride('CLASSIC');
     }
-  }, [dbTrip?.id, dbTrip?.themeOverride, setThemeOverride]);
+    setTerminalColor(dbTrip?.terminalColor || 'GREEN');
+  }, [dbTrip?.id, dbTrip?.themeOverride, dbTrip?.terminalColor, setThemeOverride, setTerminalColor]);
 
   // ── Document Loader ─────────────────────────────────────────────────────────
   const loadDocuments = useCallback(() => {

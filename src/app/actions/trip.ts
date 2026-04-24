@@ -196,3 +196,30 @@ export async function updateTripThemeAction(tripId: string, theme: AestheticPref
     return { success: false, error: "Failed to update theme" };
   }
 }
+
+export async function updateTripTerminalColorAction(tripId: string, color: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error("Unauthorized");
+
+    const trip = await prisma.trip.findUnique({
+      where: { id: tripId },
+      select: { ownerId: true, collaborators: { select: { id: true } } }
+    });
+    
+    if (!trip || (trip.ownerId !== session.user.id && !trip.collaborators.some(c => c.id === session.user.id))) {
+      throw new Error('Unauthorised');
+    }
+
+    await prisma.trip.update({
+      where: { id: tripId },
+      data: { terminalColor: color }
+    });
+
+    revalidatePath(`/itinerary/${tripId}`);
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to update trip terminal color:", error);
+    return { success: false, error: "Failed to update terminal color" };
+  }
+}

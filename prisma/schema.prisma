@@ -46,6 +46,7 @@ model Trip {
   collaborators        User[]     @relation("TripCollaborators")
   themeOverride        AestheticPreference?
   displayModeOverride  DisplayMode?
+  terminalColor        String?
 
   @@index([ownerId])
 }
