@@ -111,29 +111,29 @@ function TripCard({ trip, onDelete, onUpdate }: { trip: TripCardData; onDelete: 
 
   return (
     <div className="relative flex flex-col h-full group">
-      
+
       {/* ── Action Menu (Three Dots) ── */}
       <div className="absolute right-3 top-3 z-30" ref={menuRef}>
-        <button 
+        <button
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowMenu(!showMenu); }}
           disabled={isSaving}
-          className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-400 dark:text-slate-500 transition-colors disabled:opacity-50"
+          className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 dark:text-zinc-500 transition-colors disabled:opacity-50"
           aria-label="Trip Options"
         >
           <span className="text-xl leading-none pb-2">...</span>
         </button>
 
         {showMenu && (
-          <div className="absolute right-0 top-full mt-1 w-56 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xl sm:w-48 animate-in fade-in zoom-in-95 duration-150">
-            <button 
+          <div className="absolute right-0 top-full mt-1 w-52 overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 sm:w-48 animate-in fade-in zoom-in-95 duration-150">
+            <button
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowMenu(false); setIsRenaming(true); }}
-              className="flex w-full items-center px-4 py-3.5 sm:py-3 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
+              className="flex w-full items-center px-4 py-3.5 sm:py-3 text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
             >
               ✏️ Rename Trip
             </button>
-            <button 
+            <button
               onClick={handleToggleStatus}
-              className="flex w-full items-center px-4 py-3.5 sm:py-3 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors border-t border-slate-100 dark:border-slate-700/50"
+              className="flex w-full items-center px-4 py-3.5 sm:py-3 text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors border-t border-zinc-100 dark:border-zinc-800"
             >
               {trip.isBooked ? '🗺️ Revert to Planning' : '✈️ Mark as Booked'}
             </button>
@@ -145,18 +145,18 @@ function TripCard({ trip, onDelete, onUpdate }: { trip: TripCardData; onDelete: 
       <Link
         href={`/itinerary/${trip.id}`}
         onClick={(e) => { if (isRenaming) e.preventDefault(); }}
-        className={`flex flex-col flex-1 overflow-hidden rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm transition-all duration-300 hover:border-brand-500 hover:shadow-xl dark:hover:border-brand-400 ${
+        className={`flex flex-col flex-1 overflow-hidden rounded-3xl border border-zinc-100 dark:border-zinc-800/50 bg-zinc-50 dark:bg-zinc-900/50 transition-colors duration-300 hover:bg-zinc-100 dark:hover:bg-zinc-900 ${
           isDeleting ? 'opacity-30 grayscale pointer-events-none' : ''
         }`}
       >
         <div className="flex flex-1 flex-col p-5 sm:p-6 relative z-10">
-          
+
           {/* Status Badge */}
           <div className="mb-4">
-            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest shadow-sm border ${
-              trip.isBooked 
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50' 
-                : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50'
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] tracking-widest uppercase font-medium border ${
+              trip.isBooked
+                ? 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'
+                : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700'
             }`}>
               {trip.isBooked ? '✓ Booked' : '⏳ Planning'}
             </span>
@@ -176,56 +176,54 @@ function TripCard({ trip, onDelete, onUpdate }: { trip: TripCardData; onDelete: 
                   if (e.key === 'Escape') { setIsRenaming(false); setNewTitle(trip.title); }
                 }}
                 disabled={isSaving}
-                className="w-full rounded-xl border-2 border-brand-500 bg-brand-50 dark:bg-slate-900 px-3 py-2 text-lg sm:text-xl font-black text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-brand-500/20 transition-all"
+                className="w-full rounded-xl border border-brand-500 bg-white dark:bg-zinc-900 px-3 py-2 text-lg sm:text-xl font-medium text-zinc-900 dark:text-white outline-none focus:ring-2 focus:ring-brand-500/20 transition-all"
                 onClick={(e) => e.preventDefault()}
               />
             ) : (
-              <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white line-clamp-2 leading-tight">
+              <h3 className="text-xl font-medium tracking-tight text-zinc-900 dark:text-white line-clamp-2 leading-tight">
                 {trip.title || `Trip to ${trip.destination}`}
               </h3>
             )}
-            <span className="text-sm font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-1">
-              <span>📍</span> {trip.destination}
+            <span className="text-sm text-zinc-500 mt-1">
+              {trip.destination}
             </span>
           </div>
 
           {/* Metadata */}
-          <div className="mt-auto flex flex-col gap-2.5 text-sm text-slate-600 dark:text-slate-300 font-medium">
-            <div className="flex items-center gap-2"><span>📅</span>
-              {trip.startDate && trip.endDate ? (
-                <span>{format(new Date(trip.startDate), 'MMM d')} – {format(new Date(trip.endDate), 'MMM d, yyyy')}</span>
-              ) : (
-                <span>{trip.duration} days</span>
-              )}
-            </div>
-            <div className="flex items-center gap-2"><span>💷</span><span>£{trip.budgetGBP.toLocaleString('en-GB')} budget</span></div>
+          <div className="mt-auto flex flex-col gap-2 text-sm text-zinc-500">
+            <span>
+              {trip.startDate && trip.endDate
+                ? `${format(new Date(trip.startDate), 'MMM d')} – ${format(new Date(trip.endDate), 'MMM d, yyyy')}`
+                : `${trip.duration} days`}
+            </span>
+            <span>£{trip.budgetGBP.toLocaleString('en-GB')} budget</span>
           </div>
         </div>
 
         {/* ── Footer ── */}
-        <div className="border-t border-slate-100 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/30 px-5 sm:px-6 py-4 flex justify-between items-center min-h-[64px] relative z-20">
-          <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 dark:text-slate-500">
+        <div className="border-t border-zinc-200/60 dark:border-zinc-800 px-5 sm:px-6 py-4 flex justify-between items-center min-h-[60px] relative z-20">
+          <p className="text-[10px] uppercase tracking-widest text-zinc-400">
             {format(new Date(trip.createdAt), 'dd MMM yyyy')}
           </p>
-          
+
           <div className="flex items-center gap-3">
             {confirmDelete && (
-              <button 
+              <button
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setConfirmDelete(false); }}
-                className="text-[10px] font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors py-2"
+                className="text-[10px] font-medium text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors py-2"
               >
                 Cancel
               </button>
             )}
             <button
               onClick={handleDelete}
-              className={`px-4 py-2 sm:px-3 sm:py-1.5 rounded-xl sm:rounded-lg text-[10px] font-black uppercase tracking-wider transition-all border shadow-sm ${
-                confirmDelete 
-                  ? 'bg-red-600 text-white border-red-700 animate-pulse' 
-                  : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:text-red-600 dark:hover:text-red-400 hover:border-red-200 dark:hover:border-red-900/50'
+              className={`px-3 py-1.5 rounded-xl text-[10px] font-medium uppercase tracking-wider transition-all border ${
+                confirmDelete
+                  ? 'bg-red-600 text-white border-red-700 animate-pulse'
+                  : 'bg-white dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700 hover:text-red-600 dark:hover:text-red-400 hover:border-red-200 dark:hover:border-red-900/50'
               }`}
             >
-              {isDeleting ? '...' : confirmDelete ? 'Confirm?' : 'Delete'}
+              {isDeleting ? '…' : confirmDelete ? 'Confirm?' : 'Delete'}
             </button>
           </div>
         </div>
@@ -284,47 +282,49 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:py-12 lg:px-8 animate-in fade-in duration-500">
-      
-      {/* Header */}
-      <div className="mb-8 sm:mb-12 flex flex-col sm:flex-row sm:items-end justify-between gap-5">
-        <div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tight">My Trips</h1>
-          <p className="mt-2 sm:mt-3 text-sm sm:text-base text-slate-500 dark:text-slate-400 font-medium">Manage your saved Pear Travel itineraries.</p>
-        </div>
-        <Link 
-          href="/" 
-          className="inline-flex items-center justify-center gap-2 bg-brand-600 px-6 py-3.5 sm:py-3 rounded-2xl text-sm font-bold text-white shadow-lg hover:bg-brand-700 hover:-translate-y-0.5 transition-all w-full sm:w-auto"
-        >
-          <span className="text-lg leading-none pb-0.5">+</span> New Trip
-        </Link>
-      </div>
+    <div className="min-h-screen bg-white dark:bg-zinc-950 px-4 sm:px-6 lg:px-8 pt-24 pb-12 animate-in fade-in duration-500">
+      <div className="mx-auto max-w-6xl">
 
-      {/* Grid or Empty State */}
-      {trips.length === 0 ? (
-        <div className="rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 px-6 py-24 sm:py-32 text-center shadow-sm">
-          <span className="text-6xl sm:text-7xl block mb-6 animate-bounce">🏝️</span>
-          <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">Your passport is empty</h3>
-          <p className="text-sm sm:text-base text-slate-500 dark:text-slate-400 mt-2 mb-8">Ready to plan your next adventure?</p>
-          <Link 
-            href="/" 
-            className="inline-block bg-white dark:bg-slate-800 px-8 py-3.5 sm:py-3 rounded-xl border border-slate-200 dark:border-slate-700 font-bold text-brand-600 dark:text-brand-400 shadow-sm hover:shadow-md hover:border-brand-300 dark:hover:border-brand-700 transition-all"
+        {/* Header */}
+        <div className="mb-8 sm:mb-12 flex flex-col sm:flex-row sm:items-end justify-between gap-5">
+          <div>
+            <h1 className="text-3xl sm:text-4xl tracking-tight font-medium text-zinc-900 dark:text-white">My Trips</h1>
+            <p className="text-sm text-zinc-500 mt-2">Manage your saved Pear Travel itineraries.</p>
+          </div>
+          <Link
+            href="/generate"
+            className="inline-flex items-center justify-center gap-2 bg-brand-600 text-white px-6 py-3 rounded-full text-sm font-medium hover:bg-brand-700 active:scale-95 transition-all w-full sm:w-auto"
           >
-            Start Planning →
+            <span className="text-base leading-none">+</span> New Trip
           </Link>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-6 sm:gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {trips.map(trip => (
-            <TripCard 
-              key={trip.id} 
-              trip={trip} 
-              onDelete={removeTripFromUI} 
-              onUpdate={updateTripInUI} 
-            />
-          ))}
-        </div>
-      )}
+
+        {/* Grid or Empty State */}
+        {trips.length === 0 ? (
+          <div className="px-6 py-24 sm:py-32 text-center">
+            <span className="text-6xl sm:text-7xl block mb-6">🏝️</span>
+            <h3 className="text-2xl font-medium tracking-tight text-zinc-900 dark:text-white">Your passport is empty</h3>
+            <p className="text-sm text-zinc-500 mt-2 mb-8">Ready to plan your next adventure?</p>
+            <Link
+              href="/generate"
+              className="inline-flex items-center gap-2 bg-brand-600 text-white px-8 py-3 rounded-full text-sm font-medium hover:bg-brand-700 active:scale-95 transition-all"
+            >
+              Start Planning →
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 mt-8">
+            {trips.map(trip => (
+              <TripCard
+                key={trip.id}
+                trip={trip}
+                onDelete={removeTripFromUI}
+                onUpdate={updateTripInUI}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

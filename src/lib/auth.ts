@@ -54,7 +54,7 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
         token.username = user.username;
@@ -62,6 +62,10 @@ export const authOptions: NextAuthOptions = {
         token.onboardingComplete = user.onboardingComplete;
         token.email = user.email;
         token.name = user.name;
+      }
+      // Allow client-side session.update() to push onboardingComplete into the JWT
+      if (trigger === 'update' && session?.onboardingComplete !== undefined) {
+        token.onboardingComplete = session.onboardingComplete;
       }
       return token;
     },

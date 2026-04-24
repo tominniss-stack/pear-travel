@@ -1,3 +1,17 @@
+// ── Pear Travel App Shell Design System ──────────────────────────
+// Canvas:       bg-white (light) / bg-zinc-950 (dark)
+// Surface:      bg-zinc-50 (light) / bg-zinc-900 (dark)
+// Surface+:     bg-zinc-100 (light) / bg-zinc-800 (dark)
+// Border:       border-zinc-200 (light) / border-zinc-800 (dark)
+// Text Primary: text-zinc-900 (light) / text-zinc-50 (dark)
+// Text Muted:   text-zinc-500 (both)
+// Text Micro:   text-zinc-400 (both) — for 10px uppercase labels
+// Brand:        text-brand-600 / bg-brand-600 — ONLY for creation actions
+// Radius Large: rounded-3xl — intake form, dashboard cards
+// Radius Med:   rounded-2xl — modals, popovers
+// Radius Small: rounded-xl — buttons, inputs, tags
+// Shadow:       NONE — use surface contrast instead
+// ────────────────────────────────────────────────────────────────
 import type { Config } from "tailwindcss";
 
 const config: Config = {

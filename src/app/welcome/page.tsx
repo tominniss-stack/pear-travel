@@ -5,8 +5,9 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   useProfileStore,
@@ -19,6 +20,7 @@ import type {
 } from '@/store/profileStore';
 import { DisplayModeToggle } from '@/components/shared/DisplayModeToggle';
 import { ThemeShowcase } from '@/components/welcome/ThemeShowcase';
+import { completeOnboardingAction } from '@/app/actions/profile';
 
 // ── Animation Variants ────────────────────────────────────────────────────────
 
@@ -85,11 +87,13 @@ export default function WelcomePage() {
 
 function OnboardingWizard() {
   const router = useRouter();
+  const { update: updateSession } = useSession();
   const { dailyPacing, transportPreference, diningStyle, idealStartTime, updateProfile } =
     useProfileStore();
 
   const [step, setStep] = useState(1);
   const totalSteps = 6;
+  const [isPending, startTransition] = useTransition();
 
   const handleNext = useCallback(() => {
     if (step < totalSteps) {
@@ -106,9 +110,24 @@ function OnboardingWizard() {
   }, [step]);
 
   const handleComplete = useCallback(() => {
-    updateProfile({ hasCompletedOnboarding: true });
-    router.push('/dashboard');
-  }, [updateProfile, router]);
+    startTransition(async () => {
+      try {
+        // 1. Persist to database
+        await completeOnboardingAction();
+
+        // 2. Force NextAuth to rewrite the encrypted JWT cookie with the new flag
+        await updateSession({ onboardingComplete: true });
+
+        // 3. Update local Zustand state
+        updateProfile({ hasCompletedOnboarding: true });
+
+        // 4. Hard navigate — bypasses Next.js Router cache so middleware sees fresh JWT
+        window.location.href = '/dashboard';
+      } catch (error) {
+        console.error('Failed to complete onboarding', error);
+      }
+    });
+  }, [updateProfile, updateSession]);
 
   return (
     <div className="flex min-h-screen flex-col bg-white dark:bg-slate-950">
@@ -345,10 +364,11 @@ function OnboardingWizard() {
           ) : (
             <button
               type="button"
+              disabled={isPending}
               onClick={handleComplete}
-              className="rounded-full bg-slate-900 px-8 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:bg-slate-800 hover:shadow-xl active:scale-[0.97] dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+              className="rounded-full bg-slate-900 px-8 py-3 text-sm font-semibold text-white shadow-lg transition-all duration-200 hover:bg-slate-800 hover:shadow-xl active:scale-[0.97] dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Complete ✓
+              {isPending ? 'Completing…' : 'Complete ✓'}
             </button>
           )}
         </div>

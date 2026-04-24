@@ -69,6 +69,18 @@ export async function updateUserAestheticPreferenceAction(theme: string) {
   }
 }
 
+export async function completeOnboardingAction() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) throw new Error('Unauthorized');
+
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: { onboardingComplete: true },
+  });
+
+  return { success: true };
+}
+
 export async function getUserProfile() {
 
   try {
