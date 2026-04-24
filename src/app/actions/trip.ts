@@ -23,6 +23,13 @@ export async function createTripAction(data: {
   if (!session?.user?.id) throw new Error('Unauthorised');
 
   try {
+    // Fetch the user's aesthetic preference to seed the trip's themeOverride
+    const userPrefs = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { aestheticPreference: true },
+    });
+    const themeOverride = userPrefs?.aestheticPreference ?? 'CLASSIC';
+
     const result = await prisma.$transaction(async (tx) => {
       // Create the Master Trip directly using the JSON blobs
       // The user already exists via NextAuth, no upsert needed.
@@ -34,9 +41,10 @@ export async function createTripAction(data: {
           startDate: data.startDate,
           endDate: data.endDate,
           bookingMode: data.bookingMode,
-          ownerId: session.user.id,     // Map directly from session
-          intake: data.intakeData,   // V3 Schema field
-          itinerary: data.itinerary, // V3 Schema field
+          ownerId: session.user.id,       // Map directly from session
+          intake: data.intakeData,        // V3 Schema field
+          itinerary: data.itinerary,      // V3 Schema field
+          themeOverride,                  // Seed from user's global aesthetic preference
         },
       })
 

@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Genesis Onboarding Wizard — /welcome
-// Typeform-style 4-step profile configuration with Framer Motion
+// Typeform-style 6-step profile configuration with Framer Motion
 // ─────────────────────────────────────────────────────────────────────────────
 
 'use client';
@@ -17,6 +17,8 @@ import type {
   TransportPreference,
   DiningStyle,
 } from '@/store/profileStore';
+import { DisplayModeToggle } from '@/components/shared/DisplayModeToggle';
+import { ThemeShowcase } from '@/components/welcome/ThemeShowcase';
 
 // ── Animation Variants ────────────────────────────────────────────────────────
 
@@ -68,6 +70,14 @@ export default function WelcomePage() {
     );
   }
 
+  // Redirect users who have already completed onboarding
+  if (hydrated === true) {
+    if (typeof window !== 'undefined') {
+      window.location.replace('/dashboard');
+    }
+    return null;
+  }
+
   return <OnboardingWizard />;
 }
 
@@ -79,7 +89,7 @@ function OnboardingWizard() {
     useProfileStore();
 
   const [step, setStep] = useState(1);
-  const totalSteps = 4;
+  const totalSteps = 6;
 
   const handleNext = useCallback(() => {
     if (step < totalSteps) {
@@ -253,6 +263,54 @@ function OnboardingWizard() {
                       {time}
                     </button>
                   ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* ═══ STEP 5: App Appearance (Display Mode) ═══ */}
+            {step === 5 && (
+              <motion.div
+                key="step-5"
+                variants={stepVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                transition={{ duration: 0.35, ease: 'easeInOut' }}
+                className="flex flex-col"
+              >
+                <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
+                  How should the<br />app look?
+                </h1>
+                <p className="mt-3 text-base text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Choose your preferred display mode. This controls light and dark appearance across the entire app.
+                </p>
+
+                <div className="mt-10">
+                  <DisplayModeToggle />
+                </div>
+              </motion.div>
+            )}
+
+            {/* ═══ STEP 6: Default Itinerary Aesthetic ═══ */}
+            {step === 6 && (
+              <motion.div
+                key="step-6"
+                variants={stepVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                transition={{ duration: 0.35, ease: 'easeInOut' }}
+                className="flex flex-col"
+              >
+                <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
+                  Pick your default<br />itinerary style.
+                </h1>
+                <p className="mt-3 text-base text-slate-500 dark:text-slate-400 leading-relaxed">
+                  Every new trip will open in this layout. You can always change it per-trip.
+                </p>
+
+                <div className="mt-10">
+                  <ThemeShowcase initialPreference="CLASSIC" />
                 </div>
               </motion.div>
             )}

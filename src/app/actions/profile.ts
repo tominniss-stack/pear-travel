@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { revalidatePath } from 'next/cache';
 
 export async function updateBaseCurrency(currency: string) {
   try {
@@ -45,6 +46,26 @@ export async function updatePersonalDetails(data: { name?: string, email?: strin
     if (error instanceof Error && error.message === 'Unauthorised') throw error;
     console.error('Update personal details error:', error);
     throw new Error('Failed to update personal details.');
+  }
+}
+
+export async function updateUserAestheticPreferenceAction(theme: string) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) throw new Error('Unauthorised');
+
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { aestheticPreference: theme as any },
+    });
+
+    revalidatePath('/welcome');
+    revalidatePath('/');
+    return { success: true };
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Unauthorised') throw error;
+    console.error('Update aesthetic preference error:', error);
+    throw new Error('Failed to update aesthetic preference.');
   }
 }
 

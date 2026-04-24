@@ -13,7 +13,6 @@ const config: Config = {
     'bg-panel-elevated',
     'bg-panel-elevated-dark',
     'bg-panel-border',
-    'bg-panel-brand',
     'border-panel-border',
     'border-panel-border-dark',
     'text-panel-text-primary',
@@ -21,7 +20,6 @@ const config: Config = {
     'text-panel-text-inverse',
     'hover:bg-panel-border',
     'hover:bg-panel-border-dark',
-    'hover:bg-panel-brand-hover',
   ],
   theme: {
     extend: {
@@ -30,17 +28,17 @@ const config: Config = {
       },
       colors: {
         brand: {
-          50:  '#ecfdf5',
-          100: '#d1fae5',
-          200: '#a7f3d0',
-          300: '#6ee7b7',
-          400: '#34d399',
-          500: '#10b981',
-          600: '#059669',
-          700: '#047857',
-          800: '#065f46',
-          900: '#064e3b',
-          950: '#022c22',
+          50:  '#f0f7f3',
+          100: '#dceee4',
+          200: '#bbdecb',
+          300: '#8fc6a9',
+          400: '#5fa882',
+          500: '#3d8f65',  // Primary Pear Green
+          600: '#2d7350',  // Action Green
+          700: '#245f42',
+          800: '#1e4d36',
+          900: '#1a3f2d',
+          950: '#0d2018',
         },
         panel: {
           surface: {
@@ -54,10 +52,6 @@ const config: Config = {
           border: {
             DEFAULT: '#E5E5EA',
             dark:    '#38383A',
-          },
-          brand: {
-            DEFAULT: '#4A7C59',
-            hover:   '#3D6B4A',
           },
           text: {
             primary:   '#1C1C1E',

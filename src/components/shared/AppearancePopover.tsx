@@ -2,10 +2,17 @@
 
 import * as Popover from "@radix-ui/react-popover";
 import { useTheme } from "next-themes";
-import { Palette, Sun, Moon, Monitor, RotateCcw } from "lucide-react";
+import { Palette, LayoutTemplate, Newspaper, BookOpen, TerminalSquare, Sun, Moon, Monitor, RotateCcw } from "lucide-react";
 import { useState, useEffect, useTransition } from "react";
 import { useTripStore } from "@/store/tripStore";
 import { updateTripThemeAction } from "@/app/actions/trip";
+
+const THEMES = [
+  { id: 'CLASSIC', label: 'Classic', desc: 'Clean, structured utility', icon: LayoutTemplate },
+  { id: 'EDITORIAL', label: 'Editorial', desc: 'Elegant magazine aesthetic', icon: Newspaper },
+  { id: 'NOTEBOOK', label: 'Notebook', desc: 'Casual scrapbook vibe', icon: BookOpen },
+  { id: 'TERMINAL', label: 'Terminal', desc: 'Developer CLI layout', icon: TerminalSquare },
+] as const;
 
 export function AppearancePopover() {
   const { theme, setTheme } = useTheme();
@@ -40,119 +47,105 @@ export function AppearancePopover() {
         <button
           aria-label="Change trip appearance"
           title="Change trip appearance"
-          className="p-2 rounded-full bg-panel-elevated dark:bg-panel-elevated-dark hover:bg-panel-border dark:hover:bg-panel-border-dark transition-colors"
+          className="p-2 rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
         >
-          <Palette className="h-5 w-5 text-panel-text-primary dark:text-panel-text-inverse" />
+          <Palette className="h-5 w-5 text-zinc-700 dark:text-zinc-300" />
         </button>
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content
           sideOffset={8}
           collisionPadding={16}
-          className="bg-panel-surface dark:bg-panel-surface-dark border border-panel-border dark:border-panel-border-dark rounded-xl shadow-2xl p-4 w-72 z-50"
+          className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-2xl p-4 w-72 z-50"
         >
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-semibold text-panel-text-primary dark:text-panel-text-inverse">
+              <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                 Trip Canvas
               </label>
-              <p className="text-xs text-panel-text-secondary dark:text-panel-text-secondary">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 Visual theme for your itinerary
               </p>
-              <div className="grid grid-cols-2 gap-3 w-full">
-                {(
-                  [
-                    "CLASSIC",
-                    "EDITORIAL",
-                    "NOTEBOOK",
-                    "TERMINAL",
-                  ] as const
-                ).map((canvas) => (
-                  <button
-                    key={canvas}
-                    onClick={() => handleThemeChange(canvas)}
-                    className={`group relative flex flex-col items-center justify-center h-16 w-full min-w-0 rounded-xl border-2 transition-all hover:scale-[1.02] active:scale-95 ${
-                      activeCanvas === canvas
-                        ? "bg-panel-brand dark:bg-panel-brand text-panel-text-inverse dark:text-panel-text-inverse border-panel-brand"
-                        : "bg-panel-elevated dark:bg-panel-elevated-dark text-panel-text-primary dark:text-panel-text-inverse hover:bg-panel-border dark:hover:bg-panel-border-dark border-transparent"
-                    }`}
-                  >
-                    <span className="text-[9px] font-black uppercase tracking-widest truncate w-full px-1">
-                      {canvas}
-                    </span>
-                  </button>
-                ))}
+              <div className="flex flex-col gap-1 w-full mt-2">
+                {THEMES.map((themeOption) => {
+                  const Icon = themeOption.icon;
+                  const isActive = activeCanvas === themeOption.id;
+
+                  return (
+                    <button
+                      key={themeOption.id}
+                      onClick={() => handleThemeChange(themeOption.id)}
+                      className={`
+                        flex items-center gap-3 p-2 w-full rounded-lg text-left transition-all duration-200 border
+                        ${isActive
+                          ? 'bg-zinc-100/50 border-black/10 dark:bg-zinc-800/50 dark:border-white/10'
+                          : 'bg-transparent border-transparent hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50'}
+                      `}
+                    >
+                      <div className={`p-1.5 rounded-md ${isActive ? 'bg-white dark:bg-zinc-900 shadow-sm' : 'bg-zinc-100 dark:bg-zinc-800'}`}>
+                        <Icon className={`w-4 h-4 ${isActive ? 'text-brand-600 dark:text-brand-400' : 'text-zinc-500 dark:text-zinc-400'}`} />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-sm font-medium truncate text-zinc-900 dark:text-zinc-100">{themeOption.label}</span>
+                        <span className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">{themeOption.desc}</span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             <div>
-              <label className="text-sm font-semibold text-panel-text-primary dark:text-panel-text-inverse">
+              <label className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                 Display Mode
               </label>
               {mounted ? (
-                <div className="flex items-center space-x-1 bg-panel-elevated dark:bg-panel-elevated-dark p-1 rounded-lg mt-2">
-                  <button
-                    onClick={() => setTheme("light")}
-                    disabled={isTerminalTheme}
-                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
-                      theme === "light" && !isTerminalTheme
-                        ? "bg-panel-surface dark:bg-panel-surface-dark text-panel-text-primary dark:text-panel-text-inverse shadow-sm"
-                        : "text-panel-text-secondary dark:text-panel-text-secondary"
-                    } ${
-                      isTerminalTheme
-                        ? "cursor-not-allowed opacity-50"
-                        : ""
-                    }`}
-                  >
-                    <Sun className="h-4 w-4" />
-                    Light
-                  </button>
-                  <button
-                    onClick={() => setTheme("dark")}
-                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
-                      theme === "dark" || isTerminalTheme
-                        ? "bg-panel-surface dark:bg-panel-surface-dark text-panel-text-primary dark:text-panel-text-inverse shadow-sm"
-                        : "text-panel-text-secondary dark:text-panel-text-secondary"
-                    }`}
-                  >
-                    <Moon className="h-4 w-4" />
-                    Dark
-                  </button>
-                  <button
-                    onClick={() => setTheme("system")}
-                    disabled={isTerminalTheme}
-                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm rounded-md transition-colors ${
-                      theme === "system" && !isTerminalTheme
-                        ? "bg-panel-surface dark:bg-panel-surface-dark text-panel-text-primary dark:text-panel-text-inverse shadow-sm"
-                        : "text-panel-text-secondary dark:text-panel-text-secondary"
-                    } ${
-                      isTerminalTheme
-                        ? "cursor-not-allowed opacity-50"
-                        : ""
-                    }`}
-                  >
-                    <Monitor className="h-4 w-4" />
-                    System
-                  </button>
+                <div className="flex p-1 bg-zinc-100 dark:bg-zinc-800/50 rounded-lg w-full mt-2">
+                  {[
+                    { id: 'light', label: 'Light', icon: Sun },
+                    { id: 'dark', label: 'Dark', icon: Moon },
+                    { id: 'system', label: 'Auto', icon: Monitor },
+                  ].map((mode) => {
+                    const Icon = mode.icon;
+                    const isActive = isTerminalTheme && mode.id === 'dark' ? true : (!isTerminalTheme && theme === mode.id);
+                    const isDisabled = isTerminalTheme && mode.id !== 'dark';
+                    return (
+                      <button
+                        key={mode.id}
+                        onClick={() => setTheme(mode.id)}
+                        disabled={isDisabled}
+                        className={`
+                          flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-md transition-all
+                          ${isActive
+                            ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm ring-1 ring-black/5 dark:ring-white/5'
+                            : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'}
+                          ${isDisabled ? 'cursor-not-allowed opacity-50' : ''}
+                        `}
+                      >
+                        <Icon className="w-3.5 h-3.5" />
+                        {mode.label}
+                      </button>
+                    );
+                  })}
                 </div>
               ) : (
-                <div className="h-10 bg-panel-elevated dark:bg-panel-elevated-dark rounded-lg mt-2 animate-pulse" />
+                <div className="h-10 bg-zinc-100 dark:bg-zinc-800/50 rounded-lg mt-2 animate-pulse w-full" />
               )}
               {isTerminalTheme && (
-                <p className="text-xs text-panel-text-secondary dark:text-panel-text-secondary mt-2">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
                   Terminal theme requires Dark Display.
                 </p>
               )}
             </div>
           </div>
 
-          <div className="mt-4 pt-4 border-t border-panel-border dark:border-panel-border-dark flex items-center justify-between">
-            <p className="text-xs text-panel-text-secondary dark:text-panel-text-secondary">
+          <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700 flex items-center justify-between">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
               Trip override active.
             </p>
-            <button 
+            <button
               onClick={() => handleThemeChange("CLASSIC")}
-              className="flex items-center gap-1.5 text-xs font-semibold text-panel-text-secondary dark:text-panel-text-secondary hover:text-panel-brand dark:hover:text-panel-brand transition-colors">
+              className="flex items-center gap-1.5 text-xs font-semibold text-zinc-500 dark:text-zinc-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
               <RotateCcw className="h-3 w-3" />
               Reset to Default
             </button>

@@ -14,6 +14,7 @@ import type { AestheticPreference } from '@/types';
 import type { DailyPacing, TransportPreference, DiningStyle } from '@/store/profileStore';
 import Link from 'next/link';
 import { preloadThemes } from '@/app/itinerary/[id]/ItineraryPageClient';
+import { DisplayModeToggle } from '@/components/shared/DisplayModeToggle';
 
 type Tab = 'account' | 'appearance' | 'files' | 'profile' | 'team';
 
@@ -491,6 +492,14 @@ export default function SettingsPage() {
                           )}
                         </button>
                       ))}
+                    </div>
+                  </section>
+                  <Divider />
+                  <section>
+                    <div className="mb-8">
+                      <h2 className="text-lg font-semibold text-zinc-900 dark:text-white mb-1">Display Mode</h2>
+                      <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Controls light and dark appearance across the entire app.</p>
+                      <DisplayModeToggle />
                     </div>
                   </section>
                   <Divider />
