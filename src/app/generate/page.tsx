@@ -96,21 +96,20 @@ export default function GeneratePage() {
   // ── Render: Error State ─────────────────────────────────────────────────────
   if (error) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 px-6">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-white dark:bg-[#0a0a0a] px-6">
         <div className="w-full max-w-md text-center">
-          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-red-50">
+          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-red-50 dark:bg-red-950/30">
             <span className="text-4xl" aria-hidden="true">😕</span>
           </div>
-          <h1 className="text-xl font-bold text-slate-800">Generation Failed</h1>
-          {/* Now displaying the REAL error message here: */}
-          <p className="mt-3 text-sm font-medium leading-relaxed text-red-600 max-w-sm mx-auto bg-red-50 p-4 rounded-xl border border-red-100">
+          <h1 className="text-xl font-medium text-zinc-900 dark:text-white">Generation Failed</h1>
+          <p className="mt-3 text-sm leading-relaxed text-red-600 dark:text-red-400 max-w-sm mx-auto bg-red-50 dark:bg-red-950/30 p-4 rounded-xl border border-red-100 dark:border-red-900/50">
             {error}
           </p>
           <button
             onClick={() => router.back()}
-            className="mt-8 rounded-xl bg-brand-600 px-6 py-3 text-xs tracking-widest uppercase font-black text-white shadow-md transition-all hover:bg-brand-700 hover:-translate-y-0.5"
+            className="mt-8 rounded-full bg-brand-600 px-6 py-3 text-sm font-medium text-white transition-all hover:bg-brand-700 active:scale-95"
           >
-            GO BACK & TRY AGAIN
+            Go Back & Try Again
           </button>
         </div>
       </div>
@@ -119,7 +118,7 @@ export default function GeneratePage() {
 
   // ── Render: Loading State (Waiting for Hydration or API) ────────────────────
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 px-6">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-white dark:bg-[#0a0a0a] px-6">
       <div className="w-full max-w-md text-center">
         <div className="relative mx-auto mb-8 flex h-24 w-24 items-center justify-center">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-400 opacity-10" />
@@ -127,15 +126,15 @@ export default function GeneratePage() {
           <span className="relative text-5xl" aria-hidden="true">🌍</span>
         </div>
 
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
+        <h1 className="text-2xl font-medium text-zinc-900 dark:text-white">
           Building Your <span className="text-brand-600 dark:text-brand-400">{intake?.destination || 'Trip'}</span> Itinerary
         </h1>
-        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
           Our AI travel planner is crafting your perfect trip.<br />
           This usually takes 10–20 seconds.
         </p>
 
-        <div className="mt-8 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+        <div className="mt-8 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
           <div
             className="h-full rounded-full bg-brand-500 transition-all duration-1000 ease-out"
             style={{ width: `${progress}%` }}
@@ -143,7 +142,7 @@ export default function GeneratePage() {
         </div>
 
         <div className="mt-5 flex items-center justify-center gap-2 h-6">
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400 transition-all duration-500">
+          <p className="text-sm text-zinc-500 dark:text-zinc-400 transition-all duration-500">
             {LOADING_MESSAGES[messageIndex]}
           </p>
         </div>

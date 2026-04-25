@@ -128,11 +128,11 @@ function validateForm(fields: Partial<TripIntake>, bookingMode: BookingMode): Fo
 function FieldWrapper({ label, htmlFor, error, hint, children, className = '' }: { label: string; htmlFor?: string; error?: string; hint?: string; children: React.ReactNode; className?: string; }) {
   return (
     <div className={`flex flex-col gap-2 ${className}`}>
-      <label htmlFor={htmlFor} className="text-lg font-semibold tracking-tight text-slate-800 dark:text-slate-100">
+      <label htmlFor={htmlFor} className="text-base font-medium tracking-tight text-zinc-800 dark:text-zinc-100">
         {label}
       </label>
       {children}
-      {hint && !error && <p className="text-sm text-slate-400 dark:text-slate-500">{hint}</p>}
+      {hint && !error && <p className="text-sm text-zinc-400 dark:text-zinc-500">{hint}</p>}
       {error && (
         <p className="flex items-center gap-1.5 text-sm font-medium text-red-500">
           <span aria-hidden="true">⚠</span>{error}
@@ -144,11 +144,11 @@ function FieldWrapper({ label, htmlFor, error, hint, children, className = '' }:
 
 function inputClass(hasError: boolean): string {
   return [
-    'w-full rounded-2xl border-0 bg-slate-50 dark:bg-slate-800/80 px-5 py-4',
-    'text-base text-slate-800 dark:text-slate-100',
-    'placeholder-slate-400 shadow-none transition-all duration-200 outline-none',
+    'w-full rounded-2xl border-0 bg-zinc-50 dark:bg-zinc-900 px-5 py-4',
+    'text-base text-zinc-900 dark:text-zinc-100',
+    'placeholder-zinc-300 dark:placeholder-zinc-700 shadow-none transition-all duration-200 outline-none',
     'ring-1 ring-inset focus:ring-2 focus:ring-brand-500',
-    hasError ? 'ring-red-400 focus:ring-red-400' : 'ring-slate-200 dark:ring-slate-700 hover:ring-slate-300 dark:hover:ring-slate-600',
+    hasError ? 'ring-red-400 focus:ring-red-400' : 'ring-zinc-200 dark:ring-zinc-800 hover:ring-zinc-300 dark:hover:ring-zinc-700',
   ].join(' ');
 }
 
@@ -159,16 +159,16 @@ function BookingModeToggle({ value, onChange }: { value: BookingMode; onChange: 
   ];
 
   return (
-    <div role="group" className="flex rounded-2xl bg-slate-100 dark:bg-slate-800/60 p-1.5 gap-1.5">
+    <div role="group" className="flex rounded-2xl bg-zinc-100 dark:bg-zinc-900 p-1.5 gap-1.5">
       {options.map(({ mode, label, sub }) => (
         <button
           key={mode}
           type="button"
           onClick={() => onChange(mode)}
-          className={`flex flex-1 flex-col items-center rounded-xl px-4 py-3.5 text-sm font-semibold transition-all duration-200 ${
+          className={`flex flex-1 flex-col items-center rounded-xl px-4 py-3.5 text-sm font-medium transition-all duration-200 ${
               value === mode
-                ? 'bg-white dark:bg-slate-700 text-brand-700 dark:text-brand-300 shadow-md'
-                : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
+                ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm'
+                : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'
             }`}
         >
           {label}
@@ -189,19 +189,19 @@ function DateRangePicker({ range, onChange, error }: { range: DateRange | undefi
       <button
         type="button"
         onClick={() => setIsOpen((v) => !v)}
-        className={`flex w-full items-center justify-between rounded-2xl bg-slate-50 dark:bg-slate-800/80 px-5 py-4 text-left transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 ring-1 ring-inset ${error ? 'ring-red-400' : 'ring-slate-200 dark:ring-slate-700 hover:ring-slate-300 dark:hover:ring-slate-600'}`}
+        className={`flex w-full items-center justify-between rounded-2xl bg-zinc-50 dark:bg-zinc-900 px-5 py-4 text-left transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 ring-1 ring-inset ${error ? 'ring-red-400' : 'ring-zinc-200 dark:ring-zinc-800 hover:ring-zinc-300 dark:hover:ring-zinc-700'}`}
       >
         <div className="flex items-center gap-3">
-          <svg className="h-5 w-5 flex-shrink-0 text-slate-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" /></svg>
-          <span className={`text-base ${range?.from ? 'font-medium text-slate-800 dark:text-slate-100' : 'text-slate-400'}`}>{displayText}</span>
+          <svg className="h-5 w-5 flex-shrink-0 text-zinc-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" /></svg>
+          <span className={`text-base ${range?.from ? 'font-medium text-zinc-900 dark:text-zinc-100' : 'text-zinc-400 dark:text-zinc-600'}`}>{displayText}</span>
         </div>
-        {nightCount !== null && <span className="flex-shrink-0 rounded-full bg-brand-100 dark:bg-brand-900 px-3 py-1 text-xs font-bold text-brand-700 dark:text-brand-300">{nightCount} night{nightCount !== 1 ? 's' : ''}</span>}
+        {nightCount !== null && <span className="flex-shrink-0 rounded-full bg-brand-100 dark:bg-brand-900 px-3 py-1 text-xs font-medium text-brand-700 dark:text-brand-300">{nightCount} night{nightCount !== 1 ? 's' : ''}</span>}
       </button>
 
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute left-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xl">
+          <div className="absolute left-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
             <DayPicker
               mode="range"
               selected={range}
@@ -244,7 +244,7 @@ export default function TripIntakeForm() {
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
-          <p className="text-sm text-slate-400 dark:text-slate-500 font-medium">Preparing your concierge…</p>
+          <p className="text-sm text-zinc-400 dark:text-zinc-500 font-medium">Preparing your concierge…</p>
         </div>
       </div>
     );
@@ -428,28 +428,36 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
   return (
     <form onSubmit={handleSubmit} noValidate className="flex flex-col min-h-[70vh]">
 
-      {/* ── Minimal Progress Indicator ── */}
-      <div className="flex items-center justify-center gap-3 mb-10">
+      {/* ── Inline Horizontal Stepper ── */}
+      <div className="flex items-center justify-center gap-2 mb-10">
         {stepLabels.map((label, i) => {
           const stepNum = i + 1;
           const isActive = step === stepNum;
           const isComplete = step > stepNum;
           return (
-            <div key={label} className="flex items-center gap-3">
-              {i > 0 && <div className={`h-px w-8 transition-colors duration-300 ${isComplete ? 'bg-brand-500' : 'bg-slate-200 dark:bg-slate-700'}`} />}
+            <div key={label} className="flex items-center gap-2">
+              {i > 0 && (
+                <div className={`h-px w-6 flex-shrink-0 transition-colors duration-300 ${isComplete ? 'bg-brand-500' : 'bg-zinc-200 dark:bg-zinc-800'}`} />
+              )}
               <button
                 type="button"
                 onClick={() => { if (isComplete) setStep(stepNum); }}
                 disabled={!isComplete}
-                className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-300 ${
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-all duration-300 ${
                   isActive
-                    ? 'bg-brand-600 text-white shadow-lg shadow-brand-500/25'
+                    ? 'text-zinc-900 dark:text-white font-medium'
                     : isComplete
-                    ? 'bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 cursor-pointer hover:bg-brand-200 dark:hover:bg-brand-900/60'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-default'
+                    ? 'text-brand-600 dark:text-brand-400 cursor-pointer hover:text-brand-700'
+                    : 'text-zinc-400 dark:text-zinc-500 cursor-default'
                 }`}
               >
-                <span className="tabular-nums">{stepNum}</span>
+                <span className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-xs font-medium ${
+                  isActive
+                    ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900'
+                    : isComplete
+                    ? 'bg-brand-600 text-white'
+                    : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-500'
+                }`}>{stepNum}</span>
                 <span className="hidden sm:inline">{label}</span>
               </button>
             </div>
@@ -472,13 +480,6 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
               transition={{ duration: 0.3, ease: 'easeInOut' }}
               className="flex flex-col gap-10"
             >
-              <div className="text-center">
-                <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
-                  Let&apos;s plan your trip
-                </h2>
-                <p className="mt-2 text-lg text-slate-500 dark:text-slate-400">Tell us the basics and we&apos;ll handle the rest.</p>
-              </div>
-
               <FieldWrapper label="How are you planning this trip?">
                 <BookingModeToggle value={bookingMode} onChange={handleBookingModeChange} />
               </FieldWrapper>
@@ -516,15 +517,15 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
                         exit="hidden"
                         transition={{ duration: 0.4, ease: 'easeInOut' }}
                       >
-                        <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/40 p-6">
+                        <div className="rounded-2xl bg-zinc-50 dark:bg-zinc-900/60 p-6">
                           <FieldWrapper label="How are you getting there?" error={errors.transitMode} hint="We'll schedule your first and last day around this.">
                             <div className="flex gap-2">
                               {(['Flight', 'Train', 'Car / Other', 'Not Sure'] as PrimaryTransitMode[]).map((mode) => (
                                 <button key={mode} type="button" onClick={() => setTransitMode(mode)}
-                                  className={`flex-1 py-3 text-sm font-semibold rounded-xl transition-all duration-200 ${
+                                  className={`flex-1 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
                                     transitMode === mode
-                                      ? 'bg-brand-600 text-white shadow-md'
-                                      : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 ring-1 ring-inset ring-slate-200 dark:ring-slate-600 hover:ring-brand-300'
+                                      ? 'bg-brand-600 text-white'
+                                      : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 ring-1 ring-inset ring-zinc-200 dark:ring-zinc-700 hover:ring-brand-300'
                                   }`}
                                 >{mode}</button>
                               ))}
@@ -535,29 +536,29 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
                           <AnimatePresence>
                             {(transitMode === 'Flight' || transitMode === 'Train') && (
                               <motion.div key="flight-train" variants={revealVariants} initial="hidden" animate="visible" exit="hidden" transition={{ duration: 0.3 }}>
-                                <div className="grid md:grid-cols-2 gap-6 pt-4 mt-4 border-t border-slate-200 dark:border-slate-700">
+                                <div className="grid md:grid-cols-2 gap-6 pt-4 mt-4 border-t border-zinc-200 dark:border-zinc-800">
                                   <div className="space-y-3">
-                                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Outbound {transitMode}</h4>
+                                    <h4 className="text-xs font-medium text-zinc-500 uppercase tracking-widest">Outbound {transitMode}</h4>
                                     <div className="flex gap-3">
                                       <div className="flex-1">
-                                        <label className="block text-xs font-medium text-slate-500 mb-1">Number / Ref</label>
+                                        <label className="block text-xs font-medium text-zinc-500 mb-1">Number / Ref</label>
                                         <input type="text" placeholder={transitMode === 'Flight' ? 'e.g. BA314' : 'e.g. 1A2B3C'} value={outboundRef} onChange={(e) => setOutboundRef(e.target.value)} className={inputClass(false) + ' py-2.5 text-sm'} />
                                       </div>
                                       <div className="w-28">
-                                        <label className="block text-xs font-medium text-slate-500 mb-1">Arrival Time</label>
+                                        <label className="block text-xs font-medium text-zinc-500 mb-1">Arrival Time</label>
                                         <input type="time" value={outboundTime} onChange={(e) => setOutboundTime(e.target.value)} className={inputClass(false) + ' py-2.5 text-sm px-2'} />
                                       </div>
                                     </div>
                                   </div>
                                   <div className="space-y-3">
-                                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Return {transitMode}</h4>
+                                    <h4 className="text-xs font-medium text-zinc-500 uppercase tracking-widest">Return {transitMode}</h4>
                                     <div className="flex gap-3">
                                       <div className="flex-1">
-                                        <label className="block text-xs font-medium text-slate-500 mb-1">Number / Ref</label>
+                                        <label className="block text-xs font-medium text-zinc-500 mb-1">Number / Ref</label>
                                         <input type="text" placeholder={transitMode === 'Flight' ? 'e.g. BA315' : 'e.g. 1A2B3C'} value={returnRef} onChange={(e) => setReturnRef(e.target.value)} className={inputClass(false) + ' py-2.5 text-sm'} />
                                       </div>
                                       <div className="w-28">
-                                        <label className="block text-xs font-medium text-slate-500 mb-1">Depart Time</label>
+                                        <label className="block text-xs font-medium text-zinc-500 mb-1">Depart Time</label>
                                         <input type="time" value={returnTime} onChange={(e) => setReturnTime(e.target.value)} className={inputClass(false) + ' py-2.5 text-sm px-2'} />
                                       </div>
                                     </div>
@@ -567,7 +568,7 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
                             )}
                             {transitMode === 'Car / Other' && (
                               <motion.div key="car-other" variants={revealVariants} initial="hidden" animate="visible" exit="hidden" transition={{ duration: 0.3 }}>
-                                <div className="grid md:grid-cols-2 gap-6 pt-4 mt-4 border-t border-slate-200 dark:border-slate-700">
+                                <div className="grid md:grid-cols-2 gap-6 pt-4 mt-4 border-t border-zinc-200 dark:border-zinc-800">
                                   <FieldWrapper label="Estimated Arrival Time">
                                     <input type="time" value={outboundTime} onChange={(e) => setOutboundTime(e.target.value)} className={inputClass(false) + ' py-2.5 w-36'} />
                                   </FieldWrapper>
@@ -586,9 +587,9 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
               ) : (
                 <FieldWrapper label="How many days? 📅" htmlFor="duration" error={errors.duration} hint={`Between ${MIN_DURATION} and ${MAX_DURATION} days.`}>
                   <div className="flex items-center gap-4">
-                    <button type="button" onClick={() => setDuration((d) => Math.max(MIN_DURATION, d - 1))} disabled={duration <= MIN_DURATION} className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800 text-2xl font-bold text-slate-600 dark:text-slate-300 transition-all hover:bg-brand-100 hover:text-brand-600 dark:hover:bg-brand-900/40 disabled:opacity-30">−</button>
-                    <input id="duration" type="number" value={duration} onChange={(e) => { const val = parseInt(e.target.value, 10); if (!isNaN(val)) { setDuration(Math.min(MAX_DURATION, Math.max(MIN_DURATION, val))); setErrors((prev) => ({ ...prev, duration: undefined })); } }} min={MIN_DURATION} max={MAX_DURATION} className="flex-1 rounded-2xl bg-slate-50 dark:bg-slate-800/80 px-4 py-4 text-center text-2xl font-bold text-slate-800 dark:text-slate-100 ring-1 ring-inset ring-slate-200 dark:ring-slate-700 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-                    <button type="button" onClick={() => setDuration((d) => Math.min(MAX_DURATION, d + 1))} disabled={duration >= MAX_DURATION} className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800 text-2xl font-bold text-slate-600 dark:text-slate-300 transition-all hover:bg-brand-100 hover:text-brand-600 dark:hover:bg-brand-900/40 disabled:opacity-30">+</button>
+                    <button type="button" onClick={() => setDuration((d) => Math.max(MIN_DURATION, d - 1))} disabled={duration <= MIN_DURATION} className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-900 text-2xl font-medium text-zinc-600 dark:text-zinc-300 transition-all hover:bg-brand-100 hover:text-brand-600 dark:hover:bg-brand-900/40 disabled:opacity-30">−</button>
+                    <input id="duration" type="number" value={duration} onChange={(e) => { const val = parseInt(e.target.value, 10); if (!isNaN(val)) { setDuration(Math.min(MAX_DURATION, Math.max(MIN_DURATION, val))); setErrors((prev) => ({ ...prev, duration: undefined })); } }} min={MIN_DURATION} max={MAX_DURATION} className="flex-1 rounded-2xl bg-zinc-50 dark:bg-zinc-900 px-4 py-4 text-center text-2xl font-medium text-zinc-900 dark:text-zinc-100 ring-1 ring-inset ring-zinc-200 dark:ring-zinc-800 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+                    <button type="button" onClick={() => setDuration((d) => Math.min(MAX_DURATION, d + 1))} disabled={duration >= MAX_DURATION} className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-900 text-2xl font-medium text-zinc-600 dark:text-zinc-300 transition-all hover:bg-brand-100 hover:text-brand-600 dark:hover:bg-brand-900/40 disabled:opacity-30">+</button>
                   </div>
                 </FieldWrapper>
               )}
@@ -606,13 +607,6 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
               transition={{ duration: 0.3, ease: 'easeInOut' }}
               className="flex flex-col gap-10"
             >
-              <div className="text-center">
-                <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
-                  Set the vibe
-                </h2>
-                <p className="mt-2 text-lg text-slate-500 dark:text-slate-400">What kind of experience are you after?</p>
-              </div>
-
               <FieldWrapper label="What are your interests? 🎯" error={errors.interests} hint="Select everything that appeals — we'll curate your POIs around these.">
                 <div id="interests" className="flex flex-wrap gap-3 pt-1">
                   {INTERESTS.map(({ label, emoji }) => {
@@ -624,8 +618,8 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
                         onClick={() => toggleInterest(label)}
                         className={`inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-all duration-200 ${
                           isSelected
-                            ? 'bg-brand-600 text-white shadow-lg shadow-brand-500/20 scale-105'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-brand-900/30 dark:hover:text-brand-300'
+                            ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 ring-offset-2 ring-2 ring-zinc-900 dark:ring-white'
+                            : 'bg-zinc-50 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
                         }`}
                       >
                         <span aria-hidden="true" className="text-base">{emoji}</span>{label}
@@ -649,9 +643,9 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
                     {DINING_PROFILES.map(({ value, label, emoji }) => {
                       const isSelected = diningProfile === value;
                       return (
-                        <button key={value} type="button" onClick={() => setDiningProfile(value)} className={`flex flex-col items-start gap-1.5 rounded-2xl p-4 text-left transition-all duration-200 ${isSelected ? 'bg-brand-50 dark:bg-brand-950 shadow-lg ring-2 ring-brand-500' : 'bg-slate-50 dark:bg-slate-800/80 ring-1 ring-inset ring-slate-200 dark:ring-slate-700 hover:ring-brand-300'}`}>
+                        <button key={value} type="button" onClick={() => setDiningProfile(value)} className={`flex flex-col items-start gap-1.5 rounded-2xl p-4 text-left transition-all duration-200 ${isSelected ? 'bg-brand-50 dark:bg-brand-950 ring-2 ring-brand-500' : 'bg-zinc-50 dark:bg-zinc-900 ring-1 ring-inset ring-zinc-200 dark:ring-zinc-800 hover:ring-brand-300'}`}>
                           <span className="text-2xl" aria-hidden="true">{emoji}</span>
-                          <span className={`text-sm font-bold leading-snug ${isSelected ? 'text-brand-700 dark:text-brand-300' : 'text-slate-700 dark:text-slate-200'}`}>{label}</span>
+                          <span className={`text-sm font-medium leading-snug ${isSelected ? 'text-brand-700 dark:text-brand-300' : 'text-zinc-700 dark:text-zinc-200'}`}>{label}</span>
                         </button>
                       );
                     })}
@@ -671,8 +665,8 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
                         onClick={() => setDailyTransport(value)}
                         className={`flex-1 flex flex-col items-center gap-2 rounded-2xl py-5 transition-all duration-200 ${
                           isSelected
-                            ? 'bg-brand-600 text-white shadow-lg shadow-brand-500/20'
-                            : 'bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 ring-1 ring-inset ring-slate-200 dark:ring-slate-700 hover:ring-brand-300'
+                            ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900'
+                            : 'bg-zinc-50 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 ring-1 ring-inset ring-zinc-200 dark:ring-zinc-800 hover:ring-brand-300'
                         }`}
                       >
                         <span className="text-3xl">{emoji}</span>
@@ -696,27 +690,20 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
               transition={{ duration: 0.3, ease: 'easeInOut' }}
               className="flex flex-col gap-10"
             >
-              <div className="text-center">
-                <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white">
-                  Final details
-                </h2>
-                <p className="mt-2 text-lg text-slate-500 dark:text-slate-400">Where are you staying, and anything we must know?</p>
-              </div>
-
               {/* Accommodation toggle */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 px-6 py-5">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/60 px-6 py-5">
                 <div>
-                  <p className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  <p className="text-base font-medium text-zinc-800 dark:text-zinc-100">
                     {derivedDuration === 1 ? 'Do you know your arrival point?' : 'Have you booked accommodation?'}
                   </p>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Used as your daily start/end point.</p>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">Used as your daily start/end point.</p>
                 </div>
-                <div className="flex rounded-xl bg-slate-200/60 dark:bg-slate-700/60 p-1 shrink-0 w-full sm:w-auto">
+                <div className="flex rounded-xl bg-zinc-200/60 dark:bg-zinc-800 p-1 shrink-0 w-full sm:w-auto">
                   <button type="button" onClick={() => { setHasAccommodation(true); setErrors((prev) => ({ ...prev, accommodation: undefined })); }}
-                    className={`flex-1 sm:flex-none px-8 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${hasAccommodation ? 'bg-white dark:bg-slate-600 text-brand-700 dark:text-brand-300 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                    className={`flex-1 sm:flex-none px-8 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${hasAccommodation ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
                   >Yes</button>
                   <button type="button" onClick={() => { setHasAccommodation(false); setAccommodation(''); setErrors((prev) => ({ ...prev, accommodation: undefined })); }}
-                    className={`flex-1 sm:flex-none px-8 py-2 text-sm font-bold rounded-lg transition-all duration-200 ${!hasAccommodation ? 'bg-white dark:bg-slate-600 text-brand-700 dark:text-brand-300 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}
+                    className={`flex-1 sm:flex-none px-8 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${!hasAccommodation ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
                   >No</button>
                 </div>
               </div>
@@ -732,7 +719,7 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
               </AnimatePresence>
 
               <FieldWrapper label="Anchor Points & Hard Constraints 📌" htmlFor="anchorPoints" hint="Pre-booked tours or non-negotiable activities.">
-                <textarea id="anchorPoints" value={anchorPoints} onChange={(e) => setAnchorPoints(e.target.value)} placeholder={'e.g.\n• Sagrada Família booked: Day 2, 10:00–12:00\n• Must visit Camp Nou on Day 3'} rows={5} className="w-full resize-none rounded-2xl bg-slate-50 dark:bg-slate-800/80 px-5 py-4 text-base leading-relaxed text-slate-800 dark:text-slate-100 placeholder-slate-400 ring-1 ring-inset ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-brand-500 outline-none transition-all" />
+                <textarea id="anchorPoints" value={anchorPoints} onChange={(e) => setAnchorPoints(e.target.value)} placeholder={'e.g.\n• Sagrada Família booked: Day 2, 10:00–12:00\n• Must visit Camp Nou on Day 3'} rows={5} className="w-full resize-none rounded-2xl bg-zinc-50 dark:bg-zinc-900 px-5 py-4 text-base leading-relaxed text-zinc-900 dark:text-zinc-100 placeholder-zinc-300 dark:placeholder-zinc-700 ring-1 ring-inset ring-zinc-200 dark:ring-zinc-800 focus:ring-2 focus:ring-brand-500 outline-none transition-all" />
                 <div className="mt-3 flex items-start gap-2.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 px-4 py-3.5">
                   <span className="mt-0.5 flex-shrink-0 text-base" aria-hidden="true">⚠️</span>
                   <p className="text-sm leading-relaxed text-amber-700 dark:text-amber-400"><strong>Hard constraints:</strong> The AI will never schedule another activity during any blocked time windows you specify above.</p>
@@ -744,17 +731,21 @@ function IntakeFormContent({ initialIntake }: { initialIntake: TripIntake }) {
         </AnimatePresence>
       </div>
 
-      {/* ── Navigation Buttons (massive & satisfying) ── */}
+      {/* ── Navigation Buttons ── */}
       <div className="flex items-center justify-between gap-4 pt-8 mt-auto">
         {step > 1 ? (
-          <button type="button" onClick={handleBack} className="inline-flex items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800 px-8 py-4 text-base font-semibold text-slate-700 dark:text-slate-200 transition-all duration-200 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-brand-500">
+          <button type="button" onClick={handleBack} className="inline-flex items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-900 px-8 py-4 text-base font-medium text-zinc-700 dark:text-zinc-200 transition-all duration-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 active:scale-[0.97] focus:outline-none focus:ring-2 focus:ring-brand-500">
             ← Back
           </button>
         ) : <div />}
 
-        <button type="submit" disabled={isSubmitting} className="relative inline-flex items-center justify-center gap-2.5 rounded-2xl bg-brand-600 px-12 py-4 text-lg font-bold text-white shadow-xl shadow-brand-500/20 transition-all duration-200 hover:bg-brand-700 hover:shadow-2xl hover:shadow-brand-500/30 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2">
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full sm:w-auto px-8 sm:px-10 py-4 sm:py-5 bg-brand-600 hover:bg-brand-700 text-white text-base sm:text-lg font-medium rounded-full transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+        >
           {isSubmitting ? (
-            <><div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" /> Starting…</>
+            <span className="inline-flex items-center gap-2"><span className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" /> Starting…</span>
           ) : step === maxStep ? (
             'Start Planning 🍐'
           ) : (

@@ -43,14 +43,14 @@ function LoadingState({ destination }: { destination: string }) {
           </span>
         </div>
         <div>
-          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+          <h2 className="text-xl font-medium text-zinc-900 dark:text-zinc-100">
             Scouring{' '}
             <span className="text-brand-600">
               {destination || 'your destination'}
             </span>{' '}
             for the best spots…
           </h2>
-          <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
+          <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
             Searching museums, restaurants, hidden gems, and more.
           </p>
         </div>
@@ -76,7 +76,7 @@ function ErrorState({ message, onRetry }: ErrorStateProps) {
     <div className="flex flex-col items-center gap-5 rounded-2xl border border-red-100 bg-red-50 px-6 py-12 text-center">
       <span className="text-4xl" aria-hidden="true">😕</span>
       <div>
-        <h2 className="text-lg font-bold text-red-700">Something went wrong</h2>
+        <h2 className="text-lg font-medium text-red-700">Something went wrong</h2>
         <p className="mt-1.5 max-w-sm text-sm text-red-500 leading-relaxed">
           {message}
         </p>
@@ -84,11 +84,7 @@ function ErrorState({ message, onRetry }: ErrorStateProps) {
       <button
         type="button"
         onClick={onRetry}
-        className="
-          rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white
-          shadow-sm transition-all hover:bg-red-700
-          focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2
-        "
+        className="rounded-full bg-red-600 px-5 py-2.5 text-sm font-medium text-white transition-all hover:bg-red-700 active:scale-95 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
       >
         Try Again
       </button>
@@ -100,25 +96,20 @@ function ErrorState({ message, onRetry }: ErrorStateProps) {
 
 function EmptyFilterState({ onReset }: { onReset: () => void }) {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-2xl border border-slate-100 bg-white px-6 py-12 text-center">
+    <div className="flex flex-col items-center gap-4 px-6 py-12 text-center">
       <span className="text-4xl" aria-hidden="true">🔎</span>
       <div>
-        <h3 className="text-base font-bold text-slate-700 dark:text-slate-200">
+        <h3 className="text-base font-medium text-zinc-700 dark:text-zinc-200">
           No places in this category
         </h3>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-zinc-400">
           Try a different filter or view all places.
         </p>
       </div>
       <button
         type="button"
         onClick={onReset}
-        className="
-          rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm
-          font-semibold text-slate-600 shadow-sm transition-all
-          hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700
-          focus:outline-none focus:ring-2 focus:ring-brand-500
-        "
+        className="rounded-full border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-5 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-300 transition-all hover:bg-zinc-50 dark:hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
       >
         Show all places
       </button>
@@ -130,8 +121,7 @@ function EmptyFilterState({ onReset }: { onReset: () => void }) {
 
 function HydrationSkeleton() {
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
-      <div className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900" />
+    <div className="min-h-screen bg-white dark:bg-[#0a0a0a] pt-24">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
@@ -372,17 +362,17 @@ export default function DiscoverPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+    <div className="min-h-screen bg-white dark:bg-[#0a0a0a] pt-16">
 
-      {/* ── Page Header ──────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-30 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md">
+      {/* ── Page Sub-Header (sits below GlobalNav) ── */}
+      <header className="sticky top-16 z-30 border-b border-zinc-200/50 dark:border-zinc-800/50 bg-white/80 dark:bg-black/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
 
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
-              onClick={() => router.push(`/itinerary/${tripId}`)} 
-              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 shadow-sm hover:border-slate-300 dark:hover:border-slate-600 transition-all"
+              onClick={() => router.push(`/itinerary/${tripId}`)}
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all"
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
@@ -390,19 +380,19 @@ export default function DiscoverPage() {
             </button>
 
             <div className="min-w-0">
-              <h1 className="truncate text-lg font-bold text-slate-800 dark:text-slate-100 leading-tight">
+              <h1 className="truncate text-lg font-medium text-zinc-900 dark:text-white leading-tight">
                 Discover <span className="text-brand-600 dark:text-brand-400">{activeDestination}</span>
               </h1>
-              <p className="truncate text-xs text-slate-400 dark:text-slate-500">
+              <p className="truncate text-xs text-zinc-400 dark:text-zinc-500">
                 {activeDuration} day{activeDuration !== 1 ? 's' : ''}
               </p>
             </div>
           </div>
 
           {intake.budgetGBP > 0 && (
-            <div className="flex-shrink-0 rounded-full border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1.5">
-              <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
-                Budget: £{intake.budgetGBP.toLocaleString('en-GB')}
+            <div className="flex-shrink-0 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 px-3 py-1.5">
+              <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                £{intake.budgetGBP.toLocaleString('en-GB')} budget
               </span>
             </div>
           )}
@@ -414,13 +404,13 @@ export default function DiscoverPage() {
 
           <div className="flex min-w-0 flex-1 flex-col gap-5">
 
-            {/* ── Dynamic Vibe Bar (Mobile-First UX) ── */}
+            {/* ── Dynamic Vibe Bar ── */}
             {hasFetched && !isLoading && (
-              <div className="flex flex-col gap-3 bg-white dark:bg-slate-800 p-4 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm">
+              <div className="flex flex-col gap-3 bg-zinc-50 dark:bg-zinc-900/50 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800/50">
                 <div className="flex items-center justify-between px-1">
-                  <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-slate-500">Trip Vibes</p>
+                  <p className="text-[10px] font-medium uppercase tracking-[0.15em] text-zinc-400 dark:text-zinc-500">Trip Vibes</p>
                   {isFetchingMore && (
-                    <span className="flex items-center gap-1.5 text-[10px] font-bold text-brand-600 animate-pulse">
+                    <span className="flex items-center gap-1.5 text-[10px] font-medium text-brand-600 animate-pulse">
                       <span className="h-1.5 w-1.5 rounded-full bg-brand-600"></span> Fetching Gems...
                     </span>
                   )}
@@ -430,10 +420,10 @@ export default function DiscoverPage() {
                   {intake.interests.map((interest) => {
                     const info = AVAILABLE_INTERESTS.find(i => i.label === interest);
                     const isConfirming = interestToRemove === interest;
-                    
+
                     return (
-                      <button 
-                        key={interest} 
+                      <button
+                        key={interest}
                         onClick={() => {
                           if (isConfirming) {
                             handleRemoveInterest(interest);
@@ -442,10 +432,10 @@ export default function DiscoverPage() {
                             setInterestToRemove(interest);
                           }
                         }}
-                        className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold transition-all shadow-sm border ${
-                          isConfirming 
-                            ? 'bg-red-500 text-white border-red-600 animate-pulse' 
-                            : 'bg-slate-50 dark:bg-slate-900/50 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700 active:scale-95'
+                        className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all border ${
+                          isConfirming
+                            ? 'bg-red-500 text-white border-red-600 animate-pulse'
+                            : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700 active:scale-95'
                         }`}
                       >
                         {isConfirming ? (
@@ -459,37 +449,36 @@ export default function DiscoverPage() {
                       </button>
                     );
                   })}
-                  
+
                   <button
                     onClick={() => setShowInterestMenu(true)}
                     disabled={isFetchingMore}
-                    className="inline-flex items-center gap-2 rounded-2xl bg-brand-50/50 dark:bg-brand-900/10 px-4 py-2.5 text-sm font-bold text-brand-600 dark:text-brand-400 border border-dashed border-brand-200 dark:border-brand-800/50 transition-all disabled:opacity-50"
+                    className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-brand-600 dark:text-brand-400 border border-dashed border-brand-300 dark:border-brand-800/50 transition-all disabled:opacity-50 hover:bg-brand-50 dark:hover:bg-brand-900/10"
                   >
                     <span>+</span> <span>Add Vibe</span>
                   </button>
 
-                  {/* Fixed Center Modal for adding vibes */}
                   {showInterestMenu && (
                     <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
-                      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowInterestMenu(false)} />
-                      <div className="relative z-10 w-full max-w-xs rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xl overflow-hidden py-2 animate-in zoom-in-95 duration-200">
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-700">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">More Interests</p>
-                          <button onClick={() => setShowInterestMenu(false)} className="text-slate-400 hover:text-slate-600 font-black text-lg">&times;</button>
+                      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowInterestMenu(false)} />
+                      <div className="relative z-10 w-full max-w-xs rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 overflow-hidden py-2 animate-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
+                          <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-widest">More Interests</p>
+                          <button onClick={() => setShowInterestMenu(false)} className="text-zinc-400 hover:text-zinc-600 text-lg leading-none">&times;</button>
                         </div>
-                        <div className="max-h-64 overflow-y-auto custom-scrollbar">
+                        <div className="max-h-64 overflow-y-auto">
                           {AVAILABLE_INTERESTS.filter(i => !intake.interests.includes(i.label)).map(i => (
                             <button
                               key={i.label}
                               onClick={() => handleAddInterest(i.label)}
-                              className="w-full text-left px-4 py-3.5 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center gap-3 transition-colors border-b border-slate-50 dark:border-slate-700/50 last:border-0"
+                              className="w-full text-left px-4 py-3.5 text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 flex items-center gap-3 transition-colors border-b border-zinc-50 dark:border-zinc-800/50 last:border-0"
                             >
                               <span className="text-xl">{i.emoji}</span> {i.label}
                             </button>
                           ))}
                         </div>
                         {AVAILABLE_INTERESTS.filter(i => !intake.interests.includes(i.label)).length === 0 && (
-                          <div className="px-4 py-6 text-sm text-slate-400 text-center font-bold">You've got the full vibe.</div>
+                          <div className="px-4 py-6 text-sm text-zinc-400 text-center">You&apos;ve got the full vibe.</div>
                         )}
                       </div>
                     </div>
@@ -503,11 +492,11 @@ export default function DiscoverPage() {
               <div className="flex flex-col gap-4 mt-2">
                 <div className="flex flex-col gap-3">
                   <div className="flex items-center justify-between px-1">
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                      Found <span className="font-semibold text-slate-700 dark:text-slate-200">{(allPOIs ?? []).length}</span> places
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                      Found <span className="font-medium text-zinc-700 dark:text-zinc-200">{(allPOIs ?? []).length}</span> places
                     </p>
                     {favouriteCount > 0 && (
-                      <p className="text-xs font-bold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20 px-2 py-1 rounded-lg border border-brand-200 dark:border-brand-800/50">
+                      <p className="text-xs font-medium text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-900/20 px-2.5 py-1 rounded-full border border-brand-200 dark:border-brand-800/50">
                         {favouriteCount} Added to trip
                       </p>
                     )}

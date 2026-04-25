@@ -269,7 +269,7 @@ export default function DashboardPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] p-8">
         <div className="w-12 h-12 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mb-6" />
-        <p className="font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest text-[10px]">Loading…</p>
+        <p className="font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest text-[10px]">Loading…</p>
       </div>
     );
   }
@@ -277,7 +277,7 @@ export default function DashboardPage() {
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] p-8">
       <div className="w-12 h-12 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mb-6" />
-      <p className="font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest text-[10px]">Loading Trips...</p>
+      <p className="font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest text-[10px]">Loading Trips...</p>
     </div>
   );
 

@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { AppearancePopover } from '@/components/shared/AppearancePopover';
+import { AppShellThemeToggle } from '@/components/shared/AppShellThemeToggle';
 
 export default function GlobalNav() {
   const pathname = usePathname();
@@ -73,12 +74,10 @@ export default function GlobalNav() {
             New Trip
           </Link>
 
-          {/* Appearance Popover — only on itinerary pages */}
-          {isItineraryPage && (
-            <div className="pl-2 border-l border-zinc-200 dark:border-zinc-800">
-              <AppearancePopover />
-            </div>
-          )}
+          {/* Theme Controls */}
+          <div className="pl-2 border-l border-zinc-200 dark:border-zinc-800">
+            {isItineraryPage ? <AppearancePopover /> : <AppShellThemeToggle />}
+          </div>
         </div>
       </div>
     </header>
