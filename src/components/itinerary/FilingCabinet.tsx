@@ -7,6 +7,7 @@ import {
   X, UploadCloud, FileText, FileImage, 
   Trash2, Link2, CheckCircle2, Loader2, Paperclip
 } from 'lucide-react';
+import { deleteDocument } from '@/app/actions/documents';
 
 interface POIReference {
   id: string;
@@ -42,8 +43,24 @@ export default function FilingCabinet({
   
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedPoiId, setSelectedPoiId] = useState<string>('TRIP_LEVEL');
   const [mounted, setMounted] = useState(false);
+
+  const handleDelete = async (docId: string) => {
+    try {
+      setDeletingId(docId);
+      const result = await deleteDocument(docId);
+      if (result.success && onUploadSuccess) {
+        onUploadSuccess();
+      }
+    } catch (error) {
+      console.error('Failed to delete document:', error);
+      alert('Failed to delete document.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -139,36 +156,36 @@ export default function FilingCabinet({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-[9999] bg-slate-900/40 backdrop-blur-sm md:hidden"
+            className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm md:hidden"
           />
 
           {/* The Drawer Panel */}
           <motion.div
-            initial={{ x: '100%', opacity: 0.8 }}
+            initial={{ x: '100%', opacity: 1 }}
             animate={{ x: 0, opacity: 1 }}
-            exit={{ x: '100%', opacity: 0 }}
+            exit={{ x: '100%', opacity: 1 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-y-0 right-0 z-[9999] md:w-[450px] flex flex-col w-full bg-zinc-50 dark:bg-zinc-900/50 rounded-l-3xl p-6 sm:p-8 shadow-2xl border-l border-zinc-200 dark:border-zinc-800"
+            className="fixed inset-y-0 right-0 z-[9999] w-full md:w-[450px] bg-white dark:bg-[#0a0a0a] shadow-2xl border-l border-zinc-200 dark:border-zinc-800 flex flex-col text-zinc-900 dark:text-white"
           >
             {/* Header */}
-            <div className="flex items-start justify-between mb-6">
+            <div className="flex items-center justify-between p-6 sm:p-8">
               <div>
-                <h2 className="text-xl sm:text-2xl font-medium tracking-tight text-zinc-900 dark:text-white mb-2 flex items-center gap-2">
+                <h2 className="text-2xl font-medium tracking-tight text-zinc-900 dark:text-white flex items-center gap-3">
                   <span className="text-2xl">📎</span> Filing Cabinet
                 </h2>
-                <p className="text-sm text-zinc-500 mb-6">
+                <p className="text-sm text-zinc-500 mt-2">
                   Store boarding passes, tickets, and visas.
                 </p>
               </div>
               <button 
                 onClick={onClose}
-                className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-xl transition-colors"
+                className="p-2 transition-colors rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 pt-0">
               
               {/* Context Selector */}
               <div className="mb-6">
@@ -199,10 +216,10 @@ export default function FilingCabinet({
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                className={`relative w-full flex flex-col items-center justify-center p-8 sm:p-10 rounded-2xl border border-zinc-200/60 dark:border-zinc-800 bg-white/50 dark:bg-zinc-800/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer group mb-8 ${
+                className={`relative flex flex-col items-center justify-center w-full p-8 sm:p-10 mb-8 text-center rounded-3xl transition-all duration-300 border ${
                   isDragging 
-                    ? '!bg-zinc-100 dark:!bg-zinc-800 border-zinc-300 dark:border-zinc-700' 
-                    : ''
+                    ? 'border-brand-500 bg-brand-50/50 dark:bg-brand-900/10' 
+                    : 'border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/30 hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50'
                 }`}
               >
                 <input 
@@ -216,15 +233,15 @@ export default function FilingCabinet({
                 {isUploading ? (
                   <div className="flex flex-col items-center">
                     <Loader2 className="w-10 h-10 mb-3 text-zinc-400 animate-spin" />
-                    <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200 mt-4">Uploading securely...</p>
+                    <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mt-4">Uploading securely...</p>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center">
-                    <UploadCloud className={`w-8 h-8 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors`} />
-                    <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200 mt-4">
+                    <UploadCloud className="w-8 h-8 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors" />
+                    <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mt-4">
                       Click to upload or drag and drop
                     </p>
-                    <p className="text-xs text-zinc-500 mt-1">
+                    <p className="text-xs text-zinc-500 mt-2">
                       PDF, JPG, PNG (Max 10MB)
                     </p>
                   </div>
@@ -242,17 +259,17 @@ export default function FilingCabinet({
                 
                 <div className="space-y-0">
                   {documents.length === 0 ? (
-                    <div className="p-6 text-sm text-center border rounded-xl text-zinc-500 border-zinc-200/60 dark:border-zinc-800 bg-white/50 dark:bg-zinc-800/50">
+                    <div className="p-6 text-sm text-center border rounded-xl text-zinc-500 border-zinc-200/60 dark:border-zinc-800 bg-white/50 dark:bg-zinc-800/50 mt-3">
                       No documents uploaded yet. Drop a flight itinerary or booking confirmation above!
                     </div>
                   ) : (
                     documents.map((doc) => (
                       <div 
                         key={doc.id} 
-                        className="group flex items-center justify-between p-4 mt-3 bg-white dark:bg-zinc-800/50 rounded-2xl border border-zinc-100 dark:border-zinc-800 hover:border-zinc-200 dark:hover:border-zinc-700 transition-all"
+                        className="group flex items-center p-4 transition-all bg-white dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-800/60 hover:border-zinc-200 dark:hover:border-zinc-700 mt-3"
                       >
                         <div className="flex items-center flex-1 min-w-0 pr-4">
-                          <div className="flex items-center justify-center w-10 h-10 mr-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 text-zinc-400">
+                          <div className="flex items-center justify-center w-12 h-12 mr-4 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/50 text-zinc-400">
                             {getFileIcon(doc.mimeType)}
                           </div>
                           <div className="flex-1 min-w-0">
@@ -260,11 +277,11 @@ export default function FilingCabinet({
                               href={doc.fileUrl} 
                               target="_blank" 
                               rel="noopener noreferrer"
-                              className="text-sm font-medium text-zinc-900 dark:text-white truncate block hover:underline"
+                              className="text-sm font-medium text-zinc-900 dark:text-white truncate block hover:text-brand-600 transition-colors"
                             >
                               {doc.fileName}
                             </a>
-                            <div className="flex items-center mt-1 text-xs text-zinc-400 uppercase tracking-wider">
+                            <div className="text-xs text-zinc-500 mt-1 flex items-center gap-1">
                               {doc.poiId ? (
                                 <span className="flex items-center">
                                   <Link2 className="w-3 h-3 mr-1" />
@@ -290,10 +307,20 @@ export default function FilingCabinet({
                             <Link2 className="w-4 h-4" />
                           </a>
                           <button 
-                            className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100"
-                            title="Delete Document (Coming soon)"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleDelete(doc.id);
+                            }}
+                            disabled={deletingId === doc.id}
+                            className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 disabled:opacity-50 flex items-center justify-center"
+                            title="Delete Document"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            {deletingId === doc.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-4 h-4" />
+                            )}
                           </button>
                         </div>
                       </div>
