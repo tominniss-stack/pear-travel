@@ -122,9 +122,9 @@ export default function FilingCabinet({
 
   // ─── HELPER COMPONENTS ─────────────────────────────────────────────────────
   const getFileIcon = (mimeType: string) => {
-    if (mimeType.includes('pdf')) return <FileText className="w-6 h-6 text-red-500" />;
-    if (mimeType.includes('image')) return <FileImage className="w-6 h-6 text-blue-500" />;
-    return <Paperclip className="w-6 h-6 text-slate-500" />;
+    if (mimeType.includes('pdf')) return <FileText className="w-5 h-5 text-zinc-400" />;
+    if (mimeType.includes('image')) return <FileImage className="w-5 h-5 text-zinc-400" />;
+    return <Paperclip className="w-5 h-5 text-zinc-400" />;
   };
 
   if (!mounted) return null;
@@ -148,38 +148,38 @@ export default function FilingCabinet({
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '100%', opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-y-0 right-0 z-[9999] w-full md:w-[450px] !bg-white dark:!bg-slate-900 shadow-2xl border-l border-slate-200 dark:border-slate-800 flex flex-col !text-slate-900 dark:!text-white"
+            className="fixed inset-y-0 right-0 z-[9999] md:w-[450px] flex flex-col w-full bg-zinc-50 dark:bg-zinc-900/50 rounded-l-3xl p-6 sm:p-8 shadow-2xl border-l border-zinc-200 dark:border-zinc-800"
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-start justify-between mb-6">
               <div>
-                <h2 className="text-xl font-bold tracking-tight !text-slate-900 dark:!text-white flex items-center gap-2">
+                <h2 className="text-xl sm:text-2xl font-medium tracking-tight text-zinc-900 dark:text-white mb-2 flex items-center gap-2">
                   <span className="text-2xl">📎</span> Filing Cabinet
                 </h2>
-                <p className="text-sm !text-slate-500 dark:!text-slate-400 mt-1">
+                <p className="text-sm text-zinc-500 mb-6">
                   Store boarding passes, tickets, and visas.
                 </p>
               </div>
               <button 
                 onClick={onClose}
-                className="p-2 transition-colors rounded-full hover:!bg-slate-100 dark:hover:!bg-slate-800 !text-slate-500"
+                className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-xl transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="flex-1 p-6 overflow-y-auto custom-scrollbar">
+            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
               
               {/* Context Selector */}
               <div className="mb-6">
-                <label className="block mb-2 text-sm font-bold !text-slate-700 dark:!text-slate-300 uppercase tracking-widest">
+                <label className="block mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
                   Attach next upload to:
                 </label>
                 <div className="relative">
                   <select 
                     value={selectedPoiId}
                     onChange={(e) => setSelectedPoiId(e.target.value)}
-                    className="w-full py-3 pl-10 pr-4 text-sm !bg-slate-50 border rounded-xl appearance-none dark:!bg-slate-900 border-slate-200 dark:border-slate-700 !text-slate-900 dark:!text-white focus:ring-2 focus:ring-brand-500 outline-none transition-all shadow-sm"
+                    className="w-full py-3 pl-10 pr-4 text-sm bg-white dark:bg-zinc-800/50 border rounded-xl appearance-none border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-white focus:ring-2 focus:ring-zinc-500 outline-none transition-all"
                   >
                     <option value="TRIP_LEVEL">General Trip Document (Unassigned)</option>
                     {availablePOIs.length > 0 && <optgroup label="Specific Activities">
@@ -190,7 +190,7 @@ export default function FilingCabinet({
                       ))}
                     </optgroup>}
                   </select>
-                  <Link2 className="absolute w-4 h-4 !text-slate-400 left-4 top-3.5" />
+                  <Link2 className="absolute w-4 h-4 text-zinc-400 left-4 top-3.5" />
                 </div>
               </div>
 
@@ -199,10 +199,10 @@ export default function FilingCabinet({
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                className={`relative flex flex-col items-center justify-center w-full p-8 mb-8 text-center border-2 border-dashed rounded-2xl transition-all duration-200 ${
+                className={`relative w-full flex flex-col items-center justify-center p-8 sm:p-10 rounded-2xl border border-zinc-200/60 dark:border-zinc-800 bg-white/50 dark:bg-zinc-800/50 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer group mb-8 ${
                   isDragging 
-                    ? 'border-brand-500 !bg-brand-50 dark:!bg-brand-900/20' 
-                    : 'border-slate-300 dark:border-slate-700 !bg-slate-50 dark:!bg-slate-800/50 hover:!bg-slate-100 dark:hover:!bg-slate-800'
+                    ? '!bg-zinc-100 dark:!bg-zinc-800 border-zinc-300 dark:border-zinc-700' 
+                    : ''
                 }`}
               >
                 <input 
@@ -215,18 +215,16 @@ export default function FilingCabinet({
                 
                 {isUploading ? (
                   <div className="flex flex-col items-center">
-                    <Loader2 className="w-10 h-10 mb-3 !text-brand-500 animate-spin" />
-                    <p className="text-sm font-bold !text-slate-700 dark:!text-slate-300">Uploading securely...</p>
+                    <Loader2 className="w-10 h-10 mb-3 text-zinc-400 animate-spin" />
+                    <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200 mt-4">Uploading securely...</p>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center">
-                    <div className={`p-4 mb-4 rounded-full ${isDragging ? '!bg-brand-100 dark:!bg-brand-900' : '!bg-white dark:!bg-slate-700'} shadow-sm transition-colors`}>
-                      <UploadCloud className={`w-8 h-8 ${isDragging ? '!text-brand-600 dark:!text-brand-400' : '!text-slate-400 dark:!text-slate-500'}`} />
-                    </div>
-                    <p className="mb-1 text-sm font-bold !text-slate-900 dark:!text-white">
+                    <UploadCloud className={`w-8 h-8 text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 transition-colors`} />
+                    <p className="text-sm font-medium text-zinc-700 dark:text-zinc-200 mt-4">
                       Click to upload or drag and drop
                     </p>
-                    <p className="text-xs font-medium !text-slate-500 dark:!text-slate-400 mt-2">
+                    <p className="text-xs text-zinc-500 mt-1">
                       PDF, JPG, PNG (Max 10MB)
                     </p>
                   </div>
@@ -235,56 +233,69 @@ export default function FilingCabinet({
 
               {/* Document Roster */}
               <div>
-                <h3 className="mb-4 text-sm font-bold uppercase tracking-widest !text-slate-500 dark:!text-slate-400 flex items-center justify-between">
+                <h3 className="mb-4 text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center justify-between">
                   Stored Documents
-                  <span className="!bg-slate-100 dark:!bg-slate-800 !text-slate-600 dark:!text-slate-300 px-2.5 py-0.5 rounded-full text-xs">
+                  <span className="bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 px-2.5 py-0.5 rounded-full text-xs">
                     {documents.length}
                   </span>
                 </h3>
                 
-                <div className="space-y-3">
+                <div className="space-y-0">
                   {documents.length === 0 ? (
-                    <div className="p-6 text-sm text-center border border-dashed rounded-xl !text-slate-500 border-slate-200 dark:border-slate-800 !bg-slate-50 dark:!bg-slate-900/50">
+                    <div className="p-6 text-sm text-center border rounded-xl text-zinc-500 border-zinc-200/60 dark:border-zinc-800 bg-white/50 dark:bg-zinc-800/50">
                       No documents uploaded yet. Drop a flight itinerary or booking confirmation above!
                     </div>
                   ) : (
                     documents.map((doc) => (
                       <div 
                         key={doc.id} 
-                        className="flex items-center p-3 transition-all !bg-white border rounded-xl shadow-sm group dark:!bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-brand-300 dark:hover:border-brand-700"
+                        className="group flex items-center justify-between p-4 mt-3 bg-white dark:bg-zinc-800/50 rounded-2xl border border-zinc-100 dark:border-zinc-800 hover:border-zinc-200 dark:hover:border-zinc-700 transition-all"
                       >
-                        <div className="flex items-center justify-center w-12 h-12 mr-4 rounded-lg !bg-slate-50 dark:!bg-slate-900 border border-slate-100 dark:border-slate-800">
-                          {getFileIcon(doc.mimeType)}
+                        <div className="flex items-center flex-1 min-w-0 pr-4">
+                          <div className="flex items-center justify-center w-10 h-10 mr-4 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 text-zinc-400">
+                            {getFileIcon(doc.mimeType)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <a 
+                              href={doc.fileUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-sm font-medium text-zinc-900 dark:text-white truncate block hover:underline"
+                            >
+                              {doc.fileName}
+                            </a>
+                            <div className="flex items-center mt-1 text-xs text-zinc-400 uppercase tracking-wider">
+                              {doc.poiId ? (
+                                <span className="flex items-center">
+                                  <Link2 className="w-3 h-3 mr-1" />
+                                  Attached
+                                </span>
+                              ) : (
+                                <span className="flex items-center">
+                                  <CheckCircle2 className="w-3 h-3 mr-1" />
+                                  General
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0 pr-4">
+                        <div className="flex items-center gap-1">
                           <a 
                             href={doc.fileUrl} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="text-sm font-bold truncate block !text-slate-900 dark:!text-white hover:!text-brand-600 dark:hover:!text-brand-400 transition-colors"
+                            className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-700 rounded-xl transition-colors"
+                            title="View Document"
                           >
-                            {doc.fileName}
+                            <Link2 className="w-4 h-4" />
                           </a>
-                          <div className="flex items-center mt-1 text-xs font-medium !text-slate-500 dark:!text-slate-400">
-                            {doc.poiId ? (
-                              <span className="flex items-center !text-amber-600 dark:!text-amber-400">
-                                <Link2 className="w-3 h-3 mr-1" />
-                                Attached to Activity
-                              </span>
-                            ) : (
-                              <span className="flex items-center !text-emerald-600 dark:!text-emerald-400">
-                                <CheckCircle2 className="w-3 h-3 mr-1" />
-                                General Trip Doc
-                              </span>
-                            )}
-                          </div>
+                          <button 
+                            className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100"
+                            title="Delete Document (Coming soon)"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
-                        <button 
-                          className="p-2 transition-opacity opacity-0 !text-slate-400 hover:!text-red-500 group-hover:opacity-100 hover:!bg-red-50 dark:hover:!bg-red-900/20 rounded-lg"
-                          title="Delete Document (Coming soon)"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
                       </div>
                     ))
                   )}

@@ -61,48 +61,70 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-stone-950 p-4 transition-colors duration-200">
-      <div className="max-w-md w-full bg-white dark:bg-stone-900 rounded-3xl shadow-xl dark:shadow-none border border-stone-200 dark:border-stone-800 p-8 sm:p-10 transition-colors duration-200">
+    <div className="min-h-screen flex flex-col lg:flex-row bg-white dark:bg-[#0a0a0a]">
+      
+      {/* ── Left Pane (Editorial Imagery - Desktop Only) ── */}
+      <div className="hidden lg:flex lg:w-1/2 relative bg-zinc-100 dark:bg-zinc-900">
+        <img 
+          src="https://images.unsplash.com/photo-1499856871958-5b9627545d1a?auto=format&fit=crop&q=80&w=2000" 
+          alt="Paris Architecture" 
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />
+        <div className="absolute bottom-12 left-12 text-white flex items-center gap-3">
+          <span className="text-3xl">🍐</span> 
+          <span className="font-medium text-2xl tracking-tight">Pear Travel</span>
+        </div>
+      </div>
+
+      {/* ── Right Pane (Form Container) ── */}
+      <div className="w-full lg:w-1/2 flex flex-col justify-center px-8 sm:px-16 lg:px-24 xl:px-32 py-12">
         
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 mb-6">
-            <span className="text-4xl">🍐</span>
-          </div>
-          <h1 className="text-3xl font-bold text-stone-900 dark:text-stone-100 tracking-tight">
+        {/* Mobile Brand Header */}
+        <div className="lg:hidden flex items-center gap-2 mb-10">
+          <span className="text-2xl">🍐</span>
+          <span className="font-medium text-xl tracking-tight text-zinc-900 dark:text-white">
             Pear Travel
+          </span>
+        </div>
+
+        {/* Greeting */}
+        <div className="w-full max-w-sm mb-10">
+          <h1 className="text-3xl sm:text-4xl tracking-tight font-medium text-zinc-900 dark:text-white mb-3">
+            {isLogin ? 'Welcome back.' : 'Begin your journey.'}
           </h1>
-          <p className="text-sm text-stone-500 dark:text-stone-400 mt-3 font-medium">
-            {isLogin ? 'Sign in to manage your itineraries' : 'Create a new account'}
+          <p className="text-zinc-500 text-base">
+            {isLogin ? 'Sign in to manage your itineraries.' : 'Create an account to curate your travels.'}
           </p>
         </div>
 
         {/* Toggle Tabs */}
-        <div className="flex bg-stone-100 dark:bg-stone-800 p-1 rounded-xl mb-8">
+        <div className="flex bg-zinc-50 dark:bg-zinc-900/50 p-1 rounded-2xl mb-10 w-full max-w-sm">
           <button
             onClick={() => { setIsLogin(true); setError(''); }}
-            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
+            className={`flex-1 py-2 text-sm rounded-xl transition-all ${
               isLogin 
-                ? 'bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white' 
-                : 'text-stone-500 hover:text-stone-700 dark:hover:text-stone-300'
+                ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white font-medium' 
+                : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 font-medium'
             }`}
           >
             Sign In
           </button>
           <button
             onClick={() => { setIsLogin(false); setError(''); }}
-            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${
+            className={`flex-1 py-2 text-sm rounded-xl transition-all ${
               !isLogin 
-                ? 'bg-white dark:bg-stone-700 shadow-sm text-stone-900 dark:text-white' 
-                : 'text-stone-500 hover:text-stone-700 dark:hover:text-stone-300'
+                ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white font-medium' 
+                : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 font-medium'
             }`}
           >
             Register
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="w-full max-w-sm">
           <div>
-            <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-2">
+            <label className="block text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-2">
               Username
             </label>
             <input
@@ -110,14 +132,14 @@ export default function LoginPage() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder={isLogin ? "Enter your username" : "Choose a username"}
-              className="w-full px-4 py-3 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all placeholder:text-stone-400 dark:placeholder:text-stone-600"
+              className="w-full bg-transparent border-b-2 border-zinc-200 focus:border-zinc-900 dark:border-zinc-800 dark:focus:border-white text-base placeholder:text-zinc-400 outline-none py-3 transition-colors rounded-none mb-6 text-zinc-900 dark:text-white"
               required
               minLength={isLogin ? 1 : 3}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-stone-700 dark:text-stone-300 mb-2">
+            <label className="block text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-2">
               Password
             </label>
             <input
@@ -125,17 +147,17 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full px-4 py-3 bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all placeholder:text-stone-400 dark:placeholder:text-stone-600"
+              className="w-full bg-transparent border-b-2 border-zinc-200 focus:border-zinc-900 dark:border-zinc-800 dark:focus:border-white text-base placeholder:text-zinc-400 outline-none py-3 transition-colors rounded-none mb-6 text-zinc-900 dark:text-white"
               required
               minLength={isLogin ? 1 : 6}
             />
             {!isLogin && (
-              <p className="text-xs text-stone-500 mt-2 ml-1">Must be at least 6 characters long.</p>
+              <p className="text-xs text-zinc-500 mb-6">Must be at least 6 characters long.</p>
             )}
           </div>
 
           {error && (
-            <div className="p-4 bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm font-medium rounded-xl border border-red-100 dark:border-red-500/20">
+            <div className="p-4 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-sm font-medium rounded-2xl mb-6">
               {error}
             </div>
           )}
@@ -143,7 +165,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 bg-stone-900 dark:bg-emerald-600 text-white py-3.5 rounded-xl font-semibold text-[15px] hover:bg-stone-800 dark:hover:bg-emerald-500 hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full mt-6 bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-900 py-4 rounded-full font-medium text-base transition-transform active:scale-[0.98] disabled:opacity-50"
           >
             {loading ? (isLogin ? 'Signing in...' : 'Creating account...') : (isLogin ? 'Sign In' : 'Create Account')}
           </button>
