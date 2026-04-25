@@ -282,7 +282,7 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
         <div className="print:hidden mb-6 max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
           <button
             onClick={() => setIsEditing(false)}
-            className="inline-flex items-center text-sm font-bold text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+            className="inline-flex items-center text-sm font-bold text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors"
           >
             <span aria-hidden="true" className="mr-2">✕</span>
             Abort Changes
@@ -292,7 +292,7 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
             type="button"
             onClick={handleSaveItinerary}
             disabled={isSaving}
-            className="inline-flex items-center rounded-xl px-4 py-2 text-sm font-bold shadow-sm transition-all disabled:opacity-60 disabled:cursor-not-allowed bg-brand-500 text-white hover:bg-brand-400 border border-brand-400"
+            className="inline-flex items-center px-5 py-2.5 rounded-full bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-900 text-sm font-medium transition-all disabled:opacity-50"
           >
             {isSaving ? 'Saving...' : 'Save Changes'}
           </button>
@@ -303,7 +303,7 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
           <div className="print:hidden mb-6 max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
             <Link
               href="/dashboard"
-              className="inline-flex items-center text-sm font-bold text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
+              className="inline-flex items-center text-sm font-bold text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors"
             >
               <span aria-hidden="true" className="mr-2">←</span>
               Back to My Trips
@@ -315,7 +315,7 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="inline-flex items-center rounded-xl px-4 py-2 text-sm font-bold shadow-sm transition-all bg-white dark:bg-slate-800 text-slate-700 dark:text-white hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700"
+                  className="inline-flex items-center px-5 py-2.5 rounded-full bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-sm font-medium transition-colors"
                 >
                   Edit Trip Planner
                 </button>

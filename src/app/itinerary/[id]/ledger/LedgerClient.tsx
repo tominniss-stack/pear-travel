@@ -74,7 +74,8 @@ export const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
 };
 
 export default function LedgerClient({ trip, initialItinerary }: LedgerClientProps) {
-  const { setItinerary, itinerary: storeItinerary, setActualCost, addMiscExpense, removeMiscExpense, exchangeRate, displayCurrency, toggleCurrency, aestheticPreference } = useTripStore();
+  const { setItinerary, itinerary: storeItinerary, setActualCost, addMiscExpense, removeMiscExpense, exchangeRate, displayCurrency, toggleCurrency, themeOverride } = useTripStore();
+  const activeTheme = themeOverride || 'CLASSIC';
   
   useEffect(() => {
     if (!storeItinerary || storeItinerary.id !== initialItinerary.id) {
@@ -225,7 +226,7 @@ export default function LedgerClient({ trip, initialItinerary }: LedgerClientPro
     formatCost, handleSaveActual, handleAddMisc, removeMiscExpense, syncLedger
   };
   
- if (aestheticPreference === 'TERMINAL') {
+ if (activeTheme === 'TERMINAL') {
     return (
       <div className="min-h-screen bg-black font-mono pb-32">
         <LedgerTerminal trip={trip} initialItinerary={activeItinerary} />
@@ -233,7 +234,7 @@ export default function LedgerClient({ trip, initialItinerary }: LedgerClientPro
     );
   }
   
-if (aestheticPreference === 'NOTEBOOK') {
+if (activeTheme === 'NOTEBOOK') {
     return (
       <div className="min-h-screen pb-32">
         <ThemeInjector />
@@ -242,9 +243,9 @@ if (aestheticPreference === 'NOTEBOOK') {
     );
   }
 
-  if (aestheticPreference === 'EDITORIAL') {
+  if (activeTheme === 'EDITORIAL') {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans pb-32">
+      <div className="min-h-screen bg-white dark:bg-[#0a0a0a] font-sans pb-32">
         <ThemeInjector />
         <LedgerEditorial ledger={ledgerState} />
       </div>
@@ -252,7 +253,7 @@ if (aestheticPreference === 'NOTEBOOK') {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans pb-32">
+    <div className="min-h-screen bg-white dark:bg-[#0a0a0a] font-sans pb-32">
       <ThemeInjector />
       <LedgerClassic ledger={ledgerState} />
     </div>

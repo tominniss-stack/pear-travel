@@ -308,7 +308,7 @@ function TimelineEntry({
 }
 
 // ── Main Component (V2 Premium) ───────────────────────────────────────────────────────
-export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, baseCurrencyCode, onEditRequest }: { itinerary: Itinerary; trip: ClientTripProps; totalCostBase: number; baseCurrencyCode: string; onEditRequest?: () => void; }) {
+export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, baseCurrencyCode, onEditRequest, onOpenDocs }: { itinerary: Itinerary; trip: ClientTripProps; totalCostBase: number; baseCurrencyCode: string; onEditRequest?: () => void; onOpenDocs?: () => void; }) {
   const days = itinerary.days ?? [];
   const essentials = itinerary.essentials;
   const [activeTab, setActiveTab] = useState<'overview' | number>('overview');
@@ -543,6 +543,15 @@ export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, bas
 
             {/* Right: The Editorial Action Bar */}
             <div className="flex items-center gap-4 md:gap-6 overflow-x-auto hide-scrollbar w-full xl:w-auto pt-2 xl:pt-0">
+              <button
+                onClick={() => {
+                  if (onOpenDocs) onOpenDocs();
+                }}
+                className="text-[10px] font-mono tracking-[0.2em] uppercase text-black/60 dark:text-white/60 hover:text-black dark:hover:text-white font-medium transition-colors whitespace-nowrap cursor-pointer"
+              >
+                View Documents
+              </button>
+
               <button
                 onClick={() => setIsCalendarModalOpen(true)}
                 className="text-[10px] font-mono tracking-[0.2em] uppercase text-black/60 dark:text-white/60 font-medium transition-colors whitespace-nowrap cursor-pointer"
