@@ -116,12 +116,12 @@ function PrintOnlyBooklet({ trip, itinerary, formatCost, localCurrencyRaw, total
           <div className="flex-1 pr-6">
             <p className="text-sm font-bold uppercase tracking-widest text-black/50 dark:text-white/50 mb-1">Your Travel Booklet</p>
             <h1 className="text-6xl font-serif mb-3 tracking-tight">{trip.destination}</h1>
-            <p className="text-xl font-medium text-slate-700 flex items-center gap-2 font-mono uppercase tracking-widest text-xs">
+            <p className="text-xl font-medium text-zinc-700 flex items-center gap-2 font-mono uppercase tracking-widest text-xs">
               {trip.startDate && trip.endDate ? `${format(new Date(trip.startDate), 'do MMMM')} — ${format(new Date(trip.endDate), 'do MMMM yyyy')}` : `${trip.duration} Days`}
               <span>·</span> {totalStops} Stops <span>·</span> Est. Budget: {formatCost(trip.budgetGBP)}
             </p>
           </div>
-          <div className="flex flex-col items-center justify-center p-3 border-2 border-slate-200 rounded-xl shrink-0 w-32 bg-white">
+          <div className="flex flex-col items-center justify-center p-3 border-2 border-zinc-200 rounded-xl shrink-0 w-32 bg-white">
             <div style={{ width: '90px', height: '90px', backgroundColor: 'white' }}>
               <QRCode value={masterQrUrl} size={256} style={{ height: "auto", maxWidth: "100%", width: "100%" }} viewBox={`0 0 256 256`} level="M" />
             </div>
@@ -150,8 +150,8 @@ function PrintOnlyBooklet({ trip, itinerary, formatCost, localCurrencyRaw, total
                 <h3 className="text-xl font-serif border-b border-black/20 pb-2 mb-4">Survival Phrases</h3>
                 <ul className="text-base space-y-3 font-sans">
                   {phrases.map((p, i) => (
-                    <li key={i} className="flex justify-between items-end border-b border-slate-100 pb-1">
-                      <span className="text-slate-600">{p.phrase}</span>
+                    <li key={i} className="flex justify-between items-end border-b border-zinc-100 pb-1">
+                      <span className="text-zinc-600">{p.phrase}</span>
                       <span className="font-bold text-black">{p.translation}</span>
                     </li>
                   ))}
@@ -159,7 +159,7 @@ function PrintOnlyBooklet({ trip, itinerary, formatCost, localCurrencyRaw, total
               </>
             )}
             {(essentials?.englishProficiency || phrases.length === 0) && (
-              <div className={phrases.length > 0 ? "mt-4 pt-4 border-t border-slate-100" : ""}>
+              <div className={phrases.length > 0 ? "mt-4 pt-4 border-t border-zinc-100" : ""}>
                  <h3 className={phrases.length === 0 ? "text-xl font-serif border-b border-black/20 pb-2 mb-4" : "hidden"}>Communication</h3>
                  <strong className="text-black/50 dark:text-white/50 uppercase font-mono tracking-wider text-[10px] block mb-0.5">English Proficiency</strong>
                  <p className="font-sans">{essentials?.englishProficiency || 'Moderate'}</p>
@@ -180,7 +180,7 @@ function PrintOnlyBooklet({ trip, itinerary, formatCost, localCurrencyRaw, total
                   <span className="text-[9px] font-black uppercase tracking-widest text-black/50 dark:text-white/50 text-right leading-tight">
                     Scan for<br/>Day Route
                   </span>
-                  <div className="border border-slate-200 p-1.5 rounded-lg bg-white" style={{ width: '60px', height: '60px' }}>
+                  <div className="border border-zinc-200 p-1.5 rounded-lg bg-white" style={{ width: '60px', height: '60px' }}>
                     <QRCode value={dayMapUrl} size={128} style={{ height: "auto", maxWidth: "100%", width: "100%" }} viewBox={`0 0 256 256`} level="L" />
                   </div>
                 </div>
@@ -189,11 +189,11 @@ function PrintOnlyBooklet({ trip, itinerary, formatCost, localCurrencyRaw, total
             <table className="w-full text-base font-sans">
               <tbody>
                 {day.entries.map((entry, idx) => (
-                  <tr key={idx} className="border-b border-slate-200" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                  <tr key={idx} className="border-b border-zinc-200" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                     <td className="w-[15%] py-5 align-top font-bold text-xl tabular-nums font-mono">{entry.time || '—'}</td>
                     <td className="w-[65%] py-5 pr-6 align-top">
                       <div className="font-serif text-xl text-black mb-1">{entry.locationName}</div>
-                      <div className="text-slate-700 leading-relaxed text-sm">{entry.activityDescription?.replace(/^\[.*?\]\s*/, '')}</div>
+                      <div className="text-zinc-700 leading-relaxed text-sm">{entry.activityDescription?.replace(/^\[.*?\]\s*/, '')}</div>
                       {entry.transitNote && (
                         <div className="mt-3 text-[10px] font-bold text-black/50 dark:text-white/50 uppercase font-mono tracking-widest flex items-center gap-1">
                           <span>↳ Transit:</span> <span className="text-black">{entry.transitMethod} ({entry.transitNote})</span>
@@ -258,7 +258,7 @@ function TimelineEntry({
       <div className="flex flex-col sm:flex-row items-stretch">
         {/* TIME COLUMN */}
         <div className="w-full sm:w-32 flex-shrink-0 border-b sm:border-b-0 sm:border-r border-black/20 dark:border-white/20 pt-4 pb-2 sm:py-6 pr-6">
-          <span className={`text-4xl md:text-5xl italic font-serif block sm:text-right ${isClosedClash ? 'text-red-500 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>
+          <span className={`text-4xl md:text-5xl italic font-serif block sm:text-right ${isClosedClash ? 'text-red-500 dark:text-red-400' : 'text-zinc-900 dark:text-white'}`}>
             {entry.time ? entry.time.replace(/^0/, '') : '—'}
           </span>
           {isClosedClash && (
@@ -292,9 +292,9 @@ function TimelineEntry({
 
           {/* BRUTALIST TRANSIT PILL */}
           {!isLast && nextEntry && nextEntry.transitNote && (
-             <div className="mt-8 pt-6 border-t border-slate-200 dark:border-white/20/50 w-max">
-               <a href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(displayTitle + ', ' + destination)}&destination=${encodeURIComponent(nextEntry.locationName + ', ' + destination)}&travelmode=${getGoogleMapsTravelMode(nextEntry.transitMethod)}`} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-3 text-[10px] font-mono uppercase tracking-[0.2em] text-black/50 dark:text-white/50 hover:text-slate-900 dark:hover:text-white transition-all`} title={`Get directions to ${nextEntry.locationName}`}>
-                 <span className="border border-slate-400 dark:border-slate-600 px-2.5 py-1">
+             <div className="mt-8 pt-6 border-t border-zinc-200 dark:border-white/20/50 w-max">
+               <a href={`https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(displayTitle + ', ' + destination)}&destination=${encodeURIComponent(nextEntry.locationName + ', ' + destination)}&travelmode=${getGoogleMapsTravelMode(nextEntry.transitMethod)}`} target="_blank" rel="noopener noreferrer" className={`flex items-center gap-3 text-[10px] font-mono uppercase tracking-[0.2em] text-black/50 dark:text-white/50 hover:text-zinc-900 dark:hover:text-white transition-all`} title={`Get directions to ${nextEntry.locationName}`}>
+                 <span className="border border-zinc-400 dark:border-zinc-600 px-2.5 py-1">
                    {nextEntry.transitMethod.replace('Taxi / Rideshare', 'Taxi').toUpperCase()}
                  </span>
                  <span className="tracking-widest">— {nextEntry.transitNote}</span>
@@ -404,41 +404,41 @@ export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, bas
 
     const templates = [
       (
-        <div className="font-serif text-xl md:text-2xl leading-[1.8] text-slate-900 dark:text-slate-100 md:columns-2 gap-12 lg:gap-20 text-justify">
+        <div className="font-serif text-xl md:text-2xl leading-[1.8] text-zinc-900 dark:text-zinc-100 md:columns-2 gap-12 lg:gap-20 text-justify">
           <p className="break-inside-avoid mb-8">
-            <span className="float-left font-serif text-[7.5rem] md:text-[9rem] leading-[0.7] pr-4 pt-3 pb-2 text-slate-900 dark:text-white">
+            <span className="float-left font-serif text-[7.5rem] md:text-[9rem] leading-[0.7] pr-4 pt-3 pb-2 text-zinc-900 dark:text-white">
               Y
             </span>
-            our time in <strong className="font-black tracking-wide uppercase">{trip.destination}</strong> will be shaped by how you move. Expect to rely on <span className="italic text-slate-700 dark:text-slate-300">{transitText}</span> to get between neighbourhoods. English is spoken at a <span className="italic text-slate-700 dark:text-slate-300">{englishText}</span> level, making navigation manageable, though a few local phrases go a long way.
+            our time in <strong className="font-black tracking-wide uppercase">{trip.destination}</strong> will be shaped by how you move. Expect to rely on <span className="italic text-zinc-700 dark:text-zinc-300">{transitText}</span> to get between neighbourhoods. English is spoken at a <span className="italic text-zinc-700 dark:text-zinc-300">{englishText}</span> level, making navigation manageable, though a few local phrases go a long way.
           </p>
           <p className="break-inside-avoid mb-8">
-            When settling the bill for food or services, the standard practice is to <span className="italic text-slate-700 dark:text-slate-300">{tippingText}</span>. For daily hydration and basics, keep in mind that the tap water is <span className="italic text-slate-700 dark:text-slate-300">{waterText}</span>. Keep these details in mind, and the city will open up to you.
+            When settling the bill for food or services, the standard practice is to <span className="italic text-zinc-700 dark:text-zinc-300">{tippingText}</span>. For daily hydration and basics, keep in mind that the tap water is <span className="italic text-zinc-700 dark:text-zinc-300">{waterText}</span>. Keep these details in mind, and the city will open up to you.
           </p>
         </div>
       ),
       (
-        <div className="font-serif text-xl md:text-2xl leading-[1.8] text-slate-900 dark:text-slate-100 md:columns-2 gap-12 lg:gap-20 text-justify">
+        <div className="font-serif text-xl md:text-2xl leading-[1.8] text-zinc-900 dark:text-zinc-100 md:columns-2 gap-12 lg:gap-20 text-justify">
           <p className="break-inside-avoid mb-8">
-            <span className="float-left font-serif text-[7.5rem] md:text-[9rem] leading-[0.7] pr-4 pt-3 pb-2 text-slate-900 dark:text-white">
+            <span className="float-left font-serif text-[7.5rem] md:text-[9rem] leading-[0.7] pr-4 pt-3 pb-2 text-zinc-900 dark:text-white">
               G
             </span>
-            etting the most out of <strong className="font-black tracking-wide uppercase">{trip.destination}</strong> requires a bit of practical groundwork. You will be using <span className="italic text-slate-700 dark:text-slate-300">{transitText}</span> as your primary way around the city. Communication shouldn't be a major barrier—English proficiency is <span className="italic text-slate-700 dark:text-slate-300">{englishText}</span>—but local etiquette still applies.
+            etting the most out of <strong className="font-black tracking-wide uppercase">{trip.destination}</strong> requires a bit of practical groundwork. You will be using <span className="italic text-zinc-700 dark:text-zinc-300">{transitText}</span> as your primary way around the city. Communication shouldn't be a major barrier—English proficiency is <span className="italic text-zinc-700 dark:text-zinc-300">{englishText}</span>—but local etiquette still applies.
           </p>
           <p className="break-inside-avoid mb-8">
-            <span className="italic text-slate-700 dark:text-slate-300">{tippingCap}</span> when dining out to show appreciation for good service. Finally, a quick note on the essentials: the tap water here is <span className="italic text-slate-700 dark:text-slate-300">{waterText}</span>. Use this briefing as your baseline for the days ahead.
+            <span className="italic text-zinc-700 dark:text-zinc-300">{tippingCap}</span> when dining out to show appreciation for good service. Finally, a quick note on the essentials: the tap water here is <span className="italic text-zinc-700 dark:text-zinc-300">{waterText}</span>. Use this briefing as your baseline for the days ahead.
           </p>
         </div>
       ),
       (
-        <div className="font-serif text-xl md:text-2xl leading-[1.8] text-slate-900 dark:text-slate-100 md:columns-2 gap-12 lg:gap-20 text-justify">
+        <div className="font-serif text-xl md:text-2xl leading-[1.8] text-zinc-900 dark:text-zinc-100 md:columns-2 gap-12 lg:gap-20 text-justify">
           <p className="break-inside-avoid mb-8">
-            <span className="float-left font-serif text-[7.5rem] md:text-[9rem] leading-[0.7] pr-4 pt-3 pb-2 text-slate-900 dark:text-white">
+            <span className="float-left font-serif text-[7.5rem] md:text-[9rem] leading-[0.7] pr-4 pt-3 pb-2 text-zinc-900 dark:text-white">
               L
             </span>
-            ogistics dictate the flow of any trip to <strong className="font-black tracking-wide uppercase">{trip.destination}</strong>. The city is best tackled using <span className="italic text-slate-700 dark:text-slate-300">{transitText}</span>. You will find the general English proficiency to be <span className="italic text-slate-700 dark:text-slate-300">{englishText}</span>, meaning your phrasebook will be a useful fallback for daily interactions.
+            ogistics dictate the flow of any trip to <strong className="font-black tracking-wide uppercase">{trip.destination}</strong>. The city is best tackled using <span className="italic text-zinc-700 dark:text-zinc-300">{transitText}</span>. You will find the general English proficiency to be <span className="italic text-zinc-700 dark:text-zinc-300">{englishText}</span>, meaning your phrasebook will be a useful fallback for daily interactions.
           </p>
           <p className="break-inside-avoid mb-8">
-            Hospitality norms here suggest you <span className="italic text-slate-700 dark:text-slate-300">{tippingText}</span>. As for the absolute basics to keep you going, the tap water is <span className="italic text-slate-700 dark:text-slate-300">{waterText}</span>. Get comfortable with these ground rules before stepping out.
+            Hospitality norms here suggest you <span className="italic text-zinc-700 dark:text-zinc-300">{tippingText}</span>. As for the absolute basics to keep you going, the tap water is <span className="italic text-zinc-700 dark:text-zinc-300">{waterText}</span>. Get comfortable with these ground rules before stepping out.
           </p>
         </div>
       )
@@ -448,7 +448,7 @@ export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, bas
   };
 
   return (
-    <div className="w-full font-sans print:m-0 print:p-0 bg-[#FAF9F6] dark:bg-slate-950 dark:text-slate-100 min-h-screen transition-colors duration-300">
+    <div className="w-full font-sans print:m-0 print:p-0 bg-[#FAF9F6] dark:bg-[#0a0a0a] dark:text-zinc-100 min-h-screen transition-colors duration-300">
       
       {/* ── PRINT BOOKLET ── */}
       <PrintOnlyBooklet trip={trip} itinerary={itinerary} formatCost={formatCost} localCurrencyRaw={localCurrencyRaw} totalStops={totalStops} />
@@ -481,11 +481,11 @@ export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, bas
             </p>
           </header>
           <div className="relative w-full h-[60vh] min-h-[500px]">
-            <img src={heroImage} alt={trip.destination} className="w-full h-full object-cover grayscale opacity-90 dark:opacity-60 border border-slate-200 dark:border-white/20 shadow-sm" />
+            <img src={heroImage} alt={trip.destination} className="w-full h-full object-cover grayscale opacity-90 dark:opacity-60 border border-zinc-200 dark:border-white/20 shadow-sm" />
             
             {/* The Text Bleed */}
             <div className="absolute -bottom-16 md:-bottom-24 left-4 md:left-12 z-10 pointer-events-none w-full max-w-4xl">
-              <h1 className="text-[6rem] sm:text-[9rem] md:text-[12rem] lg:text-[14rem] font-serif text-slate-900 dark:text-white tracking-tighter leading-[0.75] m-0 drop-shadow-xl md:drop-shadow-none break-words">
+              <h1 className="text-[6rem] sm:text-[9rem] md:text-[12rem] lg:text-[14rem] font-serif text-zinc-900 dark:text-white tracking-tighter leading-[0.75] m-0 drop-shadow-xl md:drop-shadow-none break-words">
                 {trip.destination}
               </h1>
             </div>
@@ -495,7 +495,7 @@ export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, bas
         {/* Spacer for the overlapping text to breathe */}
         <div className="h-16 md:h-24 w-full" />
 
-        <div className="max-w-5xl mx-auto w-full px-6 flex flex-wrap items-center gap-6 border-t-2 border-slate-900 dark:border-white pt-6 text-slate-900 dark:text-white font-mono text-[10px] md:text-xs uppercase tracking-[0.2em]">
+        <div className="max-w-5xl mx-auto w-full px-6 flex flex-wrap items-center gap-6 border-t-2 border-zinc-900 dark:border-white pt-6 text-zinc-900 dark:text-white font-mono text-[10px] md:text-xs uppercase tracking-[0.2em]">
           <span>{trip.startDate && trip.endDate ? `${format(new Date(trip.startDate), 'do MMMM')} — ${format(new Date(trip.endDate), 'do MMMM yyyy')}` : `${trip.duration} Days`}</span>
           <span className="w-1 h-1 bg-brand-500 rounded-full" />
           <span>{days.length} Days</span>
@@ -593,8 +593,8 @@ export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, bas
           </div>
 
           {typeof activeTab === 'number' && (
-            <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-[100] md:hidden">
-              <button onClick={() => setViewMode(prev => prev === 'list' ? 'map' : 'list')} className="bg-slate-900 text-white rounded-none px-8 py-4 flex items-center gap-3 font-mono text-xs uppercase tracking-widest shadow-2xl border border-slate-700">
+            <div className="fixed bottom-8 left-1/2 transform -tranzinc-x-1/2 z-[100] md:hidden">
+              <button onClick={() => setViewMode(prev => prev === 'list' ? 'map' : 'list')} className="bg-zinc-900 text-white rounded-none px-8 py-4 flex items-center gap-3 font-mono text-xs uppercase tracking-widest shadow-2xl border border-zinc-700">
                 {viewMode === 'list' ? <>View Map</> : <>View Timeline</>}
               </button>
             </div>
@@ -612,18 +612,18 @@ export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, bas
                   <div>
                     {renderEditorialBriefing()}
 
-                    <div className="mt-12 flex flex-wrap gap-x-16 gap-y-10 border-t-2 border-slate-900 dark:border-white pt-10">
+                    <div className="mt-12 flex flex-wrap gap-x-16 gap-y-10 border-t-2 border-zinc-900 dark:border-white pt-10">
                       <div className="min-w-[140px]">
                         <h4 className="text-[10px] font-mono uppercase tracking-[0.2em] text-black/50 dark:text-white/50 mb-3">Power Supply</h4>
-                        <p className="font-serif text-xl text-slate-900 dark:text-white italic">{plugType}</p>
+                        <p className="font-serif text-xl text-zinc-900 dark:text-white italic">{plugType}</p>
                       </div>
                       <div className="min-w-[140px] flex-1 max-w-sm">
                         <h4 className="text-[10px] font-mono uppercase tracking-[0.2em] text-black/50 dark:text-white/50 mb-3">Risk Assessment</h4>
-                        <p className="font-serif text-xl text-slate-900 dark:text-white italic leading-snug">{risk}</p>
+                        <p className="font-serif text-xl text-zinc-900 dark:text-white italic leading-snug">{risk}</p>
                       </div>
                       <div className="min-w-[140px]">
                         <h4 className="text-[10px] font-mono uppercase tracking-[0.2em] text-black/50 dark:text-white/50 mb-3">Essential Apps</h4>
-                        <p className="font-serif text-xl text-slate-900 dark:text-white italic">{apps.join(', ')}</p>
+                        <p className="font-serif text-xl text-zinc-900 dark:text-white italic">{apps.join(', ')}</p>
                       </div>
                     </div>
                   </div>
@@ -633,29 +633,29 @@ export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, bas
                     <div>
                       <h2 className="text-[10px] font-mono uppercase tracking-[0.2em] text-black/50 dark:text-white/50 mb-6 flex justify-between items-end border-b border-black/20 dark:border-white/20 pb-2">
                         <span>Transit Documents</span>
-                        <span className="text-slate-900 dark:text-white">{trip.intake.transitDetails.mode}</span>
+                        <span className="text-zinc-900 dark:text-white">{trip.intake.transitDetails.mode}</span>
                       </h2>
                       
-                      <div className="w-full border-2 border-slate-900 dark:border-white bg-white dark:bg-slate-900 p-8 flex flex-col md:flex-row justify-between gap-12 relative shadow-[8px_8px_0px_rgba(0,0,0,0.1)] dark:shadow-[8px_8px_0px_rgba(255,255,255,0.1)]">
+                      <div className="w-full border-2 border-zinc-900 dark:border-white bg-white dark:bg-zinc-900 p-8 flex flex-col md:flex-row justify-between gap-12 relative shadow-[8px_8px_0px_rgba(0,0,0,0.1)] dark:shadow-[8px_8px_0px_rgba(255,255,255,0.1)]">
                         <div className="absolute top-0 left-0 w-full h-1.5 bg-[repeating-linear-gradient(45deg,#ef4444,#ef4444_15px,transparent_15px,transparent_30px,#3b82f6_30px,#3b82f6_45px,transparent_45px,transparent_60px)] opacity-80" />
                         
                         <div className="flex-1 mt-4">
                           <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-black/50 dark:text-white/50 mb-4">Outbound</p>
-                          <div className="text-6xl font-serif text-slate-900 dark:text-white mb-2">{trip.intake.transitDetails.outbound?.time || 'TBD'}</div>
+                          <div className="text-6xl font-serif text-zinc-900 dark:text-white mb-2">{trip.intake.transitDetails.outbound?.time || 'TBD'}</div>
                           <div className="text-sm font-sans text-black/50 dark:text-white/50 mb-8 italic">Arrive {trip.destination}</div>
-                          <div className="font-mono text-xs uppercase tracking-widest text-slate-900 dark:text-white border-t border-black/20 dark:border-slate-700 pt-4">
+                          <div className="font-mono text-xs uppercase tracking-widest text-zinc-900 dark:text-white border-t border-black/20 dark:border-zinc-700 pt-4">
                             Ref // <span className="font-bold">{trip.intake.transitDetails.outbound?.reference || 'PENDING'}</span>
                           </div>
                         </div>
 
-                        <div className="hidden md:block w-px bg-slate-300 dark:bg-slate-700" />
-                        <div className="md:hidden h-px w-full bg-slate-300 dark:bg-slate-700" />
+                        <div className="hidden md:block w-px bg-zinc-300 dark:bg-zinc-700" />
+                        <div className="md:hidden h-px w-full bg-zinc-300 dark:bg-zinc-700" />
 
                         <div className="flex-1 mt-4">
                           <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-black/50 dark:text-white/50 mb-4">Return</p>
-                          <div className="text-6xl font-serif text-slate-900 dark:text-white mb-2">{trip.intake.transitDetails.return?.time || 'TBD'}</div>
+                          <div className="text-6xl font-serif text-zinc-900 dark:text-white mb-2">{trip.intake.transitDetails.return?.time || 'TBD'}</div>
                           <div className="text-sm font-sans text-black/50 dark:text-white/50 mb-8 italic">Depart {trip.destination}</div>
-                          <div className="font-mono text-xs uppercase tracking-widest text-slate-900 dark:text-white border-t border-black/20 dark:border-slate-700 pt-4">
+                          <div className="font-mono text-xs uppercase tracking-widest text-zinc-900 dark:text-white border-t border-black/20 dark:border-zinc-700 pt-4">
                             Ref // <span className="font-bold">{trip.intake.transitDetails.return?.reference || 'PENDING'}</span>
                           </div>
                         </div>
@@ -668,7 +668,7 @@ export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, bas
                     <div>
                       <div className="flex items-end justify-between border-b border-black/20 dark:border-white/20 pb-2 mb-8">
                         <h2 className="text-[10px] font-mono uppercase tracking-[0.2em] text-black/50 dark:text-white/50">The Residence</h2>
-                        <button onClick={() => { if (onEditRequest) onEditRequest(); else setActiveTab(1); }} className="text-[9px] font-mono uppercase tracking-widest text-slate-900 dark:text-white hover:text-brand-600 transition-colors">
+                        <button onClick={() => { if (onEditRequest) onEditRequest(); else setActiveTab(1); }} className="text-[9px] font-mono uppercase tracking-widest text-zinc-900 dark:text-white hover:text-brand-600 transition-colors">
                           Manage ↗
                         </button>
                       </div>
@@ -681,9 +681,9 @@ export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, bas
 
                             return (
                               <div key={idx} className="group cursor-pointer" onClick={() => hasPlaceId && setSelectedPOI({ placeId: stay.placeId!, poiId: stay.poiId })}>
-                                <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-slate-400 mb-3">Check-in Day {stay.startDay}</p>
-                                <h3 className="text-3xl font-serif text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors mb-4 leading-tight">{stay.name}</h3>
-                                <a href={mapsUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-block text-[9px] font-mono uppercase tracking-widest text-black/50 dark:text-white/50 border border-black/20 dark:border-slate-700 px-3 py-1.5 hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-slate-900 transition-colors">
+                                <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-zinc-400 mb-3">Check-in Day {stay.startDay}</p>
+                                <h3 className="text-3xl font-serif text-zinc-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors mb-4 leading-tight">{stay.name}</h3>
+                                <a href={mapsUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-block text-[9px] font-mono uppercase tracking-widest text-black/50 dark:text-white/50 border border-black/20 dark:border-zinc-700 px-3 py-1.5 hover:bg-zinc-900 hover:text-white dark:hover:bg-white dark:hover:text-zinc-900 transition-colors">
                                   Map ↗
                                 </a>
                               </div>
@@ -702,8 +702,8 @@ export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, bas
                         <div className="columns-1 md:columns-2 gap-12">
                           {essentials.usefulPhrases.slice(0,6).map((p, i) => (
                             <div key={i} className="mb-6 break-inside-avoid">
-                              <span className="font-black font-sans text-xs uppercase tracking-widest text-slate-900 dark:text-white mr-3">{p.phrase}.</span>
-                              <span className="font-serif text-xl text-slate-600 dark:text-slate-400 italic">{p.translation}</span>
+                              <span className="font-black font-sans text-xs uppercase tracking-widest text-zinc-900 dark:text-white mr-3">{p.phrase}.</span>
+                              <span className="font-serif text-xl text-zinc-600 dark:text-zinc-400 italic">{p.translation}</span>
                             </div>
                           ))}
                         </div>
@@ -712,16 +712,16 @@ export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, bas
                   </div>
 
                   {/* 5. THE TREASURY (Ledger) */}
-                  <div className="border-t border-slate-900 dark:border-white pt-12 mt-8">
+                  <div className="border-t border-zinc-900 dark:border-white pt-12 mt-8">
                     <h2 className="text-[10px] font-mono uppercase tracking-[0.2em] text-black/50 dark:text-white/50 mb-12 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <span>The Treasury</span>
                       <div className="flex items-center gap-6">
-                        <button onClick={toggleCurrency} className="text-slate-900 dark:text-white hover:text-brand-600 transition-colors">
+                        <button onClick={toggleCurrency} className="text-zinc-900 dark:text-white hover:text-brand-600 transition-colors">
                           {displayCurrency === 'GBP' ? 'View Local' : 'View GBP'}
                         </button>
                         <Link 
                           href={`/itinerary/${trip.id}/ledger`} 
-                          className="bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-6 py-2.5 hover:bg-brand-600 transition-colors font-mono tracking-widest text-[10px] uppercase"
+                          className="bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-6 py-2.5 hover:bg-brand-600 transition-colors font-mono tracking-widest text-[10px] uppercase"
                         >
                           Open Ledger ↗
                         </Link>
@@ -731,7 +731,7 @@ export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, bas
                     <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-12">
                       <div>
                         <p className="text-[10px] font-mono uppercase tracking-widest text-black/50 dark:text-white/50 mb-4">Estimated Exposure</p>
-                        <div className="text-7xl font-serif text-slate-900 dark:text-white leading-none mb-6 flex items-start">
+                        <div className="text-7xl font-serif text-zinc-900 dark:text-white leading-none mb-6 flex items-start">
                           <span className="text-3xl mt-2 mr-1">{displayCurrency === 'GBP' ? '£' : localSymbol}</span>
                           <span>{formatCost(totalCostBase).replace(/^[^\d\s]+\s*/, '')}</span>
                         </div>
@@ -742,7 +742,7 @@ export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, bas
 
                       <div className="w-full md:w-auto text-left md:text-right">
                         <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-black/50 dark:text-white/50 mb-4">Current Exchange</p>
-                        <div className="text-3xl font-serif text-slate-900 dark:text-white mb-2">1 {baseCurrencyCode} = {localSymbol}{exchangeRate.toFixed(2)}</div>
+                        <div className="text-3xl font-serif text-zinc-900 dark:text-white mb-2">1 {baseCurrencyCode} = {localSymbol}{exchangeRate.toFixed(2)}</div>
                         <p className="text-xs font-mono uppercase tracking-widest text-black/50 dark:text-white/50">{localCurrencyRaw}</p>
                       </div>
                     </div>
@@ -763,13 +763,13 @@ export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, bas
                   <div className="flex-1">
                     {viewMode === 'list' || typeof window === 'undefined' ? (
                       <>
-                        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-16 border-b-2 border-slate-900 dark:border-white pb-8">
+                        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-16 border-b-2 border-zinc-900 dark:border-white pb-8">
                           <div>
                             <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-black/50 dark:text-white/50 mb-4">Schedule</p>
-                            <h2 className="text-6xl font-serif text-slate-900 dark:text-white">Day {activeDay.dayNumber}</h2>
+                            <h2 className="text-6xl font-serif text-zinc-900 dark:text-white">Day {activeDay.dayNumber}</h2>
                           </div>
                           {mapUrl && (
-                            <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="inline-flex w-max items-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-slate-900 dark:text-white border border-slate-900 dark:border-white px-5 py-2.5 hover:bg-slate-900 hover:text-white dark:hover:bg-white dark:hover:text-slate-900 transition-colors">
+                            <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="inline-flex w-max items-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-zinc-900 dark:text-white border border-zinc-900 dark:border-white px-5 py-2.5 hover:bg-zinc-900 hover:text-white dark:hover:bg-white dark:hover:text-zinc-900 transition-colors">
                               Route Map ↗
                             </a>
                           )}
@@ -792,10 +792,10 @@ export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, bas
                     <div className="sticky top-40 flex flex-col gap-16">
                       
                       <div className="flex flex-col gap-4">
-                        <button onClick={() => setViewMode('list')} className={`text-left pb-2 text-[10px] font-mono uppercase tracking-[0.2em] border-b transition-all ${viewMode === 'list' ? 'border-slate-900 dark:border-white text-slate-900 dark:text-white' : 'border-black/20 dark:border-white/20 text-slate-400 hover:text-slate-600'}`}>
+                        <button onClick={() => setViewMode('list')} className={`text-left pb-2 text-[10px] font-mono uppercase tracking-[0.2em] border-b transition-all ${viewMode === 'list' ? 'border-zinc-900 dark:border-white text-zinc-900 dark:text-white' : 'border-black/20 dark:border-white/20 text-zinc-400 hover:text-zinc-600'}`}>
                           Read Timeline
                         </button>
-                        <button onClick={() => setViewMode('map')} className={`text-left pb-2 text-[10px] font-mono uppercase tracking-[0.2em] border-b transition-all ${viewMode === 'map' ? 'border-slate-900 dark:border-white text-slate-900 dark:text-white' : 'border-black/20 dark:border-white/20 text-slate-400 hover:text-slate-600'}`}>
+                        <button onClick={() => setViewMode('map')} className={`text-left pb-2 text-[10px] font-mono uppercase tracking-[0.2em] border-b transition-all ${viewMode === 'map' ? 'border-zinc-900 dark:border-white text-zinc-900 dark:text-white' : 'border-black/20 dark:border-white/20 text-zinc-400 hover:text-zinc-600'}`}>
                           Live Routing Map
                         </button>
                       </div>
@@ -803,10 +803,10 @@ export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, bas
                       <div>
                         <h3 className="text-[10px] font-mono uppercase tracking-[0.2em] text-black/50 dark:text-white/50 mb-6 pb-2 border-b border-black/20 dark:border-white/20 flex justify-between">
                           <span>Day {activeDay.dayNumber} Spend</span>
-                          {!isDomesticTrip && <button onClick={toggleCurrency} className="text-slate-900 dark:text-white hover:text-brand-600">{displayCurrency === 'GBP' ? 'LOCAL' : 'GBP'}</button>}
+                          {!isDomesticTrip && <button onClick={toggleCurrency} className="text-zinc-900 dark:text-white hover:text-brand-600">{displayCurrency === 'GBP' ? 'LOCAL' : 'GBP'}</button>}
                         </h3>
                         
-                        <div className={`text-5xl font-serif leading-none mb-3 ${(activeDay.estimatedDailySpendGBP || 0) > (trip.budgetGBP / trip.duration) ? 'text-red-600' : 'text-slate-900 dark:text-white'}`}>
+                        <div className={`text-5xl font-serif leading-none mb-3 ${(activeDay.estimatedDailySpendGBP || 0) > (trip.budgetGBP / trip.duration) ? 'text-red-600' : 'text-zinc-900 dark:text-white'}`}>
                           {formatCost(activeDay.estimatedDailySpendGBP || 0)}
                         </div>
                         <div className="text-sm font-serif italic text-black/50 dark:text-white/50 mb-8">
@@ -820,7 +820,7 @@ export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, bas
                           return (
                             <div className="border-l border-black/20 dark:border-white/20 pl-4">
                               <p className="text-[9px] font-mono uppercase tracking-widest text-black/50 dark:text-white/50 mb-2">Spend to Date</p>
-                              <p className="text-2xl font-serif text-slate-900 dark:text-white">{formatCost(spendToDate)}</p>
+                              <p className="text-2xl font-serif text-zinc-900 dark:text-white">{formatCost(spendToDate)}</p>
                             </div>
                           );
                         })()}

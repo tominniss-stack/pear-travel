@@ -268,12 +268,22 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
     [currentItinerary],
   );
 
+  const getThemeBackground = () => {
+    switch (activeTheme) {
+      case 'TERMINAL': return 'bg-[#0D0D0D]';
+      case 'NOTEBOOK': return 'bg-[#FDFBF7] dark:bg-[#1a1a1a]';
+      case 'EDITORIAL': return 'bg-[#FAF9F6] dark:bg-[#0a0a0a]';
+      case 'CLASSIC':
+      default: return 'bg-zinc-50 dark:bg-zinc-900/50';
+    }
+  };
+
   if (!isMounted) {
     return <div className="min-h-screen bg-slate-50 dark:bg-slate-950 w-full animate-pulse" />;
   }
 
   return (
-    <div className="w-full py-8 relative">
+    <div className={`w-full min-h-screen pt-8 relative ${getThemeBackground()}`}>
       <ThemeInjector />
 
       {/* ── DYNAMIC HEADER BAR ── */}
@@ -292,7 +302,7 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
             type="button"
             onClick={handleSaveItinerary}
             disabled={isSaving}
-            className="inline-flex items-center px-5 py-2.5 rounded-full bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-900 text-sm font-medium transition-all disabled:opacity-50"
+            className="inline-flex items-center px-6 py-2.5 rounded-full bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-900 text-sm font-medium transition-transform active:scale-95 disabled:opacity-50"
           >
             {isSaving ? 'Saving...' : 'Save Changes'}
           </button>
@@ -303,7 +313,7 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
           <div className="print:hidden mb-6 max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
             <Link
               href="/dashboard"
-              className="inline-flex items-center text-sm font-bold text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors"
+              className="inline-flex items-center text-sm font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white transition-colors"
             >
               <span aria-hidden="true" className="mr-2">←</span>
               Back to My Trips
@@ -315,7 +325,7 @@ export default function ItineraryPageClient({ dbTrip, dbItinerary }: ItineraryPa
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
-                  className="inline-flex items-center px-5 py-2.5 rounded-full bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-sm font-medium transition-colors"
+                  className="inline-flex items-center px-6 py-2.5 rounded-full bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white text-sm font-medium transition-colors"
                 >
                   Edit Trip Planner
                 </button>

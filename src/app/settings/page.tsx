@@ -18,18 +18,18 @@ import { DisplayModeToggle } from '@/components/shared/DisplayModeToggle';
 
 type Tab = 'account' | 'appearance' | 'files' | 'profile' | 'team';
 
-const Divider = () => <div className="border-t border-slate-200 dark:border-slate-800/60" />;
+const Divider = () => <div className="border-t border-zinc-200 dark:border-zinc-800/60" />;
 
 function OptCard({ on, click, label, desc }: { on: boolean; click: () => void; label: string; desc: string }) {
   return (
-    <button onClick={click} className={`group text-left w-full px-5 py-4 rounded-lg border transition-all duration-200 ${on ? 'border-slate-900 dark:border-slate-100 bg-slate-50 dark:bg-slate-800/50' : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'}`}>
+    <button onClick={click} className={`group text-left w-full px-5 py-4 rounded-xl border transition-all duration-200 ${on ? 'bg-zinc-50/50 dark:bg-zinc-800/30 border-zinc-200 dark:border-zinc-700' : 'bg-transparent border-zinc-100 dark:border-zinc-800/60 hover:border-zinc-200 dark:hover:border-zinc-700'}`}>
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <span className={`block text-sm font-medium ${on ? 'text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-400'}`}>{label}</span>
-          <span className="block text-xs text-slate-400 dark:text-slate-500 mt-0.5 leading-relaxed">{desc}</span>
+          <span className={`block text-sm font-medium ${on ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 dark:text-zinc-400'}`}>{label}</span>
+          <span className="block text-xs text-zinc-400 dark:text-zinc-500 mt-0.5 leading-relaxed">{desc}</span>
         </div>
-        <div className={`shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${on ? 'border-slate-900 dark:border-slate-100 bg-slate-900 dark:bg-slate-100' : 'border-slate-300 dark:border-slate-600'}`}>
-          {on && <div className="w-1.5 h-1.5 rounded-full bg-white dark:bg-slate-900" />}
+        <div className={`shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${on ? 'border-zinc-900 dark:border-zinc-100 bg-zinc-900 dark:bg-zinc-100' : 'border-zinc-300 dark:border-zinc-600'}`}>
+          {on && <div className="w-1.5 h-1.5 rounded-full bg-white dark:bg-zinc-900" />}
         </div>
       </div>
     </button>
@@ -38,15 +38,15 @@ function OptCard({ on, click, label, desc }: { on: boolean; click: () => void; l
 
 function TglCard({ on, click, label, desc }: { on: boolean; click: () => void; label: string; desc: string }) {
   return (
-    <button onClick={click} className={`group text-left flex-1 min-w-0 px-5 py-4 rounded-lg border transition-all duration-200 ${on ? 'border-slate-900 dark:border-slate-100 bg-slate-50 dark:bg-slate-800/50' : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'}`}>
-      <span className={`block text-sm font-medium ${on ? 'text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-400'}`}>{label}</span>
-      <span className="block text-xs text-slate-400 dark:text-slate-500 mt-0.5 leading-relaxed">{desc}</span>
+    <button onClick={click} className={`group text-left w-full px-5 py-4 rounded-xl border transition-all duration-200 ${on ? 'bg-zinc-50/50 dark:bg-zinc-800/30 border-zinc-200 dark:border-zinc-700' : 'bg-transparent border-zinc-100 dark:border-zinc-800/60 hover:border-zinc-200 dark:hover:border-zinc-700'}`}>
+      <span className={`block text-sm font-medium ${on ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-600 dark:text-zinc-400'}`}>{label}</span>
+      <span className="block text-xs text-zinc-400 dark:text-zinc-500 mt-0.5 leading-relaxed">{desc}</span>
     </button>
   );
 }
 
 function HelperText({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed mt-1 mb-4">{children}</p>;
+  return <p className="text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed mt-1 mb-4">{children}</p>;
 }
 
 export default function SettingsPage() {
@@ -259,34 +259,35 @@ export default function SettingsPage() {
   const totalStorageBytes = documents.reduce((sum, doc) => sum + (doc.sizeBytes || 0), 0);
   const fade = { initial: { opacity: 0, y: 6 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -4 }, transition: { duration: 0.2, ease: 'easeOut' as const } };
   const resetPw = () => { setIsChangingPassword(false); setPasswordError(null); setPasswordSuccess(null); setCurrentPassword(''); setNewPassword(''); setConfirmPassword(''); };
-  const inputCls = "w-full bg-transparent text-sm text-slate-900 dark:text-slate-100 px-0 py-2 border-b border-slate-200 dark:border-slate-800 focus:outline-none focus:border-slate-900 dark:focus:border-slate-100 transition-colors placeholder:text-slate-300";
+  const inputCls = "w-full bg-transparent text-base text-zinc-900 dark:text-white px-0 py-3 border-b-2 border-zinc-200 focus:border-zinc-900 dark:border-zinc-800 dark:focus:border-white focus:outline-none transition-colors placeholder:text-zinc-400 rounded-none";
+  const btnCls = "px-8 py-3.5 rounded-full bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:hover:bg-zinc-200 text-white dark:text-zinc-900 text-sm font-medium transition-transform active:scale-[0.98] disabled:opacity-50 mt-4";
 
   return (
     <div className="min-h-screen font-sans">
       {/* Header */}
-      <div className="border-b border-slate-200 dark:border-slate-800/60 px-6 py-5">
+      <div className="border-b border-zinc-200 dark:border-zinc-800/60 px-6 py-8">
         <div className="max-w-7xl mx-auto">
-          <Link href={currentTripId ? `/itinerary/${currentTripId}` : '/dashboard'} className="text-xs tracking-wide text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors mb-3 inline-flex items-center gap-1.5">
+          <Link href={currentTripId ? `/itinerary/${currentTripId}` : '/dashboard'} className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors inline-flex items-center gap-2 mb-8">
             <span>←</span><span>{currentTripId ? 'Back to trip' : 'Back to dashboard'}</span>
           </Link>
-          <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight">Settings</h1>
+          <h1 className="text-3xl lg:text-4xl font-medium text-zinc-900 dark:text-white tracking-tight">Settings</h1>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto min-h-[600px]">
         <div className="flex flex-col md:flex-row">
           {/* Sidebar — vertical on desktop, horizontal scroll on mobile */}
-          <nav className="shrink-0 md:w-64 md:border-r border-b md:border-b-0 border-slate-200 dark:border-slate-800/60">
+          <nav className="shrink-0 md:w-64 md:border-r border-b md:border-b-0 border-zinc-200 dark:border-zinc-800/60">
             {/* Mobile: horizontal scrolling tabs */}
             <div className="flex md:hidden gap-1 overflow-x-auto hide-scrollbar px-6 py-3">
               {visibleTabs.map((t) => (
                 <button
                   key={t.id}
                   onClick={() => setActiveTab(t.id)}
-                  className={`px-4 py-2 text-sm font-medium rounded-full transition-all duration-200 whitespace-nowrap ${
+                  className={`px-4 py-2 text-sm font-medium transition-all duration-200 whitespace-nowrap ${
                     activeTab === t.id
-                      ? 'text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800'
-                      : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+                      ? 'text-zinc-900 dark:text-white bg-zinc-100/80 dark:bg-zinc-800/80 rounded-xl'
+                      : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-800/40 rounded-xl'
                   }`}
                 >
                   {t.label}
@@ -299,10 +300,10 @@ export default function SettingsPage() {
                 <button
                   key={t.id}
                   onClick={() => setActiveTab(t.id)}
-                  className={`text-left px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  className={`text-left px-4 py-3 text-sm font-medium transition-all duration-200 ${
                     activeTab === t.id
-                      ? 'text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                      ? 'text-zinc-900 dark:text-white bg-zinc-100/80 dark:bg-zinc-800/80 rounded-xl'
+                      : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-zinc-800/40 rounded-xl'
                   }`}
                 >
                   {t.label}
@@ -312,26 +313,28 @@ export default function SettingsPage() {
           </nav>
 
           {/* Content area */}
-          <main className="flex-1 px-6 md:px-10 py-8 md:py-10">
+          <main className="flex-1 px-6 md:px-12 py-10 md:py-12 overflow-hidden">
             <AnimatePresence mode="wait">
               {/* ─── Account ─── */}
               {activeTab === 'account' && (
-                <motion.div key="account" {...fade} className="space-y-10 max-w-xl">
+                <motion.div key="account" {...fade} className="space-y-10 max-w-5xl w-full">
                   <section>
-                    <h2 className="text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-4">Personal Details</h2>
-                    <form onSubmit={handlePersonalDetailsChange} className="space-y-5 max-w-sm">
-                      <div>
-                        <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1.5">Name</label>
-                        <input type="text" value={personalName} onChange={(e) => setPersonalName(e.target.value)} className={inputCls} placeholder="Your name" />
-                      </div>
-                      <div>
-                        <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1.5">Email</label>
-                        <input type="email" value={personalEmail} onChange={(e) => setPersonalEmail(e.target.value)} className={inputCls} placeholder="your@email.com" />
+                    <h2 className="text-xs font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-4">Personal Details</h2>
+                    <form onSubmit={handlePersonalDetailsChange} className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-sm text-zinc-500 dark:text-zinc-400 mb-1.5">Name</label>
+                          <input type="text" value={personalName} onChange={(e) => setPersonalName(e.target.value)} className={inputCls} placeholder="Your name" />
+                        </div>
+                        <div>
+                          <label className="block text-sm text-zinc-500 dark:text-zinc-400 mb-1.5">Email</label>
+                          <input type="email" value={personalEmail} onChange={(e) => setPersonalEmail(e.target.value)} className={inputCls} placeholder="your@email.com" />
+                        </div>
                       </div>
                       {personalError && <p className="text-xs text-red-500 font-medium">{personalError}</p>}
                       {personalSuccess && <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">{personalSuccess}</p>}
-                      <div className="pt-1">
-                        <button type="submit" disabled={isSavingPersonal} className="text-sm font-medium text-slate-900 dark:text-slate-100 px-5 py-2 rounded-full border border-slate-900 dark:border-slate-100 hover:bg-slate-900 hover:text-white dark:hover:bg-slate-100 dark:hover:text-slate-900 transition-all disabled:opacity-40">
+                      <div>
+                        <button type="submit" disabled={isSavingPersonal} className={btnCls}>
                           {isSavingPersonal ? 'Saving…' : 'Save Details'}
                         </button>
                       </div>
@@ -339,44 +342,55 @@ export default function SettingsPage() {
                   </section>
                   <Divider />
                   <section>
-                    <h2 className="text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-4">Account</h2>
-                    <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1.5">Username</label>
-                    <div className="text-slate-900 dark:text-slate-100 font-mono text-sm bg-transparent px-0 py-2 border-b border-slate-200 dark:border-slate-800">{session?.user?.username || 'Loading...'}</div>
+                    <h2 className="text-xs font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-4">Account</h2>
+                    <label className="block text-sm text-zinc-500 dark:text-zinc-400 mb-1.5">Username</label>
+                    <div className="text-zinc-900 dark:text-zinc-100 font-mono text-sm bg-transparent px-0 py-3 border-b-2 border-zinc-200 dark:border-zinc-800">{session?.user?.username || 'Loading...'}</div>
                   </section>
                   <Divider />
                   <section>
-                    <h2 className="text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-4">Security</h2>
+                    <h2 className="text-xs font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-4">Security</h2>
                     {!isChangingPassword ? (
-                      <button onClick={() => setIsChangingPassword(true)} className="text-sm font-medium text-slate-900 dark:text-slate-100 hover:text-slate-600 dark:hover:text-slate-300 transition-colors underline underline-offset-4 decoration-slate-300 dark:decoration-slate-700 hover:decoration-slate-500">Change password</button>
+                      <button onClick={() => setIsChangingPassword(true)} className="text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors underline underline-offset-4 decoration-zinc-300 dark:decoration-zinc-700 hover:decoration-zinc-500">Change password</button>
                     ) : (
-                      <form onSubmit={handlePasswordChange} className="space-y-5 max-w-sm">
-                        <div><label className="block text-sm text-slate-500 dark:text-slate-400 mb-1.5">Current password</label><input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required className={inputCls} placeholder="••••••••" /></div>
-                        <div><label className="block text-sm text-slate-500 dark:text-slate-400 mb-1.5">New password</label><input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required className={inputCls} placeholder="••••••••" /></div>
-                        <div><label className="block text-sm text-slate-500 dark:text-slate-400 mb-1.5">Confirm new password</label><input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required className={inputCls} placeholder="••••••••" /></div>
+                      <form onSubmit={handlePasswordChange} className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="md:col-span-2">
+                            <label className="block text-sm text-zinc-500 dark:text-zinc-400 mb-1.5">Current password</label>
+                            <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required className={inputCls} placeholder="••••••••" />
+                          </div>
+                          <div>
+                            <label className="block text-sm text-zinc-500 dark:text-zinc-400 mb-1.5">New password</label>
+                            <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required className={inputCls} placeholder="••••••••" />
+                          </div>
+                          <div>
+                            <label className="block text-sm text-zinc-500 dark:text-zinc-400 mb-1.5">Confirm new password</label>
+                            <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required className={inputCls} placeholder="••••••••" />
+                          </div>
+                        </div>
                         {passwordError && <p className="text-xs text-red-500 font-medium">{passwordError}</p>}
                         {passwordSuccess && <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">{passwordSuccess}</p>}
-                        <div className="flex items-center gap-4 pt-1">
-                          <button type="submit" disabled={isSavingPassword} className="text-sm font-medium text-slate-900 dark:text-slate-100 px-5 py-2 rounded-full border border-slate-900 dark:border-slate-100 hover:bg-slate-900 hover:text-white dark:hover:bg-slate-100 dark:hover:text-slate-900 transition-all disabled:opacity-40">{isSavingPassword ? 'Saving…' : 'Update password'}</button>
-                          <button type="button" onClick={resetPw} className="text-sm text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">Cancel</button>
+                        <div className="flex items-center gap-4">
+                          <button type="submit" disabled={isSavingPassword} className={btnCls}>{isSavingPassword ? 'Saving…' : 'Update password'}</button>
+                          <button type="button" onClick={resetPw} className="text-sm text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors mt-4">Cancel</button>
                         </div>
                       </form>
                     )}
                   </section>
                   <Divider />
-                  <section><button onClick={handleLogout} className="text-sm font-medium text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors">Log out</button></section>
+                  <section><button onClick={handleLogout} className="text-sm font-medium text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">Log out</button></section>
                 </motion.div>
               )}
 
               {/* ─── Travel Profile ─── */}
               {activeTab === 'profile' && (
-                <motion.div key="profile" {...fade} className="space-y-10 max-w-xl">
-                  <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">These preferences shape how our AI builds your itineraries. Adjust them anytime to customise your experience.</p>
+                <motion.div key="profile" {...fade} className="space-y-10 max-w-5xl w-full">
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-2xl">These preferences shape how our AI builds your itineraries. Adjust them anytime to customise your experience.</p>
 
                   {/* Daily Pacing */}
                   <section>
-                    <h2 className="text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-0.5">Daily Pacing</h2>
+                    <h2 className="text-xs font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-0.5">Daily Pacing</h2>
                     <HelperText>Determines how aggressively the AI schedules activities and downtime.</HelperText>
-                    <div className="space-y-2">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <OptCard on={dailyPacing === 'relaxed'} click={() => updateProfile({ dailyPacing: 'relaxed' })} label="Relaxed" desc="One anchor activity per day with plenty of free time to wander." />
                       <OptCard on={dailyPacing === 'moderate'} click={() => updateProfile({ dailyPacing: 'moderate' })} label="Moderate" desc="2–3 activities with comfortable breathing room between each." />
                       <OptCard on={dailyPacing === 'intensive'} click={() => updateProfile({ dailyPacing: 'intensive' })} label="Intensive" desc="Packed days, maximise every hour. 5+ activities scheduled." />
@@ -386,9 +400,9 @@ export default function SettingsPage() {
 
                   {/* Transport Preference */}
                   <section>
-                    <h2 className="text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-0.5">Transport Preference</h2>
+                    <h2 className="text-xs font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-0.5">Transport Preference</h2>
                     <HelperText>Instructs the AI on acceptable transit distances and preferred transport modes.</HelperText>
-                    <div className="space-y-2">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <OptCard on={transportPreference === 'walk'} click={() => updateProfile({ transportPreference: 'walk' })} label="Walk Everywhere" desc="10k+ steps a day. The city is best explored on foot." />
                       <OptCard on={transportPreference === 'public-transport'} click={() => updateProfile({ transportPreference: 'public-transport' })} label="Public Transport" desc="Metro, bus, tram — travel like a local for longer distances." />
                       <OptCard on={transportPreference === 'private'} click={() => updateProfile({ transportPreference: 'private' })} label="Private" desc="Taxis and rideshares. Minimise friction between destinations." />
@@ -398,73 +412,73 @@ export default function SettingsPage() {
 
                   {/* Dining Style */}
                   <section>
-                    <h2 className="text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-0.5">Dining Style</h2>
+                    <h2 className="text-xs font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-0.5">Dining Style</h2>
                     <HelperText>Determines if days are built around restaurant reservations or if food is fitted around activities.</HelperText>
-                    <div className="flex gap-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <TglCard on={diningStyle === 'gastronomy'} click={() => updateProfile({ diningStyle: 'gastronomy' })} label="Gastronomy Focus" desc="Build days around reservations and culinary experiences." />
                       <TglCard on={diningStyle === 'convenience'} click={() => updateProfile({ diningStyle: 'convenience' })} label="Convenience" desc="Quick casual bites fitted around the schedule." />
                     </div>
                   </section>
                   <Divider />
 
-                  {/* Ideal Start Time */}
-                  <section>
-                    <h2 className="text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-0.5">Ideal Start Time</h2>
-                    <HelperText>The earliest time you want your first scheduled activity to begin.</HelperText>
-                    <select
-                      value={idealStartTime}
-                      onChange={(e) => updateProfile({ idealStartTime: e.target.value })}
-                      className="bg-transparent text-sm text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-800 rounded-lg px-4 py-2.5 focus:outline-none focus:border-slate-900 dark:focus:border-slate-100 transition-colors appearance-none cursor-pointer min-w-[160px]"
-                    >
-                      <option value="07:00">07:00</option>
-                      <option value="07:30">07:30</option>
-                      <option value="08:00">08:00</option>
-                      <option value="08:30">08:30</option>
-                      <option value="09:00">09:00</option>
-                      <option value="09:30">09:30</option>
-                      <option value="10:00">10:00</option>
-                      <option value="10:30">10:30</option>
-                      <option value="11:00">11:00</option>
-                      <option value="11:30">11:30</option>
-                      <option value="12:00">12:00</option>
-                    </select>
-                  </section>
-                  <Divider />
-
-                  {/* Regional Preferences */}
-                  <section>
-                    <h2 className="text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-0.5">Regional Preferences</h2>
-                    <HelperText>Your home currency for calculating total trip costs.</HelperText>
-                    <div className="relative max-w-[200px]">
+                  {/* Ideal Start Time & Regional */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-6">
+                    <section>
+                      <h2 className="text-xs font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-0.5">Ideal Start Time</h2>
+                      <HelperText>The earliest time you want your first scheduled activity to begin.</HelperText>
                       <select
-                        value={baseCurrency}
-                        onChange={handleCurrencyChange}
-                        className="w-full bg-transparent text-sm text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-800 rounded-lg px-4 py-3 focus:outline-none focus:border-slate-900 dark:focus:border-slate-100 transition-colors appearance-none cursor-pointer"
+                        value={idealStartTime}
+                        onChange={(e) => updateProfile({ idealStartTime: e.target.value })}
+                        className={inputCls + " cursor-pointer"}
                       >
-                        <option value="GBP">🇬🇧 GBP (£)</option>
-                        <option value="USD">🇺🇸 USD ($)</option>
-                        <option value="EUR">🇪🇺 EUR (€)</option>
-                        <option value="AUD">🇦🇺 AUD (A$)</option>
-                        <option value="CAD">🇨🇦 CAD (C$)</option>
-                        <option value="JPY">🇯🇵 JPY (¥)</option>
+                        <option value="07:00">07:00</option>
+                        <option value="07:30">07:30</option>
+                        <option value="08:00">08:00</option>
+                        <option value="08:30">08:30</option>
+                        <option value="09:00">09:00</option>
+                        <option value="09:30">09:30</option>
+                        <option value="10:00">10:00</option>
+                        <option value="10:30">10:30</option>
+                        <option value="11:00">11:00</option>
+                        <option value="11:30">11:30</option>
+                        <option value="12:00">12:00</option>
                       </select>
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
+                    </section>
+
+                    <section>
+                      <h2 className="text-xs font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-0.5">Regional Preferences</h2>
+                      <HelperText>Your home currency for calculating total trip costs.</HelperText>
+                      <div className="relative">
+                        <select
+                          value={baseCurrency}
+                          onChange={handleCurrencyChange}
+                          className={inputCls + " cursor-pointer"}
+                        >
+                          <option value="GBP">🇬🇧 GBP (£)</option>
+                          <option value="USD">🇺🇸 USD ($)</option>
+                          <option value="EUR">🇪🇺 EUR (€)</option>
+                          <option value="AUD">🇦🇺 AUD (A$)</option>
+                          <option value="CAD">🇨🇦 CAD (C$)</option>
+                          <option value="JPY">🇯🇵 JPY (¥)</option>
+                        </select>
+                        <div className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
                       </div>
-                    </div>
-                  </section>
+                    </section>
+                  </div>
                 </motion.div>
               )}
 
               {/* ─── Appearance ─── */}
               {activeTab === 'appearance' && (
-                <motion.div key="appearance" {...fade} className="space-y-10 max-w-xl">
+                <motion.div key="appearance" {...fade} className="space-y-10 max-w-5xl w-full">
                   <section>
-                    <h2 className="text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1.5">Structural Layout</h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Choose how your itineraries are presented.</p>
-                    <div className="space-y-2">
+                    <h2 className="text-xs font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-1.5">Structural Layout</h2>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6 max-w-2xl">Choose how your itineraries are presented.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {themes.map((theme) => (
                         <button key={theme.id} disabled={theme.status === 'coming_soon'} onClick={() => setAestheticPreference(theme.id)} onMouseEnter={() => {
                           const preloadMap: Record<string, () => Promise<any>> = {
@@ -476,18 +490,18 @@ export default function SettingsPage() {
                           if (preloadMap[theme.id]) {
                             preloadMap[theme.id]();
                           }
-                        }} className={`w-full text-left px-5 py-4 rounded-lg border transition-all duration-200 flex items-center gap-4 ${aestheticPreference === theme.id ? 'border-slate-900 dark:border-slate-100 bg-slate-50 dark:bg-slate-800/50' : theme.status === 'coming_soon' ? 'border-slate-100 dark:border-slate-800/50 opacity-40 cursor-not-allowed' : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'}`}>
-                          <span className="text-xl shrink-0">{theme.icon}</span>
+                        }} className={`w-full text-left px-5 py-4 rounded-xl border transition-all duration-200 flex items-center gap-4 ${aestheticPreference === theme.id ? 'border-zinc-900 dark:border-zinc-100 bg-zinc-50 dark:bg-zinc-800/50' : theme.status === 'coming_soon' ? 'border-zinc-100 dark:border-zinc-800/50 opacity-40 cursor-not-allowed' : 'border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'}`}>
+                          <span className="text-2xl shrink-0">{theme.icon}</span>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <span className={`text-sm font-medium ${aestheticPreference === theme.id ? 'text-slate-900 dark:text-slate-100' : 'text-slate-700 dark:text-slate-300'}`}>{theme.name}</span>
-                              {theme.status === 'coming_soon' && <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400 dark:text-slate-600">Soon</span>}
+                              <span className={`text-sm font-medium ${aestheticPreference === theme.id ? 'text-zinc-900 dark:text-zinc-100' : 'text-zinc-700 dark:text-zinc-300'}`}>{theme.name}</span>
+                              {theme.status === 'coming_soon' && <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-400 dark:text-zinc-600">Soon</span>}
                             </div>
-                            <span className="text-xs text-slate-400 dark:text-slate-500">{theme.desc}</span>
+                            <span className="text-xs text-zinc-400 dark:text-zinc-500 mt-1 block">{theme.desc}</span>
                           </div>
                           {aestheticPreference === theme.id && (
-                            <div className="shrink-0 w-5 h-5 rounded-full bg-slate-900 dark:bg-slate-100 flex items-center justify-center">
-                              <svg className="w-3 h-3 text-white dark:text-slate-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            <div className="shrink-0 w-5 h-5 rounded-full bg-zinc-900 dark:bg-zinc-100 flex items-center justify-center">
+                              <svg className="w-3 h-3 text-white dark:text-zinc-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                             </div>
                           )}
                         </button>
@@ -495,22 +509,18 @@ export default function SettingsPage() {
                     </div>
                   </section>
                   <Divider />
-                  <section>
+                  <section className="grid grid-cols-1 md:grid-cols-2 gap-10">
                     <div className="mb-8">
                       <h2 className="text-lg font-semibold text-zinc-900 dark:text-white mb-1">Display Mode</h2>
-                      <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Controls light and dark appearance across the entire app.</p>
+                      <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6 max-w-sm">Controls light and dark appearance across the entire app.</p>
                       <DisplayModeToggle />
                     </div>
-                  </section>
-                  <Divider />
-                  <section>
-                    <div className="flex items-start justify-between gap-6">
-                      <div>
-                        <h2 className="text-sm font-medium text-slate-900 dark:text-slate-100 mb-1">Destination-Adaptive Colours</h2>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed max-w-sm">Shift the accent palette to match your destination. Disable for default Emerald.</p>
-                      </div>
-                      <button onClick={toggleDynamicColors} className={`relative inline-flex h-6 w-10 items-center rounded-full transition-colors duration-200 shrink-0 mt-0.5 ${useDynamicColors ? 'bg-slate-900 dark:bg-slate-100' : 'bg-slate-200 dark:bg-slate-700'}`}>
-                        <span className={`inline-block h-4 w-4 transform rounded-full transition-transform duration-200 ${useDynamicColors ? 'translate-x-5 bg-white dark:bg-slate-900' : 'translate-x-1 bg-white dark:bg-slate-400'}`} />
+
+                    <div>
+                      <h2 className="text-lg font-semibold text-zinc-900 dark:text-white mb-1">Adaptive Colours</h2>
+                      <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6 max-w-sm">Shift the accent palette to match your destination. Disable for default Emerald.</p>
+                      <button onClick={toggleDynamicColors} className={`relative inline-flex h-6 w-10 items-center rounded-full transition-colors duration-200 shrink-0 ${useDynamicColors ? 'bg-zinc-900 dark:bg-zinc-100' : 'bg-zinc-200 dark:bg-zinc-700'}`}>
+                        <span className={`inline-block h-4 w-4 transform rounded-full transition-transform duration-200 ${useDynamicColors ? 'translate-x-5 bg-white dark:bg-zinc-900' : 'translate-x-1 bg-white dark:bg-zinc-400'}`} />
                       </button>
                     </div>
                   </section>
@@ -519,43 +529,43 @@ export default function SettingsPage() {
 
               {/* ─── Files ─── */}
               {activeTab === 'files' && (
-                <motion.div key="files" {...fade} className="space-y-6 max-w-2xl">
+                <motion.div key="files" {...fade} className="space-y-6 max-w-5xl w-full">
                   <div className="flex items-baseline justify-between">
                     <div>
-                      <h2 className="text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-1.5">Receipts &amp; Documents</h2>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">Files attached to your trips.</p>
+                      <h2 className="text-xs font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-1.5">Receipts & Documents</h2>
+                      <p className="text-sm text-zinc-500 dark:text-zinc-400">Files attached to your trips.</p>
                     </div>
                     <div className="text-right flex items-baseline gap-3">
-                      <span className="text-xs text-slate-400 tabular-nums">{formatSize(totalStorageBytes)}</span>
-                      <span className="text-sm font-mono text-slate-900 dark:text-slate-100 tabular-nums">{documents.length} {documents.length === 1 ? 'file' : 'files'}</span>
+                      <span className="text-xs text-zinc-400 tabular-nums">{formatSize(totalStorageBytes)}</span>
+                      <span className="text-sm font-mono text-zinc-900 dark:text-zinc-100 tabular-nums">{documents.length} {documents.length === 1 ? 'file' : 'files'}</span>
                     </div>
                   </div>
                   <Divider />
                   {isLoadingDocs ? (
-                    <div className="py-16 text-center text-sm text-slate-400 animate-pulse">Loading files…</div>
+                    <div className="py-16 text-center text-sm text-zinc-400 animate-pulse">Loading files…</div>
                   ) : documents.length === 0 ? (
                     <div className="py-20 text-center">
-                      <p className="text-sm text-slate-400 mb-1">No files yet.</p>
-                      <p className="text-xs text-slate-300 dark:text-slate-600">Upload receipts from your Ledger or Itinerary.</p>
+                      <p className="text-sm text-zinc-400 mb-1">No files yet.</p>
+                      <p className="text-xs text-zinc-300 dark:text-zinc-600">Upload receipts from your Ledger or Itinerary.</p>
                     </div>
                   ) : (
-                    <div className="space-y-0 divide-y divide-slate-100 dark:divide-slate-800/60">
+                    <div className="space-y-0 divide-y divide-zinc-100 dark:divide-zinc-800/60">
                       {documents.map(doc => (
                         <div key={doc.id} className="flex items-center gap-4 py-4 group">
-                          <span className="text-lg text-slate-300 dark:text-slate-600 group-hover:text-slate-500 transition-colors shrink-0">
+                          <span className="text-lg text-zinc-300 dark:text-zinc-600 group-hover:text-zinc-500 transition-colors shrink-0">
                             {doc.mimeType?.includes('pdf') ? '📄' : '🖼️'}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-slate-900 dark:text-slate-100 hover:text-slate-600 dark:hover:text-slate-300 truncate block transition-colors">{doc.fileName}</a>
+                            <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-zinc-600 dark:hover:text-zinc-300 truncate block transition-colors">{doc.fileName}</a>
                             <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-xs text-slate-400 truncate">{doc.tripDestination}</span>
-                              <span className="text-slate-200 dark:text-slate-700">·</span>
-                              <span className="text-xs text-slate-400 tabular-nums">{format(new Date(doc.uploadedAt), 'dd MMM yyyy')}</span>
-                              <span className="text-slate-200 dark:text-slate-700">·</span>
-                              <span className="text-xs text-slate-400 tabular-nums">{formatSize(doc.sizeBytes)}</span>
+                              <span className="text-xs text-zinc-400 truncate">{doc.tripDestination}</span>
+                              <span className="text-zinc-200 dark:text-zinc-700">·</span>
+                              <span className="text-xs text-zinc-400 tabular-nums">{format(new Date(doc.uploadedAt), 'dd MMM yyyy')}</span>
+                              <span className="text-zinc-200 dark:text-zinc-700">·</span>
+                              <span className="text-xs text-zinc-400 tabular-nums">{formatSize(doc.sizeBytes)}</span>
                             </div>
                           </div>
-                          <button onClick={() => handleDelete(doc.id)} disabled={isDeletingId === doc.id} className="shrink-0 text-xs text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors disabled:opacity-40" title="Delete file">
+                          <button onClick={() => handleDelete(doc.id)} disabled={isDeletingId === doc.id} className="shrink-0 text-xs text-zinc-300 dark:text-zinc-600 hover:text-red-500 dark:hover:text-red-400 transition-colors disabled:opacity-40" title="Delete file">
                             {isDeletingId === doc.id ? '…' : '✕'}
                           </button>
                         </div>
@@ -567,10 +577,10 @@ export default function SettingsPage() {
 
               {/* ─── Team ─── */}
               {activeTab === 'team' && (
-                <motion.div key="team" {...fade} className="space-y-8 max-w-2xl">
+                <motion.div key="team" {...fade} className="space-y-10 max-w-5xl w-full">
                   <div>
-                    <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 tracking-tight">User Management</h2>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage user accounts and access permissions.</p>
+                    <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight">User Management</h2>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-2xl">Manage user accounts and access permissions.</p>
                   </div>
 
                   {usersError ? (
@@ -583,14 +593,14 @@ export default function SettingsPage() {
                       {!showCreateForm ? (
                         <button
                           onClick={() => setShowCreateForm(true)}
-                          className="text-sm font-medium text-slate-900 dark:text-slate-100 px-4 py-2 rounded-lg border border-slate-900 dark:border-slate-100 hover:bg-slate-900 hover:text-white dark:hover:bg-slate-100 dark:hover:text-slate-900 transition-all"
+                          className={btnCls}
                         >
                           + Create User
                         </button>
                       ) : (
-                        <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-6 space-y-4">
+                        <div className="border border-zinc-200 dark:border-zinc-800 rounded-xl p-8 space-y-8 bg-zinc-50/30 dark:bg-zinc-900/20">
                           <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-medium text-slate-900 dark:text-slate-100">Create New User</h3>
+                            <h3 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Create New User</h3>
                             <button
                               onClick={() => {
                                 setShowCreateForm(false);
@@ -601,78 +611,84 @@ export default function SettingsPage() {
                                 setNewUserPassword('');
                                 setNewUserRole('USER');
                               }}
-                              className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                              className="text-xs font-medium text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
                             >
                               Cancel
                             </button>
                           </div>
-                          <form onSubmit={handleCreateUser} className="space-y-4">
-                            <div>
-                              <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1.5">Name</label>
-                              <input
-                                type="text"
-                                value={newUserName}
-                                onChange={(e) => { setNewUserName(e.target.value); setCreateUserError(null); }}
-                                required
-                                className={inputCls}
-                                placeholder="Full name"
-                              />
+                          <form onSubmit={handleCreateUser} className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div>
+                                <label className="block text-sm text-zinc-500 dark:text-zinc-400 mb-1.5">Name</label>
+                                <input
+                                  type="text"
+                                  value={newUserName}
+                                  onChange={(e) => { setNewUserName(e.target.value); setCreateUserError(null); }}
+                                  required
+                                  className={inputCls}
+                                  placeholder="Full name"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm text-zinc-500 dark:text-zinc-400 mb-1.5">Username</label>
+                                <input
+                                  type="text"
+                                  value={newUserUsername}
+                                  onChange={(e) => { setNewUserUsername(e.target.value); setCreateUserError(null); }}
+                                  required
+                                  className={inputCls}
+                                  placeholder="username"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm text-zinc-500 dark:text-zinc-400 mb-1.5">Email</label>
+                                <input
+                                  type="email"
+                                  value={newUserEmail}
+                                  onChange={(e) => { setNewUserEmail(e.target.value); setCreateUserError(null); }}
+                                  className={inputCls}
+                                  placeholder="user@email.com"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm text-zinc-500 dark:text-zinc-400 mb-1.5">Temporary Password</label>
+                                <input
+                                  type="password"
+                                  value={newUserPassword}
+                                  onChange={(e) => { setNewUserPassword(e.target.value); setCreateUserError(null); }}
+                                  required
+                                  className={inputCls}
+                                  placeholder="••••••••"
+                                />
+                                <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-2 italic">
+                                  Share securely. Will not be shown again.
+                                </p>
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="block text-sm text-zinc-500 dark:text-zinc-400 mb-1.5">Role</label>
+                                <select
+                                  value={newUserRole}
+                                  onChange={(e) => { setNewUserRole(e.target.value); setCreateUserError(null); }}
+                                  className={inputCls + " cursor-pointer"}
+                                >
+                                  <option value="USER">User</option>
+                                  <option value="ADMIN">Admin</option>
+                                </select>
+                              </div>
                             </div>
-                            <div>
-                              <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1.5">Username</label>
-                              <input
-                                type="text"
-                                value={newUserUsername}
-                                onChange={(e) => { setNewUserUsername(e.target.value); setCreateUserError(null); }}
-                                required
-                                className={inputCls}
-                                placeholder="username"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1.5">Email</label>
-                              <input
-                                type="email"
-                                value={newUserEmail}
-                                onChange={(e) => { setNewUserEmail(e.target.value); setCreateUserError(null); }}
-                                className={inputCls}
-                                placeholder="user@email.com"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1.5">Temporary Password</label>
-                              <input
-                                type="password"
-                                value={newUserPassword}
-                                onChange={(e) => { setNewUserPassword(e.target.value); setCreateUserError(null); }}
-                                required
-                                className={inputCls}
-                                placeholder="••••••••"
-                              />
-                              <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 italic">
-                                Share this temporary password securely — it will not be shown again after you close this form.
-                              </p>
-                            </div>
-                            <div>
-                              <label className="block text-sm text-slate-500 dark:text-slate-400 mb-1.5">Role</label>
-                              <select
-                                value={newUserRole}
-                                onChange={(e) => { setNewUserRole(e.target.value); setCreateUserError(null); }}
-                                className="w-full bg-transparent text-sm text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-800 rounded-lg px-4 py-2 focus:outline-none focus:border-slate-900 dark:focus:border-slate-100 transition-colors appearance-none cursor-pointer"
-                              >
-                                <option value="USER">User</option>
-                                <option value="ADMIN">Admin</option>
-                              </select>
-                            </div>
+                            
                             {createUserError && <p className="text-xs text-red-500 font-medium">{createUserError}</p>}
                             {createUserSuccess && <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">User created successfully!</p>}
-                            <button
-                              type="submit"
-                              disabled={isCreatingUser}
-                              className="text-sm font-medium text-slate-900 dark:text-slate-100 px-5 py-2 rounded-full border border-slate-900 dark:border-slate-100 hover:bg-slate-900 hover:text-white dark:hover:bg-slate-100 dark:hover:text-slate-900 transition-all disabled:opacity-40"
-                            >
-                              {isCreatingUser ? 'Creating…' : 'Create User'}
-                            </button>
+                            
+                            <div>
+                              <button
+                                type="submit"
+                                disabled={isCreatingUser}
+                                className={btnCls}
+                              >
+                                {isCreatingUser ? 'Creating…' : 'Create User'}
+                              </button>
+                            </div>
                           </form>
                         </div>
                       )}
@@ -681,46 +697,46 @@ export default function SettingsPage() {
 
                       {/* Users table */}
                       {isLoadingUsers ? (
-                        <div className="py-16 text-center text-sm text-slate-400 animate-pulse">Loading users…</div>
+                        <div className="py-16 text-center text-sm text-zinc-400 animate-pulse">Loading users…</div>
                       ) : users.length === 0 ? (
                         <div className="py-20 text-center">
-                          <p className="text-sm text-slate-400">No users found.</p>
+                          <p className="text-sm text-zinc-400">No users found.</p>
                         </div>
                       ) : (
                         <div className="overflow-x-auto">
                           <table className="w-full text-sm">
                             <thead>
-                              <tr className="border-b border-slate-200 dark:border-slate-800">
-                                <th className="text-left py-3 pr-6 text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500">Name</th>
-                                <th className="text-left py-3 pr-6 text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500">Username</th>
-                                <th className="text-left py-3 pr-6 text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500">Email</th>
-                                <th className="text-left py-3 pr-6 text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500">Role</th>
-                                <th className="text-left py-3 pr-6 text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500">Joined</th>
-                                <th className="text-left py-3 text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500">Actions</th>
+                              <tr className="border-b border-zinc-200 dark:border-zinc-800">
+                                <th className="text-left py-4 pr-6 text-xs font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Name</th>
+                                <th className="text-left py-4 pr-6 text-xs font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Username</th>
+                                <th className="text-left py-4 pr-6 text-xs font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Email</th>
+                                <th className="text-left py-4 pr-6 text-xs font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Role</th>
+                                <th className="text-left py-4 pr-6 text-xs font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Joined</th>
+                                <th className="text-left py-4 text-xs font-medium uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Actions</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/60">
                               {users.map((user) => (
                                 <tr key={user.id} className="group">
-                                  <td className="py-3.5 pr-6 text-slate-900 dark:text-slate-100 font-medium">{user.name || 'N/A'}</td>
-                                  <td className="py-3.5 pr-6 text-slate-500 dark:text-slate-400 font-mono text-xs">{user.username}</td>
-                                  <td className="py-3.5 pr-6 text-slate-500 dark:text-slate-400 text-xs">{user.email || 'N/A'}</td>
-                                  <td className="py-3.5 pr-6">
+                                  <td className="py-4 pr-6 text-zinc-900 dark:text-zinc-100 font-medium">{user.name || 'N/A'}</td>
+                                  <td className="py-4 pr-6 text-zinc-500 dark:text-zinc-400 font-mono text-xs">{user.username}</td>
+                                  <td className="py-4 pr-6 text-zinc-500 dark:text-zinc-400 text-xs">{user.email || 'N/A'}</td>
+                                  <td className="py-4 pr-6">
                                     <span className={`inline-block text-xs font-medium px-2.5 py-1 rounded-full ${
                                       user.role === 'ADMIN'
-                                        ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900'
-                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                                        ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
+                                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
                                     }`}>
                                       {user.role}
                                     </span>
                                   </td>
-                                  <td className="py-3.5 pr-6 text-slate-500 dark:text-slate-400 text-xs tabular-nums">
+                                  <td className="py-4 pr-6 text-zinc-500 dark:text-zinc-400 text-xs tabular-nums">
                                     {format(new Date(user.createdAt), 'dd MMM yyyy')}
                                   </td>
-                                  <td className="py-3.5">
+                                  <td className="py-4">
                                     <button
                                       onClick={() => handleDeleteUser(user.id, user.name || user.username)}
-                                      className="text-xs text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                                      className="text-xs font-medium text-zinc-400 hover:text-red-500 dark:hover:text-red-400 transition-colors opacity-100 lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100"
                                     >
                                       Delete
                                     </button>
