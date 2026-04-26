@@ -272,28 +272,28 @@ export default function PlaceDetailsModal({
   const getFileIcon = (mimeType: string) => {
     if (mimeType.includes('pdf')) return <FileText className="w-5 h-5 text-red-500" />;
     if (mimeType.includes('image')) return <FileImage className="w-5 h-5 text-blue-500" />;
-    return <Paperclip className="w-5 h-5 text-slate-500" />;
+    return <Paperclip className="w-5 h-5 text-zinc-500" />;
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 sm:p-6" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6" onClick={onClose}>
       <div 
-        className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-3xl overflow-hidden shadow-2xl animate-fade-in max-h-[90vh] flex flex-col border border-slate-200 dark:border-slate-800"
+        className="relative w-full max-w-2xl bg-white dark:bg-[#0a0a0a] sm:rounded-3xl overflow-hidden shadow-2xl animate-fade-in max-h-[90vh] flex flex-col border border-zinc-200 dark:border-zinc-800"
         onClick={(e) => e.stopPropagation()}
       >
-        <button onClick={onClose} className="absolute top-4 right-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 backdrop-blur-md transition-colors">✕</button>
+        <button onClick={onClose} className="absolute top-4 right-4 z-10 flex h-8 w-8 items-center justify-center bg-white/80 dark:bg-black/80 backdrop-blur hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 rounded-full p-2 transition-colors">✕</button>
 
         {loading ? (
           <div className="p-12 text-center h-64 flex flex-col items-center justify-center">
             <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin mb-4" />
-            <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Fetching live data...</p>
+            <p className="text-sm font-bold text-zinc-500 uppercase tracking-widest">Fetching live data...</p>
           </div>
         ) : (
           <div className="overflow-y-auto custom-scrollbar flex-1">
             {place?.photos && place.photos.length > 0 ? (
-              <div className="relative h-48 sm:h-64 w-full bg-slate-200 dark:bg-slate-800 shrink-0">
+              <div className="relative h-48 sm:h-64 w-full bg-zinc-200 dark:bg-zinc-800 shrink-0">
                 <img src={place.photos[0].getUrl({ maxWidth: 800 })} className="w-full h-full object-cover" alt="" />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/40 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/90 via-zinc-900/40 to-transparent" />
                 <h2 className="absolute bottom-6 left-6 right-6 text-2xl sm:text-3xl font-black text-white leading-tight">{place.name}</h2>
               </div>
             ) : (
@@ -304,21 +304,21 @@ export default function PlaceDetailsModal({
               {aiNote && (
                 <div className="rounded-2xl bg-amber-50 dark:bg-amber-900/20 p-4 border border-amber-200 dark:border-amber-800/50">
                   <p className="text-xs font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-1 flex items-center gap-2"><span>💡</span> AI Planning Note</p>
-                  <p className="text-sm text-slate-700 dark:text-slate-300 italic leading-relaxed">"{aiNote}"</p>
+                  <p className="text-sm text-zinc-700 dark:text-zinc-300 italic leading-relaxed">"{aiNote}"</p>
                 </div>
               )}
 
               {/* Maps Details */}
               <div className="space-y-4">
                 <div className="flex flex-wrap gap-3">
-                  {place?.rating && <div className="bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-3 py-1.5 rounded-lg font-bold text-sm border border-amber-100 dark:border-amber-800/50">⭐ {place.rating} ({place.user_ratings_total})</div>}
-                  {place?.opening_hours && <div className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-3 py-1.5 rounded-lg font-bold text-sm border border-emerald-100 dark:border-emerald-800/50">{place.opening_hours.isOpen() ? 'Open Now' : 'Closed'}</div>}
+                  {place?.rating && <div className="bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 rounded-full px-3 py-1 text-xs font-medium">⭐ {place.rating} ({place.user_ratings_total})</div>}
+                  {place?.opening_hours && <div className="bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 rounded-full px-3 py-1 text-xs font-medium">{place.opening_hours.isOpen() ? 'Open Now' : 'Closed'}</div>}
                 </div>
                 
                 {place?.formatted_address && (
                   <div className="space-y-1">
-                    <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">Address</p>
-                    <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed">{place.formatted_address}</p>
+                    <p className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest">Address</p>
+                    <p className="text-zinc-700 dark:text-zinc-300 text-sm leading-relaxed">{place.formatted_address}</p>
                   </div>
                 )}
 
@@ -335,10 +335,10 @@ export default function PlaceDetailsModal({
 
                   return (
                     <div className="space-y-2">
-                      <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-1.5">
+                      <p className="text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-widest flex items-center gap-1.5">
                         🕒 Opening Hours
                       </p>
-                      <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700/50 overflow-hidden">
+                      <div className="rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-100 dark:border-zinc-700/50 overflow-hidden">
                         {hoursLines.map((line: string, i: number) => {
                           const [day, ...rest] = line.split(': ');
                           const hours = rest.join(': ');
@@ -347,12 +347,12 @@ export default function PlaceDetailsModal({
                               key={i}
                               className={`flex items-baseline justify-between gap-3 px-3 py-2 text-xs ${
                                 i < hoursLines.length - 1
-                                  ? 'border-b border-slate-100 dark:border-slate-700/40'
+                                  ? 'border-b border-zinc-100 dark:border-zinc-700/40'
                                   : ''
                               }`}
                             >
-                              <span className="font-bold text-slate-600 dark:text-slate-300 w-24 flex-shrink-0">{day}</span>
-                              <span className="text-slate-500 dark:text-slate-400 text-right">{hours}</span>
+                              <span className="font-bold text-zinc-600 dark:text-zinc-300 w-24 flex-shrink-0">{day}</span>
+                              <span className="text-zinc-500 dark:text-zinc-400 text-right">{hours}</span>
                             </div>
                           );
                         })}
@@ -362,12 +362,12 @@ export default function PlaceDetailsModal({
                 })()}
 
                 <div className="flex gap-3 pt-2">
-                  {place?.url && <a href={place.url} target="_blank" rel="noreferrer" className="flex-1 text-center py-2.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-sm text-slate-900 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Open in Maps</a>}
+                  {place?.url && <a href={place.url} target="_blank" rel="noreferrer" className="flex-1 text-center py-2.5 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl font-bold text-sm text-zinc-900 dark:text-white hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">Open in Maps</a>}
                   {place?.website && <a href={place.website} target="_blank" rel="noreferrer" className="flex-1 text-center py-2.5 bg-brand-500 text-white rounded-xl font-bold text-sm hover:bg-brand-600 transition-colors">Visit Website</a>}
                 </div>
               </div>
 
-              <hr className="border-slate-100 dark:border-slate-800" />
+              <hr className="border-zinc-100 dark:border-zinc-800" />
 
               {/* ── ACCOMMODATION BOOKING LOOP ── */}
               <div className="bg-brand-50 dark:bg-brand-900/20 rounded-2xl border border-brand-200 dark:border-brand-800/50 p-4">
@@ -393,7 +393,7 @@ export default function PlaceDetailsModal({
                             setCheckInDay(val);
                             if (checkOutDay < val) setCheckOutDay(val);
                           }} 
-                          className="w-full bg-white dark:bg-slate-900 border border-brand-200 dark:border-brand-700 rounded-lg p-2 text-sm text-slate-900 dark:text-white"
+                          className="w-full bg-white dark:bg-zinc-900 border border-brand-200 dark:border-brand-700 rounded-lg p-2 text-sm text-zinc-900 dark:text-white"
                         >
                           {itinerary?.days.map(d => <option key={`in-${d.dayNumber}`} value={d.dayNumber}>Day {d.dayNumber}</option>)}
                         </select>
@@ -403,7 +403,7 @@ export default function PlaceDetailsModal({
                         <select 
                           value={checkOutDay} 
                           onChange={e => setCheckOutDay(Number(e.target.value))} 
-                          className="w-full bg-white dark:bg-slate-900 border border-brand-200 dark:border-brand-700 rounded-lg p-2 text-sm text-slate-900 dark:text-white"
+                          className="w-full bg-white dark:bg-zinc-900 border border-brand-200 dark:border-brand-700 rounded-lg p-2 text-sm text-zinc-900 dark:text-white"
                         >
                            {Array.from({length: (itinerary?.days.length || 0) + 1}, (_, i) => i + 1).filter(d => d >= checkInDay).map(d => (
                              <option key={`out-${d}`} value={d}>Day {d}</option>
@@ -432,8 +432,8 @@ export default function PlaceDetailsModal({
 
               {/* ── TICKETS & DOCUMENTS SECTION ── */}
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-4">
-                  <Paperclip className="w-4 h-4 text-slate-400" />
+                <h3 className="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-2 mb-4">
+                  <Paperclip className="w-4 h-4 text-zinc-400" />
                   Tickets & Documents
                 </h3>
 
@@ -445,12 +445,12 @@ export default function PlaceDetailsModal({
                         href={doc.fileUrl} 
                         target="_blank" 
                         rel="noreferrer"
-                        className="flex items-center p-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-xl hover:border-brand-300 dark:hover:border-brand-700 transition-colors group"
+                        className="flex items-center p-3 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700/50 rounded-xl hover:border-brand-300 dark:hover:border-brand-700 transition-colors group"
                       >
-                        <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 flex items-center justify-center shadow-sm mr-3">
+                        <div className="w-8 h-8 rounded-lg bg-white dark:bg-zinc-800 flex items-center justify-center shadow-sm mr-3">
                           {getFileIcon(doc.mimeType)}
                         </div>
-                        <span className="flex-1 text-sm font-medium text-slate-700 dark:text-slate-300 truncate group-hover:text-brand-600 dark:group-hover:text-brand-400">
+                        <span className="flex-1 text-sm font-medium text-zinc-700 dark:text-zinc-300 truncate group-hover:text-brand-600 dark:group-hover:text-brand-400">
                           {doc.fileName}
                         </span>
                         <CheckCircle2 className="w-4 h-4 text-emerald-500" />
@@ -459,15 +459,15 @@ export default function PlaceDetailsModal({
                   </div>
                 )}
 
-                <div className="bg-slate-50 dark:bg-slate-800/30 rounded-2xl border border-slate-200 dark:border-slate-800 p-4">
+                <div className="bg-zinc-50 dark:bg-zinc-800/30 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-4">
                   {availableDocsToLink.length > 0 && (
-                    <div className="mb-4 pb-4 border-b border-slate-200 dark:border-slate-700">
-                      <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Attach an existing trip file:</label>
+                    <div className="mb-4 pb-4 border-b border-zinc-200 dark:border-zinc-700">
+                      <label className="block text-xs font-semibold text-zinc-500 dark:text-zinc-400 mb-2">Attach an existing trip file:</label>
                       <div className="flex gap-2">
                         <select 
                           value={selectedDocToLink}
                           onChange={(e) => setSelectedDocToLink(e.target.value)}
-                          className="flex-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-sm rounded-lg px-3 py-2 text-slate-700 dark:text-slate-300 focus:ring-2 focus:ring-brand-500"
+                          className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-sm rounded-lg px-3 py-2 text-zinc-700 dark:text-zinc-300 focus:ring-2 focus:ring-brand-500"
                         >
                           <option value="">Select a document...</option>
                           {availableDocsToLink.map(doc => (
@@ -477,7 +477,7 @@ export default function PlaceDetailsModal({
                         <button 
                           onClick={handleLinkExistingDoc}
                           disabled={!selectedDocToLink}
-                          className="px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg text-sm font-bold disabled:opacity-50 transition-opacity"
+                          className="px-4 py-2 bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 rounded-lg text-sm font-bold disabled:opacity-50 transition-opacity"
                         >
                           Attach
                         </button>
@@ -492,7 +492,7 @@ export default function PlaceDetailsModal({
                     className={`relative border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center transition-colors ${
                       isDragging 
                         ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20' 
-                        : 'border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800/50'
+                        : 'border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800/50'
                     }`}
                   >
                     <input 
@@ -506,13 +506,13 @@ export default function PlaceDetailsModal({
                     {isUploading ? (
                       <Loader2 className="w-6 h-6 text-brand-500 animate-spin mb-2" />
                     ) : (
-                      <UploadCloud className={`w-6 h-6 mb-2 ${isDragging ? 'text-brand-500' : 'text-slate-400'}`} />
+                      <UploadCloud className={`w-6 h-6 mb-2 ${isDragging ? 'text-brand-500' : 'text-zinc-400'}`} />
                     )}
                     
-                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                    <p className="text-sm font-bold text-zinc-700 dark:text-zinc-300">
                       {isUploading ? 'Uploading & Linking...' : 'Upload a new ticket or document'}
                     </p>
-                    {!isUploading && <p className="text-xs text-slate-500 mt-1">PDF or Image (Max 10MB)</p>}
+                    {!isUploading && <p className="text-xs text-zinc-500 mt-1">PDF or Image (Max 10MB)</p>}
                   </div>
                 </div>
               </div>

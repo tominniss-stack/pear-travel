@@ -12,17 +12,17 @@ export function CurrencyWidget() {
   if (!itinerary) return null;
 
   return (
-    <div className="fixed bottom-8 right-8 z-[100] flex items-center gap-4 bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-3xl shadow-2xl p-4 pr-2 border-b-4 border-b-brand-600 transition-all hover:-translate-y-1">
-      <div className="flex flex-col pl-2">
-        <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Exchange Rate</span>
-        <span className="text-sm font-bold text-slate-900 dark:text-white tabular-nums">
+    <div className="fixed bottom-8 right-8 z-[100] flex items-center gap-4 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-xl border border-zinc-200 dark:border-zinc-800 rounded-full shadow-lg p-2 pl-6 transition-transform hover:-translate-y-1">
+      <div className="flex flex-col">
+        <span className="text-[9px] font-medium uppercase text-zinc-500 tracking-widest">Exchange Rate</span>
+        <span className="text-xs font-medium text-zinc-900 dark:text-white tabular-nums">
           £1.00 = {localSymbol}{exchangeRate.toFixed(2)}
         </span>
       </div>
       <button 
         type="button"
         onClick={toggleCurrency}
-        className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-5 py-2.5 rounded-2xl text-xs font-black transition-all active:scale-95 shadow-lg cursor-pointer"
+        className="bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-white px-5 py-2.5 rounded-full text-xs font-medium transition-colors cursor-pointer ml-2"
       >
         VIEW IN {displayCurrency === 'GBP' ? 'LOCAL' : 'GBP'}
       </button>
