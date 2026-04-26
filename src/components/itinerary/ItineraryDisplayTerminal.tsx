@@ -7,6 +7,7 @@ import type { ThemeProps } from '@/types/theme';
 import { useTripStore } from '@/store/tripStore';
 import { checkIfVenueIsClosed } from '@/lib/time/openingHours';
 import { updateTripTerminalColorAction } from '@/app/actions/trip';
+import { formatCurrency } from '@/lib/formatters';
 
 export default function ItineraryDisplayTerminal({
   trip,
@@ -42,7 +43,7 @@ export default function ItineraryDisplayTerminal({
   };
   
   const localCurrencyRaw = essentials?.currency || '';
-  const localSymbol = localCurrencyRaw.split(' ')[0] || '€';
+  const localSymbol = formatCurrency(localCurrencyRaw.split(' ')[0]) || '€';
   const isDomesticTrip = localCurrencyRaw.includes(baseCurrencyCode);
 
   const formatCost = (cost?: number) => {

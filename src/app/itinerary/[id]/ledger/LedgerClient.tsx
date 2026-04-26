@@ -10,6 +10,7 @@ import type { DocumentInfo } from '@/components/itinerary/PlaceDetailsModal';
 import LedgerEditorial from './LedgerEditorial';
 import LedgerNotebook from './LedgerNotebook';
 import LedgerTerminal from './LedgerTerminal';
+import { formatCurrency } from '@/lib/formatters';
 
 export interface LedgerClientProps {
   trip: any;
@@ -106,7 +107,7 @@ export default function LedgerClient({ trip, initialItinerary }: LedgerClientPro
 
   const localCurrencyRaw = activeItinerary.essentials?.currency || '';
   const targetCurrency = localCurrencyRaw.match(/[A-Z]{3}/)?.[0] || null;
-  const localSymbol = localCurrencyRaw.split(' ')[0] || '€';
+  const localSymbol = formatCurrency(localCurrencyRaw.split(' ')[0]) || '€';
   const isDomesticTrip = localSymbol === '£' || localCurrencyRaw.includes('GBP');
   const activeLocalCurrency = isDomesticTrip ? 'GBP' : 'LOCAL';
   const currentFlag = getCurrencyFlag(targetCurrency);

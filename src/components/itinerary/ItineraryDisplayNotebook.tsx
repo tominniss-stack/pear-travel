@@ -9,6 +9,7 @@ import PlaceDetailsModal, { DocumentInfo } from './PlaceDetailsModal';
 import DayMap from './DayMap';
 import { useTripStore } from '@/store/tripStore';
 import { checkIfVenueIsClosed } from '@/lib/time/openingHours';
+import { formatCurrency } from '@/lib/formatters';
 
 function getGoogleMapsTravelMode(method?: string) {
   if (!method) return 'transit';
@@ -242,7 +243,7 @@ export default function ItineraryDisplayNotebook({ trip, itinerary, briefing, to
   const accommodationName = intake?.accommodation || trip.intake?.accommodation;
 
   const localCurrencyRaw = essentials?.currency || '';
-  const localSymbol = localCurrencyRaw.split(' ')[0] || '€';
+  const localSymbol = formatCurrency(localCurrencyRaw.split(' ')[0]) || '€';
   const isDomesticTrip = localSymbol === '£' || localCurrencyRaw.includes('GBP');
   const symbolSpacer = localSymbol.length > 1 ? ' ' : '';
 

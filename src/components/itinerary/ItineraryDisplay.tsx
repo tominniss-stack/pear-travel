@@ -14,6 +14,7 @@ import { useTripStore } from '@/store/tripStore';
 import { fetchTripDocuments } from '@/app/actions/documents';
 import { fetchTripWeather, DailyWeather } from '@/app/actions/weather';
 import { checkIfVenueIsClosed } from '@/lib/time/openingHours';
+import { formatCurrency } from '@/lib/formatters';
 import React from 'react';
 
 export interface ClientTripProps {
@@ -579,7 +580,7 @@ export default function ItineraryDisplay({
   }, [trip.id]);
 
   const localCurrencyRaw = essentials?.currency || '';
-  const localSymbol = localCurrencyRaw.split(' ')[0] || '€';
+  const localSymbol = formatCurrency(localCurrencyRaw.split(' ')[0]) || '€';
   const isDomesticTrip = localSymbol === '£' || localCurrencyRaw.includes('GBP');
   const symbolSpacer = localSymbol.length > 1 ? ' ' : '';
 

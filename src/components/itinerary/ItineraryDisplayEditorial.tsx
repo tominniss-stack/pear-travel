@@ -13,6 +13,7 @@ import CalendarExportModal from './CalendarExportModal';
 import { useTripStore } from '@/store/tripStore';
 import { fetchTripDocuments } from '@/app/actions/documents';
 import { checkIfVenueIsClosed } from '@/lib/time/openingHours';
+import { formatCurrency } from '@/lib/formatters';
 
 export interface ClientTripProps {
   id: string;
@@ -333,7 +334,7 @@ export default function ItineraryDisplayV2({ itinerary, trip, totalCostBase, bas
   useEffect(() => { loadDocuments(); }, [loadDocuments]);
 
   const localCurrencyRaw = essentials?.currency || '';
-  const localSymbol = localCurrencyRaw.split(' ')[0] || '€';
+  const localSymbol = formatCurrency(localCurrencyRaw.split(' ')[0]) || '€';
   const isDomesticTrip = localSymbol === '£' || localCurrencyRaw.includes('GBP');
   const symbolSpacer = localSymbol.length > 1 ? ' ' : '';
 
